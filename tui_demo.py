@@ -8,7 +8,7 @@ from pathlib import Path
 SESSION = "tui-demo"
 SCRIPT_DIR = Path(__file__).parent
 TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
-LIZARD_SCRIPT = SCRIPT_DIR.parent / "lizard-tui" / "lizard_tui.py"
+LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
 
 
 def main():

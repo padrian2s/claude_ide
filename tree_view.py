@@ -8,6 +8,9 @@ from textual.widgets import DirectoryTree, Static, Header
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.reactive import reactive
+from rich.syntax import Syntax
+from rich.text import Text
+from rich.console import Group
 
 
 class FileViewer(VerticalScroll):
@@ -18,23 +21,85 @@ class FileViewer(VerticalScroll):
     def compose(self) -> ComposeResult:
         yield Static("", id="file-content")
 
+    # Map file extensions to lexer names
+    LEXER_MAP = {
+        '.py': 'python',
+        '.js': 'javascript',
+        '.ts': 'typescript',
+        '.tsx': 'tsx',
+        '.jsx': 'jsx',
+        '.json': 'json',
+        '.yaml': 'yaml',
+        '.yml': 'yaml',
+        '.html': 'html',
+        '.css': 'css',
+        '.scss': 'scss',
+        '.md': 'markdown',
+        '.sh': 'bash',
+        '.bash': 'bash',
+        '.zsh': 'zsh',
+        '.sql': 'sql',
+        '.rs': 'rust',
+        '.go': 'go',
+        '.rb': 'ruby',
+        '.java': 'java',
+        '.c': 'c',
+        '.cpp': 'cpp',
+        '.h': 'c',
+        '.hpp': 'cpp',
+        '.toml': 'toml',
+        '.xml': 'xml',
+        '.vue': 'vue',
+        '.php': 'php',
+        '.swift': 'swift',
+        '.kt': 'kotlin',
+        '.lua': 'lua',
+        '.r': 'r',
+        '.dockerfile': 'dockerfile',
+    }
+
     def load_file(self, path: Path):
         self.file_path = path
         content_widget = self.query_one("#file-content", Static)
 
         try:
             with open(path, 'r', errors='replace') as f:
-                lines = f.read().splitlines()
+                code = f.read()
 
-            # Build content with line numbers
-            content = []
-            for i, line in enumerate(lines, 1):
-                # Escape markup characters
-                safe_line = line.replace("[", "\\[").replace("]", "\\]")
-                content.append(f"[dim]{i:4}[/dim] {safe_line}")
+            line_count = len(code.splitlines())
+            suffix = path.suffix.lower()
 
-            header = f"[bold magenta]{path.name}[/] [dim]({len(lines)} lines)[/dim]\n[dim]{'─' * 50}[/dim]\n"
-            content_widget.update(header + "\n".join(content))
+            # Check for Dockerfile without extension
+            lexer = self.LEXER_MAP.get(suffix)
+            if lexer is None and path.name.lower() == 'dockerfile':
+                lexer = 'dockerfile'
+
+            # Header
+            header = Text()
+            header.append(f"{path.name}", style="bold magenta")
+            header.append(f" ({line_count} lines)", style="dim")
+            header.append("\n" + "─" * 50 + "\n", style="dim")
+
+            if lexer:
+                # Use syntax highlighting with header
+                syntax = Syntax(
+                    code,
+                    lexer,
+                    theme="monokai",
+                    line_numbers=True,
+                    word_wrap=False,
+                )
+                # Combine header and syntax using Group
+                content_widget.update(Group(header, syntax))
+            else:
+                # Plain text with line numbers
+                lines = code.splitlines()
+                content = []
+                for i, line in enumerate(lines, 1):
+                    safe_line = line.replace("[", "\\[").replace("]", "\\]")
+                    content.append(f"[dim]{i:4}[/dim] {safe_line}")
+                plain_content = Text("\n".join(content))
+                content_widget.update(Group(header, plain_content))
 
         except Exception as e:
             content_widget.update(f"[red]Error: {e}[/red]")
