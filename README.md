@@ -7,7 +7,7 @@ Terminal real (zsh) cu tree view + nano editor și lizard-tui.
 ```bash
 ./start.sh
 # sau
-python3 tui_demo.py
+python3 tui_env.py
 ```
 
 ## Layout

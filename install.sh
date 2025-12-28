@@ -94,6 +94,36 @@ else
     status "$CHECK" "tmux installed"
 fi
 
+# Step 2b: fzf
+if command -v fzf &> /dev/null; then
+    FZF_VER=$(fzf --version | cut -d' ' -f1)
+    status "$CHECK" "fzf ${DIM}($FZF_VER)${NC}"
+else
+    printf "  ${C}⠋${NC} Installing fzf..."
+    if [[ "$OS" == "macos" ]]; then
+        brew install fzf > /dev/null 2>&1 &
+    else
+        (sudo apt-get install -y fzf) > /dev/null 2>&1 &
+    fi
+    spin $! "Installing fzf"
+    status "$CHECK" "fzf installed"
+fi
+
+# Step 2c: ripgrep
+if command -v rg &> /dev/null; then
+    RG_VER=$(rg --version | head -1 | cut -d' ' -f2)
+    status "$CHECK" "ripgrep ${DIM}($RG_VER)${NC}"
+else
+    printf "  ${C}⠋${NC} Installing ripgrep..."
+    if [[ "$OS" == "macos" ]]; then
+        brew install ripgrep > /dev/null 2>&1 &
+    else
+        (sudo apt-get install -y ripgrep) > /dev/null 2>&1 &
+    fi
+    spin $! "Installing ripgrep"
+    status "$CHECK" "ripgrep installed"
+fi
+
 # Step 3: Python packages
 printf "  ${C}⠋${NC} Installing textual..."
 pip3 install --quiet --upgrade textual 2>/dev/null &
@@ -107,8 +137,9 @@ echo -e "${BOLD}Setup${NC}"
 echo -e "${DIM}─────${NC}"
 
 chmod +x "$SCRIPT_DIR/start.sh"
-chmod +x "$SCRIPT_DIR/tui_demo.py"
+chmod +x "$SCRIPT_DIR/tui_env.py"
 chmod +x "$SCRIPT_DIR/tree_view.py"
+chmod +x "$SCRIPT_DIR/config_panel.py"
 chmod +x "$SCRIPT_DIR/lizard_tui.py" 2>/dev/null || true
 status "$CHECK" "Scripts marked executable"
 
@@ -143,7 +174,7 @@ echo -e "  ${ARROW} Run ${C}source $(basename $SHELL_RC)${NC} or open a new term
 echo -e "  ${ARROW} Then type ${C}${APP_NAME}${NC} to launch"
 echo
 echo -e "  ${BOLD}Keys:${NC}"
-echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F2${NC} Terminal 2"
-echo -e "  ${DIM}F3${NC} File Tree   ${DIM}F4${NC} Lizard TUI"
-echo -e "  ${DIM}Ctrl+B d${NC} Detach"
+echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F2${NC} Terminal 2   ${DIM}F9${NC} Config"
+echo -e "  ${DIM}F3${NC} File Tree   ${DIM}F4${NC} Lizard TUI   ${DIM}F10${NC} Exit"
+echo -e "  ${DIM}F5${NC} Glow        ${DIM}^P${NC} Find file    ${DIM}^F${NC} Grep"
 echo

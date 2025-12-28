@@ -2,6 +2,7 @@
 """Tree view with file viewer using Textual - split layout."""
 
 import os
+import subprocess
 from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.widgets import DirectoryTree, Static, Header, Markdown
@@ -171,9 +172,8 @@ class TreeViewApp(App):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
-        Binding("f1", "term1", "Term1"),
-        Binding("f2", "term2", "Term2"),
-        Binding("f4", "lizard", "Lizard"),
+        Binding("ctrl+p", "fzf_files", "Find File", priority=True),
+        Binding("ctrl+f", "fzf_grep", "Grep", priority=True),
         Binding("tab", "toggle_focus", "Switch Panel"),
     ]
 
@@ -190,7 +190,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "r:refresh TAB:switch q:quit"
+        self.sub_title = "^P:find ^F:grep r:refresh TAB:switch q:quit"
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
@@ -209,14 +209,43 @@ class TreeViewApp(App):
         tree.reload()
         self.notify("Tree refreshed", timeout=1)
 
-    def action_term1(self):
-        os.system('tmux select-window -t tui-demo:1')
+    def action_fzf_files(self):
+        """Fuzzy find files with fzf."""
+        with self.suspend():
+            result = subprocess.run(
+                ["fzf", "--preview", "head -100 {}"],
+                capture_output=True,
+                text=True
+            )
+            selected = result.stdout.strip()
 
-    def action_term2(self):
-        os.system('tmux select-window -t tui-demo:2')
+        if selected:
+            path = Path(selected).resolve()
+            if path.is_file():
+                self.query_one(FileViewer).load_file(path)
+                self.notify(f"Opened: {path.name}", timeout=1)
 
-    def action_lizard(self):
-        os.system('tmux select-window -t tui-demo:4')
+    def action_fzf_grep(self):
+        """Grep with ripgrep + fzf."""
+        with self.suspend():
+            # rg outputs: file:line:content
+            # fzf preview shows context around the match
+            result = subprocess.run(
+                'rg -n --color=always "" . 2>/dev/null | fzf --ansi --preview "echo {} | cut -d: -f1 | xargs head -100"',
+                shell=True,
+                capture_output=True,
+                text=True
+            )
+            selected = result.stdout.strip()
+
+        if selected:
+            # Parse file:line:content
+            parts = selected.split(":", 2)
+            if len(parts) >= 2:
+                file_path = Path(parts[0]).resolve()
+                if file_path.is_file():
+                    self.query_one(FileViewer).load_file(file_path)
+                    self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
 
 
 if __name__ == "__main__":

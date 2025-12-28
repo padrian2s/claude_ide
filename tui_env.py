@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """TUI Demo launcher - tmux with tree + terminal + lizard-tui as separate windows."""
 
+import atexit
 import os
+import signal
 import subprocess
 from pathlib import Path
 
-SESSION = "tui-demo"
+SESSION = f"tui-demo-{os.getpid()}"
 SCRIPT_DIR = Path(__file__).parent
 TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
+CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
+
+# Import config to get saved theme
+from config_panel import get_theme_colors
 
 
 def main():
-    # Kill existing session
-    subprocess.run(["tmux", "kill-session", "-t", SESSION],
-                   stderr=subprocess.DEVNULL)
-
     # Get terminal size
     size = os.get_terminal_size()
 
@@ -51,18 +53,39 @@ def main():
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:5", "-n", "Glow"])
     subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:5", " glow", "Enter"])
 
-    # Status bar - simple, no colors
+    # Create Window 9 = Config
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:9", "-n", "Config"])
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{SESSION}:9",
+        f" python3 '{CONFIG_SCRIPT}'", "Enter"
+    ])
+
+    # Load saved theme
+    theme = get_theme_colors()
+
+    # Enable focus events for focus tracking
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "focus-events", "on"])
+
+    # Set up focus indicator variable (global so hooks can modify it)
+    subprocess.run(["tmux", "set-option", "-g", "@focus", ""])
+
+    # Hooks to update focus indicator
+    subprocess.run(["tmux", "set-hook", "-g", "client-focus-in",
+        "set-option -g @focus ''"])
+    subprocess.run(["tmux", "set-hook", "-g", "client-focus-out",
+        "set-option -g @focus 'UNFOCUSED '"])
+
+    # Status bar
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "on"])
-    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", "bg=default,fg=default"])
-    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-left", ""])
-    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-right", ""])
-    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-justify", "centre"])
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-interval", "1"])
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", f"bg={theme['bg']},fg={theme['fg']}"])
     subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-format", " F#I:#W "])
     subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-current-format", " [F#I:#W] "])
     subprocess.run([
         "tmux", "set-option", "-t", SESSION, "status-format[0]",
-        "#[align=centre]#{W: F#{window_index}:#{window_name} }"
+        "#{@focus}#[align=centre]#{W: F#{window_index}:#{window_name} } F10:Exit"
     ])
+    # Hide F9:Config from automatic list (it shows in #{W} already)
 
     # Bind F1/F2/F3/F4 to windows 1/2/3/4
     subprocess.run(["tmux", "bind-key", "-n", "F1", "select-window", "-t", f"{SESSION}:1"])
@@ -70,12 +93,26 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:3"])
     subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:4"])
     subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:5"])
+    subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", f"{SESSION}:9"])
+
+    # F10 = Exit (kill session)
+    subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
 
     # Select terminal window (1)
     subprocess.run(["tmux", "select-window", "-t", f"{SESSION}:1"])
 
-    # Attach
-    os.execvp("tmux", ["tmux", "attach-session", "-t", SESSION])
+    # Register cleanup to kill session on exit
+    def cleanup():
+        subprocess.run(["tmux", "kill-session", "-t", SESSION], stderr=subprocess.DEVNULL)
+
+    atexit.register(cleanup)
+    signal.signal(signal.SIGHUP, lambda *_: cleanup())
+    signal.signal(signal.SIGTERM, lambda *_: cleanup())
+
+    # Attach (using subprocess so we regain control after detach/exit)
+    subprocess.run(["tmux", "attach-session", "-t", SESSION])
+
+    # Session ends here - cleanup runs via atexit
 
 
 if __name__ == "__main__":

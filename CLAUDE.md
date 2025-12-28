@@ -7,12 +7,14 @@ Multi-window TUI environment using **tmux** as the window manager. Each window i
 ## Architecture
 
 ```
-tmux session "tui-demo"
+tmux session "tui-demo-{pid}"
 ├── Window 1 (F1): Term1 - zsh shell
 ├── Window 2 (F2): Term2 - second zsh shell
-├── Window 3 (F3): Tree + Viewer - Textual app (30% tree | 70% viewer)
+├── Window 3 (F3): Tree + Viewer - Textual app (20% tree | 80% viewer)
 ├── Window 4 (F4): Lizard TUI - Python TUI app
-└── Window 5 (F5): Glow - Markdown viewer
+├── Window 5 (F5): Glow - Markdown viewer
+├── Window 9 (F9): Config - Theme selector panel
+└── F10: Exit - kills session
 ```
 
 ## Why tmux?
@@ -29,7 +31,7 @@ Embedding a real PTY terminal inside Python TUI frameworks (Textual, urwid, prom
 
 ## Components
 
-### tui_demo.py
+### tui_env.py
 Main launcher that:
 1. Creates tmux session with base-index 1
 2. Creates 4 windows at indices 1-4
@@ -60,7 +62,8 @@ tmux status bar at bottom shows all windows:
 | F3 | Tree + Viewer |
 | F4 | Lizard TUI |
 | F5 | Glow (Markdown viewer) |
-| Ctrl+B d | Detach tmux |
+| F9 | Config (theme selector) |
+| F10 | Exit (kill session) |
 
 ### Tree View (F3)
 | Key | Action |
@@ -68,12 +71,14 @@ tmux status bar at bottom shows all windows:
 | ↑/↓ | Navigate tree |
 | Enter | Open folder / view file |
 | TAB | Switch tree ↔ viewer |
+| Ctrl+P | Fuzzy find files (fzf) |
+| Ctrl+F | Grep search (rg + fzf) |
 | q | Quit |
 
 ## Dependencies
 
 ```bash
-brew install tmux
+brew install tmux fzf ripgrep
 pip install textual
 ```
 
@@ -82,12 +87,12 @@ pip install textual
 ```bash
 ./start.sh
 # or
-python3 tui_demo.py
+python3 tui_env.py
 ```
 
 ## Adding a New F-Key Window
 
-To add a new window (e.g., F6), edit `tui_demo.py`:
+To add a new window (e.g., F6), edit `tui_env.py`:
 
 ### Step 1: Create the window
 
@@ -159,9 +164,12 @@ subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSIO
 
 ```
 my_env/
-├── tui_demo.py    # tmux launcher (edit this to add windows)
-├── tree_view.py   # Textual tree+viewer app
-├── lizard_tui.py  # Lizard TUI app
-├── start.sh       # convenience script
-└── CLAUDE.md      # this file
+├── tui_env.py      # tmux launcher (edit this to add windows)
+├── tree_view.py    # Textual tree+viewer app (with fzf/rg search)
+├── config_panel.py # Theme configuration panel
+├── lizard_tui.py   # Lizard TUI app
+├── start.sh        # convenience script
+├── install.sh      # installer with dependency checks
+├── .tui_config.json # saved config (auto-generated)
+└── CLAUDE.md       # this file
 ```
