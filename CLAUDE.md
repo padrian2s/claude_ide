@@ -8,10 +8,11 @@ Multi-window TUI environment using **tmux** as the window manager. Each window i
 
 ```
 tmux session "tui-demo"
-├── Window 1 (F1): Terminal - zsh shell
-├── Window 2 (F2): Tree + Viewer - Textual app (30% tree | 70% viewer)
-├── Window 3 (F3): Lizard TUI - Python TUI app
-└── Window 4 (F4): Terminal 2 - second zsh shell
+├── Window 1 (F1): Term1 - zsh shell
+├── Window 2 (F2): Term2 - second zsh shell
+├── Window 3 (F3): Tree + Viewer - Textual app (30% tree | 70% viewer)
+├── Window 4 (F4): Lizard TUI - Python TUI app
+└── Window 5 (F5): Glow - Markdown viewer
 ```
 
 ## Why tmux?
@@ -55,12 +56,13 @@ tmux status bar at bottom shows all windows:
 | Key | Action |
 |-----|--------|
 | F1 | Terminal 1 |
-| F2 | Tree + Viewer |
-| F3 | Lizard TUI |
-| F4 | Terminal 2 |
+| F2 | Terminal 2 |
+| F3 | Tree + Viewer |
+| F4 | Lizard TUI |
+| F5 | Glow (Markdown viewer) |
 | Ctrl+B d | Detach tmux |
 
-### Tree View (F2)
+### Tree View (F3)
 | Key | Action |
 |-----|--------|
 | ↑/↓ | Navigate tree |
@@ -83,12 +85,83 @@ pip install textual
 python3 tui_demo.py
 ```
 
+## Adding a New F-Key Window
+
+To add a new window (e.g., F6), edit `tui_demo.py`:
+
+### Step 1: Create the window
+
+Add after the last `new-window` block (around line 52):
+
+```python
+# Create Window 6 = MyApp
+subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:6", "-n", "MyApp"])
+```
+
+### Step 2: Launch content in the window
+
+**Option A - Plain shell** (no additional command needed, shell starts automatically)
+
+**Option B - Run a Python script:**
+```python
+MY_SCRIPT = SCRIPT_DIR / "my_app.py"  # Add at top with other paths
+# ...
+subprocess.run([
+    "tmux", "send-keys", "-t", f"{SESSION}:6",
+    f" python3 '{MY_SCRIPT}'", "Enter"
+])
+```
+
+**Option C - Run an external command:**
+```python
+subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:6", " htop", "Enter"])
+```
+
+Note: The leading space (` python3`, ` htop`) prevents the command from being saved to shell history.
+
+### Step 3: Bind the F-key
+
+Add after the last `bind-key` line (around line 72):
+
+```python
+subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:6"])
+```
+
+### Checklist
+
+- [ ] Window index matches F-key number (F6 → window 6)
+- [ ] Window name is short (shows in status bar as `F6:Name`)
+- [ ] For Python scripts: add path constant at top, check script exists
+- [ ] For external commands: ensure command is installed
+
+### Window Types Reference
+
+| Type | Example | Notes |
+|------|---------|-------|
+| Shell | Term1, Term2 | Just create window, shell starts automatically |
+| Python TUI | Tree, Lizard | Use `send-keys` with `python3 'script.py'` |
+| External TUI | Glow | Use `send-keys` with command name |
+
+### tmux Command Patterns
+
+```python
+# Create window at specific index with name
+subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:N", "-n", "Name"])
+
+# Send keystrokes to window (simulates typing + Enter)
+subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:N", "command", "Enter"])
+
+# Bind F-key (without prefix, -n flag)
+subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:N"])
+```
+
 ## Files
 
 ```
 my_env/
-├── tui_demo.py    # tmux launcher
+├── tui_demo.py    # tmux launcher (edit this to add windows)
 ├── tree_view.py   # Textual tree+viewer app
+├── lizard_tui.py  # Lizard TUI app
 ├── start.sh       # convenience script
 └── CLAUDE.md      # this file
 ```
