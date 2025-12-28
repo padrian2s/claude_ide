@@ -140,12 +140,12 @@ class TreeViewApp(App):
         height: 100%;
     }
     #tree-panel {
-        width: 30%;
+        width: 20%;
         height: 100%;
         border-right: solid $primary;
     }
     #viewer-panel {
-        width: 70%;
+        width: 80%;
         height: 100%;
     }
     DirectoryTree {

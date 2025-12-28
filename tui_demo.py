@@ -37,29 +37,31 @@ def main():
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:3", "-n", "Tree"])
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:3",
-        f"python3 '{TREE_SCRIPT}'", "Enter"
+        f" python3 '{TREE_SCRIPT}'", "Enter"
     ])
 
     # Create Window 4 = Lizard TUI
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:4", "-n", "Lizard"])
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:4",
-        f"python3 '{LIZARD_SCRIPT}'", "Enter"
+        f" python3 '{LIZARD_SCRIPT}'", "Enter"
     ])
 
-    # Status bar with shortcuts
+    # Create Window 5 = Glow
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:5", "-n", "Glow"])
+    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:5", " glow", "Enter"])
+
+    # Status bar - simple, no colors
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "on"])
-    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", "bg=black,fg=white"])
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", "bg=default,fg=default"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-left", ""])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-right", ""])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-justify", "centre"])
+    subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-format", " F#I:#W "])
+    subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-current-format", " [F#I:#W] "])
     subprocess.run([
-        "tmux", "set-option", "-t", SESSION, "window-status-format",
-        "#[fg=white,bg=black] F#I:#W "
-    ])
-    subprocess.run([
-        "tmux", "set-option", "-t", SESSION, "window-status-current-format",
-        "#[fg=black,bg=cyan,bold] F#I:#W "
+        "tmux", "set-option", "-t", SESSION, "status-format[0]",
+        "#[align=centre]#{W: F#{window_index}:#{window_name} }"
     ])
 
     # Bind F1/F2/F3/F4 to windows 1/2/3/4
@@ -67,6 +69,7 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", f"{SESSION}:2"])
     subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:3"])
     subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:4"])
+    subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:5"])
 
     # Select terminal window (1)
     subprocess.run(["tmux", "select-window", "-t", f"{SESSION}:1"])
