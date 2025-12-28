@@ -4,7 +4,7 @@
 import os
 from pathlib import Path
 from textual.app import App, ComposeResult
-from textual.widgets import DirectoryTree, Static, Header
+from textual.widgets import DirectoryTree, Static, Header, Markdown
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.reactive import reactive
@@ -17,9 +17,14 @@ class FileViewer(VerticalScroll):
     """Scrollable file content viewer with syntax highlighting."""
 
     file_path = reactive(None)
+    MARKDOWN_EXTENSIONS = {'.md', '.markdown', '.mdown', '.mkd'}
 
     def compose(self) -> ComposeResult:
         yield Static("", id="file-content")
+        yield Markdown("", id="md-content")
+
+    def on_mount(self):
+        self.query_one("#md-content").display = False
 
     # Map file extensions to lexer names
     LEXER_MAP = {
@@ -60,54 +65,69 @@ class FileViewer(VerticalScroll):
 
     def load_file(self, path: Path):
         self.file_path = path
-        content_widget = self.query_one("#file-content", Static)
+        is_markdown = path.suffix.lower() in self.MARKDOWN_EXTENSIONS
+
+        static_widget = self.query_one("#file-content", Static)
+        md_widget = self.query_one("#md-content", Markdown)
 
         try:
             with open(path, 'r', errors='replace') as f:
                 code = f.read()
 
-            line_count = len(code.splitlines())
-            suffix = path.suffix.lower()
-
-            # Check for Dockerfile without extension
-            lexer = self.LEXER_MAP.get(suffix)
-            if lexer is None and path.name.lower() == 'dockerfile':
-                lexer = 'dockerfile'
-
-            # Header
-            header = Text()
-            header.append(f"{path.name}", style="bold magenta")
-            header.append(f" ({line_count} lines)", style="dim")
-            header.append("\n" + "─" * 50 + "\n", style="dim")
-
-            if lexer:
-                # Use syntax highlighting with header
-                syntax = Syntax(
-                    code,
-                    lexer,
-                    theme="monokai",
-                    line_numbers=True,
-                    word_wrap=False,
-                )
-                # Combine header and syntax using Group
-                content_widget.update(Group(header, syntax))
+            # Markdown files use dedicated Markdown widget
+            if is_markdown:
+                static_widget.display = False
+                md_widget.display = True
+                md_widget.update(code)
             else:
-                # Plain text with line numbers
-                lines = code.splitlines()
-                content = []
-                for i, line in enumerate(lines, 1):
-                    safe_line = line.replace("[", "\\[").replace("]", "\\]")
-                    content.append(f"[dim]{i:4}[/dim] {safe_line}")
-                plain_content = Text("\n".join(content))
-                content_widget.update(Group(header, plain_content))
+                static_widget.display = True
+                md_widget.display = False
+
+                line_count = len(code.splitlines())
+                suffix = path.suffix.lower()
+
+                # Check for Dockerfile without extension
+                lexer = self.LEXER_MAP.get(suffix)
+                if lexer is None and path.name.lower() == 'dockerfile':
+                    lexer = 'dockerfile'
+
+                # Header
+                header = Text()
+                header.append(f"{path.name}", style="bold magenta")
+                header.append(f" ({line_count} lines)", style="dim")
+                header.append("\n" + "─" * 50 + "\n", style="dim")
+
+                if lexer:
+                    # Use syntax highlighting with header
+                    syntax = Syntax(
+                        code,
+                        lexer,
+                        theme="monokai",
+                        line_numbers=True,
+                        word_wrap=False,
+                    )
+                    static_widget.update(Group(header, syntax))
+                else:
+                    # Plain text with line numbers
+                    lines = code.splitlines()
+                    content = []
+                    for i, line in enumerate(lines, 1):
+                        safe_line = line.replace("[", "\\[").replace("]", "\\]")
+                        content.append(f"[dim]{i:4}[/dim] {safe_line}")
+                    plain_content = Text("\n".join(content))
+                    static_widget.update(Group(header, plain_content))
 
         except Exception as e:
-            content_widget.update(f"[red]Error: {e}[/red]")
+            static_widget.display = True
+            md_widget.display = False
+            static_widget.update(f"[red]Error: {e}[/red]")
 
         self.scroll_home()
 
     def clear(self):
         self.file_path = None
+        self.query_one("#file-content", Static).display = True
+        self.query_one("#md-content", Markdown).display = False
         self.query_one("#file-content", Static).update(
             "[dim]Select a file from the tree to view[/dim]"
         )
@@ -141,6 +161,10 @@ class TreeViewApp(App):
     }
     #file-content {
         width: 100%;
+    }
+    #md-content {
+        width: 100%;
+        padding: 1 2;
     }
     """
 
