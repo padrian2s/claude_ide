@@ -229,8 +229,8 @@ class DualPanelScreen(ModalScreen):
 
     def _update_title(self):
         """Update title to show current sort mode."""
-        sort_mode = "date" if self.sort_by_date else "name"
-        self.query_one("#dual-title", Label).update(f"File Manager (sort: {sort_mode})")
+        sort_mode = "⏱ date" if self.sort_by_date else "🔤 name"
+        self.query_one("#dual-title", Label).update(f"File Manager  \\[s:{sort_mode}\\]")
 
     def refresh_panels(self):
         """Refresh both panel contents."""
@@ -242,7 +242,9 @@ class DualPanelScreen(ModalScreen):
         list_view = self.query_one(f"#{side}-list", ListView)
         path_label = self.query_one(f"#{side}-path", Static)
 
-        path_label.update(str(path))
+        # Show path with sort indicator
+        sort_icon = "⏱" if self.sort_by_date else "🔤"
+        path_label.update(f"{sort_icon} {path}")
         list_view.clear()
 
         try:
@@ -272,6 +274,25 @@ class DualPanelScreen(ModalScreen):
         except PermissionError:
             pass
 
+    def _refresh_single_panel(self, side: str):
+        """Refresh only one panel and set cursor."""
+        if side == "left":
+            self._refresh_panel("left", self.left_path, self.selected_left)
+        else:
+            self._refresh_panel("right", self.right_path, self.selected_right)
+
+        # Set cursor after refresh
+        list_view = self.query_one(f"#{side}-list", ListView)
+        self.set_timer(0.01, lambda: self._set_cursor(list_view))
+
+    def _set_cursor(self, list_view: ListView):
+        """Set cursor to first real item."""
+        if len(list_view.children) > 1:
+            list_view.index = 1
+        elif list_view.children:
+            list_view.index = 0
+        list_view.focus()
+
     def action_close(self):
         if not self.copying:
             # Save paths for session persistence
@@ -285,12 +306,12 @@ class DualPanelScreen(ModalScreen):
         self.sort_by_date = not self.sort_by_date
         DualPanelScreen._session_sort_by_date = self.sort_by_date
         self._update_title()
-        self.refresh_panels()
-        # Position on first real item
+        # Refresh both panels with new sort
+        self._refresh_panel("left", self.left_path, self.selected_left)
+        self._refresh_panel("right", self.right_path, self.selected_right)
+        # Set cursor after refresh
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
-        if len(list_view.children) > 1:
-            list_view.index = 1
-        list_view.focus()
+        self.set_timer(0.01, lambda: self._set_cursor(list_view))
 
     def action_switch_panel(self):
         """Switch focus between panels."""
@@ -337,14 +358,8 @@ class DualPanelScreen(ModalScreen):
                     self.selected_right.clear()
                     self.active_panel = "right"
                     DualPanelScreen._session_right_path = item.path
-                self.refresh_panels()
-                # Position cursor on first real item (skip "..")
-                list_view = self.query_one(f"#{self.active_panel}-list", ListView)
-                if len(list_view.children) > 1:
-                    list_view.index = 1
-                elif list_view.children:
-                    list_view.index = 0
-                list_view.focus()
+                # Refresh only the active panel
+                self._refresh_single_panel(self.active_panel)
 
     def action_go_up(self):
         """Go to parent directory."""
@@ -352,11 +367,13 @@ class DualPanelScreen(ModalScreen):
             if self.left_path.parent != self.left_path:
                 self.left_path = self.left_path.parent
                 self.selected_left.clear()
+                DualPanelScreen._session_left_path = self.left_path
         else:
             if self.right_path.parent != self.right_path:
                 self.right_path = self.right_path.parent
                 self.selected_right.clear()
-        self.refresh_panels()
+                DualPanelScreen._session_right_path = self.right_path
+        self._refresh_single_panel(self.active_panel)
 
     def action_select_all(self):
         """Select all items in current panel."""
@@ -369,7 +386,7 @@ class DualPanelScreen(ModalScreen):
                     selected.add(item)
         except:
             pass
-        self.refresh_panels()
+        self._refresh_single_panel(self.active_panel)
 
     def action_select_none(self):
         """Clear selection in current panel."""
@@ -377,7 +394,7 @@ class DualPanelScreen(ModalScreen):
             self.selected_left.clear()
         else:
             self.selected_right.clear()
-        self.refresh_panels()
+        self._refresh_single_panel(self.active_panel)
 
     def action_go_first(self):
         """Go to first item in list."""
