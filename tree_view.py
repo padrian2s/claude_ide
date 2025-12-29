@@ -206,13 +206,20 @@ class SearchDialog(ModalScreen):
         self.dismiss(None)
 
     def action_select_first(self):
-        """Tab - select first result in list."""
+        """Tab - auto-select if single result, otherwise focus list to choose."""
         results = self.query_one("#search-results", ListView)
-        if results.children:
-            results.index = 0
+        if not results.children:
+            return
+        
+        if len(results.children) == 1:
+            # Single result - auto-select and close
             item = results.children[0]
             if isinstance(item, SearchItem):
                 self.dismiss(item.path)
+        else:
+            # Multiple results - focus list for user to choose
+            results.index = 0
+            results.focus()
 
 
 class ConfirmDialog(ModalScreen):
