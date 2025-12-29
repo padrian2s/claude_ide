@@ -180,6 +180,8 @@ class DualPanelScreen(ModalScreen):
         ("s", "toggle_sort", "Sort"),
         ("bracketleft", "go_first", "First"),
         ("bracketright", "go_last", "Last"),
+        ("pageup", "page_up", "PgUp"),
+        ("pagedown", "page_down", "PgDn"),
     ]
 
     def __init__(self, start_path: Path = None):
@@ -401,12 +403,37 @@ class DualPanelScreen(ModalScreen):
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         if list_view.children:
             list_view.index = 0
+            list_view.focus()
+            # Scroll to top
+            list_view.scroll_home(animate=False)
 
     def action_go_last(self):
         """Go to last item in list."""
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         if list_view.children:
             list_view.index = len(list_view.children) - 1
+            list_view.focus()
+            # Scroll to bottom
+            list_view.scroll_end(animate=False)
+
+    def action_page_up(self):
+        """Move up by visible page size."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if list_view.children:
+            # Estimate visible items (list height / item height ~= 1 line each)
+            page_size = max(1, list_view.size.height - 2)
+            new_index = max(0, list_view.index - page_size)
+            list_view.index = new_index
+            list_view.focus()
+
+    def action_page_down(self):
+        """Move down by visible page size."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if list_view.children:
+            page_size = max(1, list_view.size.height - 2)
+            new_index = min(len(list_view.children) - 1, list_view.index + page_size)
+            list_view.index = new_index
+            list_view.focus()
 
     def action_copy_selected(self):
         """Copy selected files to other panel."""
