@@ -36,9 +36,26 @@ NAME_WIDTH_WIDE = 50
 
 
 class SizedDirectoryTree(DirectoryTree):
-    """DirectoryTree with file sizes displayed."""
+    """DirectoryTree with file sizes displayed and '..' for parent navigation."""
 
     name_width = NAME_WIDTH_NARROW
+
+    def filter_paths(self, paths):
+        """Filter paths and add '..' for parent directory."""
+        # Get the current directory path
+        parent = self.path.parent
+        result = []
+        
+        # Add parent directory entry if not at root
+        if parent != self.path:
+            result.append(parent)
+        
+        # Add filtered paths (exclude hidden files)
+        for p in paths:
+            if not p.name.startswith("."):
+                result.append(p)
+        
+        return result
 
     def render_label(self, node, base_style, style):
         """Render label with right-aligned size column."""
@@ -46,6 +63,12 @@ class SizedDirectoryTree(DirectoryTree):
         label = Text()
         name = str(node.label)
         width = self.name_width
+
+        # Special case for parent directory ".."
+        if path == self.path.parent and path != self.path:
+            label.append("📁 ")
+            label.append("..", style="bold cyan")
+            return label
 
         # Get icon and name
         if path.is_dir():
@@ -884,11 +907,22 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find /:grep m:manager o:open w:wide r:refresh TAB:switch q:quit"
+        self.sub_title = "^P:find /:grep m:manager o:open w:wide g:jump BS:up q:quit"
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
         viewer.load_file(event.path)
+
+
+    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected):
+        """Handle directory selection - navigate to parent if '..' selected."""
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        selected_path = event.path
+        
+        # Check if this is the parent directory (..)
+        if selected_path == tree.path.parent and selected_path != tree.path:
+            tree.path = selected_path
+            self.notify(f"📁 {selected_path.name or selected_path}", timeout=1)
 
     def action_toggle_focus(self):
         tree = self.query_one("#tree", SizedDirectoryTree)
