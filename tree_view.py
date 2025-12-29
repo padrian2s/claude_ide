@@ -7,7 +7,6 @@ import subprocess
 import threading
 from pathlib import Path
 from textual.app import App, ComposeResult
-from textual import work
 from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar, Input
 from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -37,38 +36,9 @@ NAME_WIDTH_WIDE = 50
 
 
 class SizedDirectoryTree(DirectoryTree):
-    """DirectoryTree with file sizes displayed and '..' for parent navigation."""
+    """DirectoryTree with file sizes displayed."""
 
     name_width = NAME_WIDTH_NARROW
-
-    @work(thread=True, exit_on_error=False)
-    def _load_directory(self, node) -> list[Path]:
-        """Load directory contents with '..' at the top."""
-        assert node.data is not None
-        dir_path = node.data.path.expanduser().resolve()
-        
-        # Get directory contents
-        try:
-            entries = list(dir_path.iterdir())
-        except PermissionError:
-            entries = []
-        
-        # Filter hidden files and sort
-        filtered = [p for p in entries if not p.name.startswith(".")]
-        sorted_entries = sorted(
-            filtered,
-            key=lambda p: (not p.is_dir(), p.name.lower())
-        )
-        
-        # Add ".." at the top if not at root (only for the root node of the tree)
-        result = []
-        if node == self.root:
-            parent = dir_path.parent
-            if parent != dir_path:
-                result.append(parent)
-        
-        result.extend(sorted_entries)
-        return result
 
     def render_label(self, node, base_style, style):
         """Render label with right-aligned size column."""
@@ -76,12 +46,6 @@ class SizedDirectoryTree(DirectoryTree):
         label = Text()
         name = str(node.label)
         width = self.name_width
-
-        # Special case for parent directory ".."
-        if node.parent == self.root and path == self.path.parent and path != self.path:
-            label.append("📁 ")
-            label.append("..", style="bold cyan")
-            return label
 
         # Get icon and name
         if path.is_dir():
@@ -925,17 +889,6 @@ class TreeViewApp(App):
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
         viewer.load_file(event.path)
-
-
-    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected):
-        """Handle directory selection - navigate to parent if '..' selected."""
-        tree = self.query_one("#tree", SizedDirectoryTree)
-        selected_path = event.path
-        
-        # Check if this is the parent directory (..)
-        if selected_path == tree.path.parent and selected_path != tree.path:
-            tree.path = selected_path
-            self.notify(f"📁 {selected_path.name or selected_path}", timeout=1)
 
     def action_toggle_focus(self):
         tree = self.query_one("#tree", SizedDirectoryTree)
