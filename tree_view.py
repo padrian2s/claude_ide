@@ -623,6 +623,7 @@ class DualPanelScreen(ModalScreen):
             dest_path = self.left_path
 
         if not selected:
+            self.notify("No files selected", timeout=2)
             return
 
         self.copying = True
@@ -634,31 +635,39 @@ class DualPanelScreen(ModalScreen):
         progress_container.add_class("visible")
         progress_bar = self.query_one("#progress-bar", ProgressBar)
         progress_text = self.query_one("#progress-text", Static)
+        progress_text.update(f"Copying {total} item(s)...")
+        progress_bar.update(progress=0)
 
         def do_copy():
             for i, src in enumerate(items):
                 try:
                     dest = dest_path / src.name
-                    self.call_from_thread(
+                    self.app.call_from_thread(
                         progress_text.update,
-                        f"Copying: {src.name}"
+                        f"Copying: {src.name} ({i+1}/{total})"
                     )
-                    self.call_from_thread(
+                    self.app.call_from_thread(
                         progress_bar.update,
-                        progress=int((i / total) * 100)
+                        progress=int(((i + 0.5) / total) * 100)
                     )
 
                     if src.is_dir():
                         shutil.copytree(src, dest, dirs_exist_ok=True)
                     else:
                         shutil.copy2(src, dest)
+                        
+                    self.app.call_from_thread(
+                        progress_bar.update,
+                        progress=int(((i + 1) / total) * 100)
+                    )
                 except Exception as e:
-                    self.call_from_thread(
-                        progress_text.update,
-                        f"Error: {e}"
+                    self.app.call_from_thread(
+                        self.notify,
+                        f"Error copying {src.name}: {e}",
+                        timeout=5
                     )
 
-            self.call_from_thread(self._copy_complete)
+            self.app.call_from_thread(self._copy_complete)
 
         thread = threading.Thread(target=do_copy, daemon=True)
         thread.start()
@@ -671,9 +680,10 @@ class DualPanelScreen(ModalScreen):
         progress_container = self.query_one("#progress-container")
 
         progress_bar.update(progress=100)
-        progress_text.update("Copy complete!")
+        progress_text.update("✓ Copy complete!")
+        self.notify("Copy complete!", timeout=2)
 
-        # Clear selections and refresh
+        # Clear selections and refresh both panels
         self.selected_left.clear()
         self.selected_right.clear()
         self.refresh_panels()
