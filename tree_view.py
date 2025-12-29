@@ -76,15 +76,20 @@ class SizedDirectoryTree(DirectoryTree):
 class FileItem(ListItem):
     """A file/directory item for the dual panel."""
 
-    def __init__(self, path: Path, is_selected: bool = False):
+    def __init__(self, path: Path, is_selected: bool = False, is_parent: bool = False):
         super().__init__()
         self.path = path
         self.is_selected = is_selected
+        self.is_parent = is_parent
 
     def compose(self) -> ComposeResult:
         yield Static(self._render_content(), id="item-content")
 
     def _render_content(self) -> str:
+        # Parent directory shows as ".."
+        if self.is_parent:
+            return "   📁 .."
+
         is_dir = self.path.is_dir()
         icon = "📁" if is_dir else "📄"
         mark = "●" if self.is_selected else " "
@@ -169,6 +174,8 @@ class DualPanelScreen(ModalScreen):
         ("c", "copy_selected", "Copy"),
         ("a", "select_all", "All"),
         ("n", "select_none", "None"),
+        ("home", "go_first", "First"),
+        ("end", "go_last", "Last"),
     ]
 
     def __init__(self, start_path: Path = None):
@@ -193,7 +200,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:select  Enter:open  Backspace:up  c:copy  a:all  n:none  q:close", id="help-bar")
+            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  n:none  Home/End  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -213,9 +220,9 @@ class DualPanelScreen(ModalScreen):
         list_view.clear()
 
         try:
-            # Add parent directory entry
+            # Add ".." parent directory entry
             if path.parent != path:
-                list_view.append(FileItem(path.parent, False))
+                list_view.append(FileItem(path.parent, is_selected=False, is_parent=True))
 
             # List contents
             items = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
@@ -304,6 +311,18 @@ class DualPanelScreen(ModalScreen):
         else:
             self.selected_right.clear()
         self.refresh_panels()
+
+    def action_go_first(self):
+        """Go to first item in list."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if list_view.children:
+            list_view.index = 0
+
+    def action_go_last(self):
+        """Go to last item in list."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if list_view.children:
+            list_view.index = len(list_view.children) - 1
 
     def action_copy_selected(self):
         """Copy selected files to other panel."""
