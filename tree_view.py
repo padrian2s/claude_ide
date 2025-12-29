@@ -82,6 +82,9 @@ class FileItem(ListItem):
         self.is_selected = is_selected
 
     def compose(self) -> ComposeResult:
+        yield Static(self._render_content(), id="item-content")
+
+    def _render_content(self) -> str:
         is_dir = self.path.is_dir()
         icon = "📁" if is_dir else "📄"
         mark = "●" if self.is_selected else " "
@@ -92,7 +95,12 @@ class FileItem(ListItem):
         except:
             size = ""
 
-        yield Static(f"{mark} {icon} {name:<30} {size}")
+        return f"{mark} {icon} {name:<30} {size}"
+
+    def update_selection(self, is_selected: bool):
+        """Update selection state without full refresh."""
+        self.is_selected = is_selected
+        self.query_one("#item-content", Static).update(self._render_content())
 
 
 class DualPanelScreen(ModalScreen):
@@ -231,7 +239,7 @@ class DualPanelScreen(ModalScreen):
             self.query_one("#left-list", ListView).focus()
 
     def action_toggle_select(self):
-        """Toggle selection of current item."""
+        """Toggle selection of current item and move to next."""
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         selected = self.selected_left if self.active_panel == "left" else self.selected_right
 
@@ -241,11 +249,13 @@ class DualPanelScreen(ModalScreen):
             if item.path.name:
                 if item.path in selected:
                     selected.discard(item.path)
+                    item.update_selection(False)
                 else:
                     selected.add(item.path)
-                self.refresh_panels()
-                # Restore position
-                list_view.index = list_view.index
+                    item.update_selection(True)
+                # Move to next item
+                if list_view.index < len(list_view.children) - 1:
+                    list_view.index += 1
 
     def action_enter_dir(self):
         """Enter selected directory."""
