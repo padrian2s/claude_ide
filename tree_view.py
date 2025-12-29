@@ -169,13 +169,12 @@ class DualPanelScreen(ModalScreen):
         ("q", "close", "Close"),
         ("tab", "switch_panel", "Switch"),
         ("space", "toggle_select", "Select"),
-        ("enter", "enter_dir", "Enter"),
         ("backspace", "go_up", "Up"),
         ("c", "copy_selected", "Copy"),
         ("a", "select_all", "All"),
         ("n", "select_none", "None"),
-        ("home", "go_first", "First"),
-        ("end", "go_last", "Last"),
+        ("bracketleft", "go_first", "First"),
+        ("bracketright", "go_last", "Last"),
     ]
 
     def __init__(self, start_path: Path = None):
@@ -200,7 +199,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  n:none  Home/End  q:close", id="help-bar")
+            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  n:none  [/]:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -264,19 +263,21 @@ class DualPanelScreen(ModalScreen):
                 if list_view.index < len(list_view.children) - 1:
                     list_view.index += 1
 
-    def action_enter_dir(self):
-        """Enter selected directory."""
-        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
-
-        if list_view.highlighted_child and isinstance(list_view.highlighted_child, FileItem):
-            item = list_view.highlighted_child
+    def on_list_view_selected(self, event: ListView.Selected):
+        """Handle Enter key - enter directory."""
+        if isinstance(event.item, FileItem):
+            item = event.item
             if item.path.is_dir():
-                if self.active_panel == "left":
+                # Determine which panel based on the list's id
+                list_id = event.list_view.id
+                if list_id == "left-list":
                     self.left_path = item.path
                     self.selected_left.clear()
+                    self.active_panel = "left"
                 else:
                     self.right_path = item.path
                     self.selected_right.clear()
+                    self.active_panel = "right"
                 self.refresh_panels()
 
     def action_go_up(self):
