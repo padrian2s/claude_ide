@@ -221,7 +221,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  s:sort  g:jump  q:close", id="help-bar")
+            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  s:sort  Home/End/g  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -238,6 +238,17 @@ class DualPanelScreen(ModalScreen):
             max_right = len(right_list.children) - 1
             right_list.index = min(DualPanelScreen._session_right_index, max_right)
         left_list.focus()
+
+    def on_key(self, event) -> None:
+        """Handle Home/End keys manually."""
+        if event.key == "home":
+            self.action_go_first()
+            event.prevent_default()
+            event.stop()
+        elif event.key == "end":
+            self.action_go_last()
+            event.prevent_default()
+            event.stop()
 
     def _update_title(self):
         """Update title - sort shown per panel in headers."""
