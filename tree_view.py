@@ -738,14 +738,22 @@ class DualPanelScreen(ModalScreen):
 
         # Get source and destination
         if self.active_panel == "left":
-            selected = self.selected_left
+            selected = self.selected_left.copy()
             dest_path = self.right_path
         else:
-            selected = self.selected_right
+            selected = self.selected_right.copy()
             dest_path = self.left_path
 
+        # If nothing selected, use highlighted item
         if not selected:
-            self.notify("No files selected", timeout=2)
+            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+            if list_view.highlighted_child and isinstance(list_view.highlighted_child, FileItem):
+                item = list_view.highlighted_child
+                if not item.is_parent:
+                    selected = {item.path}
+
+        if not selected:
+            self.notify("No files to copy", timeout=2)
             return
 
         self.copying = True
@@ -818,10 +826,16 @@ class DualPanelScreen(ModalScreen):
         """Rename the currently highlighted file/folder."""
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         if not list_view.highlighted_child:
+            self.notify("No item to rename", timeout=2)
             return
         
         item = list_view.highlighted_child
-        if not isinstance(item, FileItem) or item.is_parent:
+        if not isinstance(item, FileItem):
+            self.notify("Cannot rename this item", timeout=2)
+            return
+        
+        if item.is_parent:
+            self.notify("Cannot rename '..'", timeout=2)
             return
         
         path = item.path
