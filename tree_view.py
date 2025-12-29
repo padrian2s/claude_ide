@@ -159,6 +159,7 @@ class SearchDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
+        ("tab", "select_first", "Select First"),
     ]
 
     def __init__(self, items: list[Path]):
@@ -203,6 +204,15 @@ class SearchDialog(ModalScreen):
 
     def action_cancel(self):
         self.dismiss(None)
+
+    def action_select_first(self):
+        """Tab - select first result in list."""
+        results = self.query_one("#search-results", ListView)
+        if results.children:
+            results.index = 0
+            item = results.children[0]
+            if isinstance(item, SearchItem):
+                self.dismiss(item.path)
 
 
 class ConfirmDialog(ModalScreen):
@@ -744,6 +754,8 @@ class DualPanelScreen(ModalScreen):
             selected = self.selected_right.copy()
             dest_path = self.left_path
 
+        used_explicit_selection = bool(selected)
+
         # If nothing selected, use highlighted item
         if not selected:
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
@@ -757,6 +769,7 @@ class DualPanelScreen(ModalScreen):
             return
 
         self.copying = True
+        self._copy_used_explicit_selection = used_explicit_selection
         items = list(selected)
         total = len(items)
 
@@ -813,9 +826,11 @@ class DualPanelScreen(ModalScreen):
         progress_text.update("✓ Copy complete!")
         self.notify("Copy complete!", timeout=2)
 
-        # Clear selections and refresh both panels
-        self.selected_left.clear()
-        self.selected_right.clear()
+        # Only clear selections if explicit selection was used
+        if getattr(self, '_copy_used_explicit_selection', False):
+            self.selected_left.clear()
+            self.selected_right.clear()
+        
         self.refresh_panels()
 
         # Hide progress after delay
@@ -856,11 +871,14 @@ class DualPanelScreen(ModalScreen):
         """Delete selected files/folders with confirmation."""
         # Get selected items or current item
         if self.active_panel == "left":
-            selected = self.selected_left
+            selected = self.selected_left.copy()
             path = self.left_path
         else:
-            selected = self.selected_right
+            selected = self.selected_right.copy()
             path = self.right_path
+        
+        # Track if explicit selection was used
+        used_explicit_selection = bool(selected)
         
         # If nothing selected, use highlighted item
         if not selected:
@@ -899,9 +917,10 @@ class DualPanelScreen(ModalScreen):
                 else:
                     self.notify(f"Deleted {count} item(s)", timeout=2)
                 
-                # Clear selections and refresh
-                self.selected_left.clear()
-                self.selected_right.clear()
+                # Only clear selections if explicit selection was used
+                if used_explicit_selection:
+                    self.selected_left.clear()
+                    self.selected_right.clear()
                 self._refresh_single_panel(self.active_panel)
         
         self.app.push_screen(ConfirmDialog("⚠ Delete", message), handle_confirm)
