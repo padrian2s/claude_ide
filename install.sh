@@ -140,6 +140,7 @@ chmod +x "$SCRIPT_DIR/start.sh"
 chmod +x "$SCRIPT_DIR/tui_env.py"
 chmod +x "$SCRIPT_DIR/tree_view.py"
 chmod +x "$SCRIPT_DIR/config_panel.py"
+chmod +x "$SCRIPT_DIR/favorites.py"
 chmod +x "$SCRIPT_DIR/lizard_tui.py" 2>/dev/null || true
 status "$CHECK" "Scripts marked executable"
 
@@ -176,5 +177,5 @@ echo
 echo -e "  ${BOLD}Keys:${NC}"
 echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F2${NC} Terminal 2   ${DIM}F9${NC} Config"
 echo -e "  ${DIM}F3${NC} File Tree   ${DIM}F4${NC} Lizard TUI   ${DIM}F10${NC} Exit"
-echo -e "  ${DIM}F5${NC} Glow        ${DIM}F12${NC} Keys Toggle  ${DIM}^P${NC} Find  ${DIM}^F${NC} Grep"
+echo -e "  ${DIM}F5${NC} Glow        ${DIM}F6${NC} Favorites    ${DIM}F12${NC} Keys Toggle"
 echo
