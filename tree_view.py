@@ -205,6 +205,119 @@ class SearchDialog(ModalScreen):
         self.dismiss(None)
 
 
+class ConfirmDialog(ModalScreen):
+    """Confirmation dialog."""
+
+    CSS = """
+    ConfirmDialog {
+        align: center middle;
+    }
+    #confirm-dialog {
+        width: 50;
+        height: 10;
+        border: solid red;
+        background: $surface;
+        padding: 1 2;
+    }
+    #confirm-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    #confirm-message {
+        text-align: center;
+        margin-bottom: 1;
+    }
+    #confirm-buttons {
+        align: center middle;
+        height: 3;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("y", "confirm", "Yes"),
+        ("n", "cancel", "No"),
+    ]
+
+    def __init__(self, title: str, message: str):
+        super().__init__()
+        self.dialog_title = title
+        self.message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Label(self.dialog_title, id="confirm-title")
+            yield Label(self.message, id="confirm-message")
+            yield Label("[y] Yes  [n] No  [Esc] Cancel", id="confirm-buttons")
+
+    def action_confirm(self):
+        self.dismiss(True)
+
+    def action_cancel(self):
+        self.dismiss(False)
+
+
+class RenameDialog(ModalScreen):
+    """Rename dialog with input."""
+
+    CSS = """
+    RenameDialog {
+        align: center middle;
+    }
+    #rename-dialog {
+        width: 60;
+        height: 8;
+        border: solid cyan;
+        background: $surface;
+        padding: 1 2;
+    }
+    #rename-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    #rename-input {
+        margin-bottom: 1;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self, current_name: str):
+        super().__init__()
+        self.current_name = current_name
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="rename-dialog"):
+            yield Label("Rename", id="rename-title")
+            yield Input(value=self.current_name, id="rename-input")
+            yield Label("[Enter] Confirm  [Esc] Cancel")
+
+    def on_mount(self):
+        input_widget = self.query_one("#rename-input", Input)
+        input_widget.focus()
+        # Select filename without extension
+        name = self.current_name
+        if "." in name and not name.startswith("."):
+            dot_pos = name.rfind(".")
+            input_widget.selection = (0, dot_pos)
+        else:
+            input_widget.selection = (0, len(name))
+
+    def on_input_submitted(self, event: Input.Submitted):
+        new_name = event.value.strip()
+        if new_name and new_name != self.current_name:
+            self.dismiss(new_name)
+        else:
+            self.dismiss(None)
+
+    def action_cancel(self):
+        self.dismiss(None)
+
+
 class DualPanelScreen(ModalScreen):
     """Dual panel file manager for copying files."""
 
@@ -279,6 +392,8 @@ class DualPanelScreen(ModalScreen):
         ("c", "copy_selected", "Copy"),
         ("a", "select_all", "All"),
         ("s", "toggle_sort", "Sort"),
+        ("r", "rename", "Rename"),
+        ("d", "delete", "Delete"),
         Binding("g", "toggle_position", "g=jump"),
         ("pageup", "page_up", "PgUp"),
         ("pagedown", "page_down", "PgDn"),
@@ -317,7 +432,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("^S:search  Space:sel  Enter:open  c:copy  a:all  s:sort  g:jump  q:close", id="help-bar")
+            yield Label("^S:search  Space:sel  c:copy  r:rename  d:delete  a:all  s:sort  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -690,6 +805,85 @@ class DualPanelScreen(ModalScreen):
 
         # Hide progress after delay
         self.set_timer(2, lambda: progress_container.remove_class("visible"))
+
+
+    def action_rename(self):
+        """Rename the currently highlighted file/folder."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if not list_view.highlighted_child:
+            return
+        
+        item = list_view.highlighted_child
+        if not isinstance(item, FileItem) or item.is_parent:
+            return
+        
+        path = item.path
+        
+        def handle_rename(new_name: str | None):
+            if new_name:
+                try:
+                    new_path = path.parent / new_name
+                    path.rename(new_path)
+                    self.notify(f"Renamed to: {new_name}", timeout=2)
+                    self._refresh_single_panel(self.active_panel)
+                except Exception as e:
+                    self.notify(f"Error: {e}", timeout=3)
+        
+        self.app.push_screen(RenameDialog(path.name), handle_rename)
+
+    def action_delete(self):
+        """Delete selected files/folders with confirmation."""
+        # Get selected items or current item
+        if self.active_panel == "left":
+            selected = self.selected_left
+            path = self.left_path
+        else:
+            selected = self.selected_right
+            path = self.right_path
+        
+        # If nothing selected, use highlighted item
+        if not selected:
+            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+            if list_view.highlighted_child and isinstance(list_view.highlighted_child, FileItem):
+                item = list_view.highlighted_child
+                if not item.is_parent:
+                    selected = {item.path}
+        
+        if not selected:
+            self.notify("No files selected", timeout=2)
+            return
+        
+        items = list(selected)
+        count = len(items)
+        
+        if count == 1:
+            message = f"Delete '{items[0].name}'?"
+        else:
+            message = f"Delete {count} items?"
+        
+        def handle_confirm(confirmed: bool):
+            if confirmed:
+                errors = []
+                for item_path in items:
+                    try:
+                        if item_path.is_dir():
+                            shutil.rmtree(item_path)
+                        else:
+                            item_path.unlink()
+                    except Exception as e:
+                        errors.append(f"{item_path.name}: {e}")
+                
+                if errors:
+                    self.notify(f"Errors: {len(errors)}", timeout=3)
+                else:
+                    self.notify(f"Deleted {count} item(s)", timeout=2)
+                
+                # Clear selections and refresh
+                self.selected_left.clear()
+                self.selected_right.clear()
+                self._refresh_single_panel(self.active_panel)
+        
+        self.app.push_screen(ConfirmDialog("⚠ Delete", message), handle_confirm)
 
 
 class FileViewer(VerticalScroll):
