@@ -108,6 +108,103 @@ class FileItem(ListItem):
         self.query_one("#item-content", Static).update(self._render_content())
 
 
+
+class SearchItem(ListItem):
+    """An item in the search results."""
+
+    def __init__(self, path: Path):
+        super().__init__()
+        self.path = path
+
+    def compose(self) -> ComposeResult:
+        is_dir = self.path.is_dir()
+        icon = "📁" if is_dir else "📄"
+        try:
+            size = "" if is_dir else format_size(self.path.stat().st_size)
+        except:
+            size = ""
+        yield Static(f" {icon} {self.path.name:<35} {size}")
+
+
+class SearchDialog(ModalScreen):
+    """Popup search dialog - fzf style."""
+
+    CSS = """
+    SearchDialog {
+        align: center middle;
+    }
+    #search-dialog {
+        width: 60;
+        height: 20;
+        border: solid cyan;
+        background: $surface;
+    }
+    #search-title {
+        height: 1;
+        padding: 0 1;
+        background: $primary;
+    }
+    #search-input {
+        margin: 0 1;
+    }
+    #search-results {
+        height: 1fr;
+        margin: 0 1 1 1;
+        border: solid gray;
+    }
+    #search-results:focus {
+        border: solid cyan;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self, items: list[Path]):
+        super().__init__()
+        self.all_items = items
+        self.filter_text = ""
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="search-dialog"):
+            yield Label(" 🔍 Search (case-sensitive)", id="search-title")
+            yield Input(placeholder="Type to filter...", id="search-input")
+            yield ListView(id="search-results")
+
+    def on_mount(self):
+        self._refresh_results()
+        self.query_one("#search-input", Input).focus()
+
+    def _refresh_results(self):
+        results = self.query_one("#search-results", ListView)
+        results.clear()
+        for path in self.all_items:
+            if not self.filter_text or self.filter_text in path.name:
+                results.append(SearchItem(path))
+
+    def on_input_changed(self, event: Input.Changed):
+        self.filter_text = event.value
+        self._refresh_results()
+
+    def on_input_submitted(self, event: Input.Submitted):
+        """Enter in input - select first result."""
+        results = self.query_one("#search-results", ListView)
+        if results.children:
+            results.index = 0
+            item = results.children[0]
+            if isinstance(item, SearchItem):
+                self.dismiss(item.path)
+
+    def on_list_view_selected(self, event: ListView.Selected):
+        """Enter on item - return it."""
+        if isinstance(event.item, SearchItem):
+            self.dismiss(event.item.path)
+
+    def action_cancel(self):
+        self.dismiss(None)
+
+
 class DualPanelScreen(ModalScreen):
     """Dual panel file manager for copying files."""
 
@@ -167,18 +264,6 @@ class DualPanelScreen(ModalScreen):
         background: $primary-background;
         text-align: center;
     }
-    #search-container {
-        height: 1;
-        display: none;
-        background: $boost;
-    }
-    #search-container.visible {
-        display: block;
-    }
-    #search-input {
-        width: 100%;
-        border: none;
-    }
     ListItem {
         padding: 0;
     }
@@ -218,14 +303,10 @@ class DualPanelScreen(ModalScreen):
         self.selected_right: set[Path] = set()
         self.active_panel = "left"
         self.copying = False
-        self.search_active = False
-        self.search_filter = ""
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dual-container"):
             yield Label("File Manager", id="dual-title")
-            with Horizontal(id="search-container"):
-                yield Input(placeholder="Search...", id="search-input")
             with Horizontal(id="panels"):
                 with Vertical(id="left-panel", classes="panel"):
                     yield Static("", id="left-path", classes="panel-header")
@@ -281,12 +362,8 @@ class DualPanelScreen(ModalScreen):
             if path.parent != path:
                 list_view.append(FileItem(path.parent, is_selected=False, is_parent=True))
 
-            # List contents with sorting and filtering
+            # List contents with sorting
             all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
-
-            # Apply search filter (case-sensitive)
-            if self.search_filter:
-                all_items = [p for p in all_items if self.search_filter in p.name]
 
             if sort_by_date:
                 # Sort by access time (most recent first), dirs first
@@ -341,44 +418,48 @@ class DualPanelScreen(ModalScreen):
             self.dismiss()
 
     def action_cancel_or_close(self):
-        """Cancel search or close dialog."""
-        if self.search_active:
-            self._cancel_search()
-        elif not self.copying:
+        """Close dialog if not copying."""
+        if not self.copying:
             self.action_close()
 
     def action_start_search(self):
-        """Start search mode."""
-        self.search_active = True
-        self.search_filter = ""
-        search_container = self.query_one("#search-container")
-        search_container.add_class("visible")
-        search_input = self.query_one("#search-input", Input)
-        search_input.value = ""
-        search_input.focus()
+        """Open search dialog."""
+        # Get items from active panel
+        if self.active_panel == "left":
+            path = self.left_path
+        else:
+            path = self.right_path
 
-    def _cancel_search(self):
-        """Cancel search and restore list."""
-        self.search_active = False
-        self.search_filter = ""
-        search_container = self.query_one("#search-container")
-        search_container.remove_class("visible")
-        self._refresh_single_panel(self.active_panel)
+        try:
+            items = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except PermissionError:
+            items = []
 
-    def on_input_changed(self, event: Input.Changed):
-        """Filter list as user types."""
-        if self.search_active and event.input.id == "search-input":
-            self.search_filter = event.value
-            self._refresh_single_panel(self.active_panel)
-
-    def on_input_submitted(self, event: Input.Submitted):
-        """Confirm search and focus list."""
-        if self.search_active:
-            self.search_active = False
-            search_container = self.query_one("#search-container")
-            search_container.remove_class("visible")
+        def handle_result(selected_path: Path | None):
+            if selected_path:
+                # Navigate to selected item
+                if selected_path.is_dir():
+                    if self.active_panel == "left":
+                        self.left_path = selected_path
+                        self.selected_left.clear()
+                        DualPanelScreen._session_left_path = selected_path
+                    else:
+                        self.right_path = selected_path
+                        self.selected_right.clear()
+                        DualPanelScreen._session_right_path = selected_path
+                    self._refresh_single_panel(self.active_panel)
+                else:
+                    # File selected - scroll to it in list
+                    list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+                    for i, child in enumerate(list_view.children):
+                        if isinstance(child, FileItem) and child.path == selected_path:
+                            list_view.index = i
+                            break
+            # Refocus on list
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
             list_view.focus()
+
+        self.app.push_screen(SearchDialog(items), handle_result)
 
     def action_toggle_sort(self):
         """Toggle sort for active panel only."""
@@ -424,12 +505,6 @@ class DualPanelScreen(ModalScreen):
         if isinstance(event.item, FileItem):
             item = event.item
             if item.path.is_dir():
-                # Always clear search filter when entering directory
-                self.search_filter = ""
-                if self.search_active:
-                    self.search_active = False
-                    search_container = self.query_one("#search-container")
-                    search_container.remove_class("visible")
                 # Determine which panel based on the list's id
                 list_id = event.list_view.id
                 if list_id == "left-list":
@@ -447,12 +522,6 @@ class DualPanelScreen(ModalScreen):
 
     def action_go_up(self):
         """Go to parent directory."""
-        # Always clear search filter when navigating
-        self.search_filter = ""
-        if self.search_active:
-            self.search_active = False
-            search_container = self.query_one("#search-container")
-            search_container.remove_class("visible")
         if self.active_panel == "left":
             if self.left_path.parent != self.left_path:
                 self.left_path = self.left_path.parent
