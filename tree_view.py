@@ -116,7 +116,7 @@ class FileItem(ListItem):
         self.is_parent = is_parent
 
     def compose(self) -> ComposeResult:
-        yield Static(self._render_content(), id="item-content")
+        yield Static(self._render_content(), id="item-content", markup=False)
 
     def _render_content(self) -> str:
         # Parent directory shows as ".."
