@@ -352,6 +352,7 @@ class DualPanelScreen(ModalScreen):
     _session_sort_right: bool = False
     _session_left_index: int = 1  # Start on first real item (skip ..)
     _session_right_index: int = 1
+    _initial_start_path: Path = None  # Original path when tool started
 
     CSS = """
     DualPanelScreen {
@@ -421,10 +422,15 @@ class DualPanelScreen(ModalScreen):
         Binding("g", "toggle_position", "g=jump"),
         ("pageup", "page_up", "PgUp"),
         ("pagedown", "page_down", "PgDn"),
+        ("h", "go_home", "Home"),
     ]
 
     def __init__(self, start_path: Path = None):
         super().__init__()
+        # Store initial start path (only once, when tool first starts)
+        if DualPanelScreen._initial_start_path is None:
+            DualPanelScreen._initial_start_path = start_path or Path.cwd()
+
         # Use session paths if available, otherwise defaults
         if DualPanelScreen._session_left_path:
             self.left_path = DualPanelScreen._session_left_path
@@ -672,6 +678,20 @@ class DualPanelScreen(ModalScreen):
                 self.selected_right.clear()
                 DualPanelScreen._session_right_path = self.right_path
         self._refresh_single_panel(self.active_panel)
+
+    def action_go_home(self):
+        """Reset active panel to initial start path (h key)."""
+        home_path = DualPanelScreen._initial_start_path or Path.cwd()
+        if self.active_panel == "left":
+            self.left_path = home_path
+            self.selected_left.clear()
+            DualPanelScreen._session_left_path = home_path
+        else:
+            self.right_path = home_path
+            self.selected_right.clear()
+            DualPanelScreen._session_right_path = home_path
+        self._refresh_single_panel(self.active_panel)
+        self.notify(f"Home: {home_path}", timeout=1)
 
     def action_select_all(self):
         """Toggle select all / unselect all in current panel."""
