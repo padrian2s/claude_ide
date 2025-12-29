@@ -111,11 +111,13 @@ class FileItem(ListItem):
 class DualPanelScreen(ModalScreen):
     """Dual panel file manager for copying files."""
 
-    # Session persistence - class variables to remember paths and sort per panel
+    # Session persistence - class variables to remember paths, sort, and cursor per panel
     _session_left_path: Path = None
     _session_right_path: Path = None
     _session_sort_left: bool = False  # False = name, True = date
     _session_sort_right: bool = False
+    _session_left_index: int = 1  # Start on first real item (skip ..)
+    _session_right_index: int = 1
 
     CSS = """
     DualPanelScreen {
@@ -223,13 +225,18 @@ class DualPanelScreen(ModalScreen):
     def on_mount(self):
         self.refresh_panels()
         self._update_title()
-        list_view = self.query_one("#left-list", ListView)
-        list_view.focus()
-        # Position on first real item (skip "..")
-        if len(list_view.children) > 1:
-            list_view.index = 1
-        elif list_view.children:
-            list_view.index = 0
+        # Restore cursor positions from session
+        left_list = self.query_one("#left-list", ListView)
+        right_list = self.query_one("#right-list", ListView)
+        # Set left cursor (clamp to valid range)
+        if left_list.children:
+            max_left = len(left_list.children) - 1
+            left_list.index = min(DualPanelScreen._session_left_index, max_left)
+        # Set right cursor
+        if right_list.children:
+            max_right = len(right_list.children) - 1
+            right_list.index = min(DualPanelScreen._session_right_index, max_right)
+        left_list.focus()
 
     def _update_title(self):
         """Update title - sort shown per panel in headers."""
@@ -301,11 +308,16 @@ class DualPanelScreen(ModalScreen):
 
     def action_close(self):
         if not self.copying:
-            # Save paths and sort settings for session persistence
+            # Save paths, sort settings, and cursor positions for session persistence
             DualPanelScreen._session_left_path = self.left_path
             DualPanelScreen._session_right_path = self.right_path
             DualPanelScreen._session_sort_left = self.sort_left
             DualPanelScreen._session_sort_right = self.sort_right
+            # Save cursor positions
+            left_list = self.query_one("#left-list", ListView)
+            right_list = self.query_one("#right-list", ListView)
+            DualPanelScreen._session_left_index = left_list.index if left_list.index is not None else 1
+            DualPanelScreen._session_right_index = right_list.index if right_list.index is not None else 1
             self.dismiss()
 
     def action_toggle_sort(self):
