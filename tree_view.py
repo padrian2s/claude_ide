@@ -935,8 +935,6 @@ class TreeViewApp(App):
 
         if selected:
             path = Path(selected).resolve()
-            
-            # Try to select the file in the tree FIRST
             tree = self.query_one("#tree", SizedDirectoryTree)
             
             # Find node matching this path
@@ -954,11 +952,25 @@ class TreeViewApp(App):
                 return None
             
             target_node = find_node(tree.root)
+            
             if target_node:
+                # Node exists - just select it
                 tree.move_cursor(target_node)
                 tree.scroll_to_node(target_node)
+            else:
+                # Node not found - change tree root to file's parent directory
+                tree.path = path.parent
+                
+                # After tree reloads, try to select the file
+                def select_after_reload():
+                    node = find_node(tree.root)
+                    if node:
+                        tree.move_cursor(node)
+                        tree.scroll_to_node(node)
+                
+                self.set_timer(0.2, select_after_reload)
             
-            # Then load the file
+            # Load the file in viewer
             if path.is_file():
                 self.query_one(FileViewer).load_file(path)
                 self.notify(f"Opened: {path.name}", timeout=1)
@@ -981,8 +993,6 @@ class TreeViewApp(App):
             parts = selected.split(":", 2)
             if len(parts) >= 2:
                 file_path = Path(parts[0]).resolve()
-                
-                # Try to select the file in the tree FIRST
                 tree = self.query_one("#tree", SizedDirectoryTree)
                 
                 # Find node matching this path
@@ -1000,11 +1010,25 @@ class TreeViewApp(App):
                     return None
                 
                 target_node = find_node(tree.root)
+                
                 if target_node:
+                    # Node exists - just select it
                     tree.move_cursor(target_node)
                     tree.scroll_to_node(target_node)
+                else:
+                    # Node not found - change tree root to file's parent directory
+                    tree.path = file_path.parent
+                    
+                    # After tree reloads, try to select the file
+                    def select_after_reload():
+                        node = find_node(tree.root)
+                        if node:
+                            tree.move_cursor(node)
+                            tree.scroll_to_node(node)
+                    
+                    self.set_timer(0.2, select_after_reload)
                 
-                # Then load the file
+                # Load the file in viewer
                 if file_path.is_file():
                     self.query_one(FileViewer).load_file(file_path)
                     self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
