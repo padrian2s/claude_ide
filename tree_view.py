@@ -955,8 +955,9 @@ class TreeViewApp(App):
                 
                 target_node = find_node(tree.root)
                 if target_node:
-                    tree.select_node(target_node)
+                    tree.move_cursor(target_node)
                     tree.scroll_to_node(target_node)
+                    tree.focus()
 
     def action_fzf_grep(self):
         """Grep with ripgrep + fzf."""
@@ -996,8 +997,9 @@ class TreeViewApp(App):
                     
                     target_node = find_node(tree.root)
                     if target_node:
-                        tree.select_node(target_node)
+                        tree.move_cursor(target_node)
                         tree.scroll_to_node(target_node)
+                        tree.focus()
 
     def action_file_manager(self):
         """Open dual panel file manager."""
