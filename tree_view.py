@@ -27,18 +27,22 @@ def format_size(size: int) -> str:
         return f"{size / (1024 * 1024 * 1024):>5.1f}G"
 
 
-# Fixed width for name column to align sizes
-NAME_WIDTH = 25
+# Width for name column to align sizes (narrow / wide)
+NAME_WIDTH_NARROW = 25
+NAME_WIDTH_WIDE = 50
 
 
 class SizedDirectoryTree(DirectoryTree):
     """DirectoryTree with file sizes displayed."""
+
+    name_width = NAME_WIDTH_NARROW
 
     def render_label(self, node, base_style, style):
         """Render label with right-aligned size column."""
         path = node.data.path
         label = Text()
         name = str(node.label)
+        width = self.name_width
 
         # Get icon and name
         if path.is_dir():
@@ -49,11 +53,11 @@ class SizedDirectoryTree(DirectoryTree):
             icon = "📄 "
 
             # Truncate or pad name to fixed width
-            if len(name) > NAME_WIDTH:
-                name = name[:NAME_WIDTH-1] + "…"
+            if len(name) > width:
+                name = name[:width-1] + "…"
 
             label.append(icon)
-            label.append(f"{name:<{NAME_WIDTH}}", style=style)
+            label.append(f"{name:<{width}}", style=style)
 
             # Add right-aligned size
             try:
@@ -273,8 +277,15 @@ class TreeViewApp(App):
         """Toggle tree panel between narrow and wide."""
         tree_panel = self.query_one("#tree-panel")
         viewer_panel = self.query_one("#viewer-panel")
+        tree = self.query_one("#tree", SizedDirectoryTree)
+
         tree_panel.toggle_class("expanded")
         viewer_panel.toggle_class("shrunk")
+
+        # Update name width and refresh tree
+        is_wide = tree_panel.has_class("expanded")
+        tree.name_width = NAME_WIDTH_WIDE if is_wide else NAME_WIDTH_NARROW
+        tree.refresh()
 
     def action_open_system(self):
         """Open selected file/folder with system default app."""
