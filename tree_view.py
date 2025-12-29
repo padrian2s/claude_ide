@@ -938,26 +938,29 @@ class TreeViewApp(App):
             if path.is_file():
                 self.query_one(FileViewer).load_file(path)
                 self.notify(f"Opened: {path.name}", timeout=1)
-                
-                # Try to select the file in the tree
-                tree = self.query_one("#tree", SizedDirectoryTree)
-                
-                # Find node matching this path
-                def find_node(node):
-                    if hasattr(node, 'data') and node.data and hasattr(node.data, 'path'):
-                        if node.data.path == path:
+            
+            # Try to select the file in the tree (even for binary files)
+            tree = self.query_one("#tree", SizedDirectoryTree)
+            
+            # Find node matching this path
+            def find_node(node):
+                if hasattr(node, 'data') and node.data and hasattr(node.data, 'path'):
+                    try:
+                        if node.data.path.resolve() == path:
                             return node
-                    for child in node.children:
-                        found = find_node(child)
-                        if found:
-                            return found
-                    return None
-                
-                target_node = find_node(tree.root)
-                if target_node:
-                    tree.move_cursor(target_node)
-                    tree.scroll_to_node(target_node)
-                    tree.focus()
+                    except:
+                        pass
+                for child in node.children:
+                    found = find_node(child)
+                    if found:
+                        return found
+                return None
+            
+            target_node = find_node(tree.root)
+            if target_node:
+                tree.move_cursor(target_node)
+                tree.scroll_to_node(target_node)
+                tree.focus()
 
     def action_fzf_grep(self):
         """Grep with ripgrep + fzf."""
@@ -980,26 +983,29 @@ class TreeViewApp(App):
                 if file_path.is_file():
                     self.query_one(FileViewer).load_file(file_path)
                     self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
-                    
-                    # Try to select the file in the tree
-                    tree = self.query_one("#tree", SizedDirectoryTree)
-                    
-                    # Find node matching this path
-                    def find_node(node):
-                        if hasattr(node, 'data') and node.data and hasattr(node.data, 'path'):
-                            if node.data.path == file_path:
+                
+                # Try to select the file in the tree
+                tree = self.query_one("#tree", SizedDirectoryTree)
+                
+                # Find node matching this path
+                def find_node(node):
+                    if hasattr(node, 'data') and node.data and hasattr(node.data, 'path'):
+                        try:
+                            if node.data.path.resolve() == file_path:
                                 return node
-                        for child in node.children:
-                            found = find_node(child)
-                            if found:
-                                return found
-                        return None
-                    
-                    target_node = find_node(tree.root)
-                    if target_node:
-                        tree.move_cursor(target_node)
-                        tree.scroll_to_node(target_node)
-                        tree.focus()
+                        except:
+                            pass
+                    for child in node.children:
+                        found = find_node(child)
+                        if found:
+                            return found
+                    return None
+                
+                target_node = find_node(tree.root)
+                if target_node:
+                    tree.move_cursor(target_node)
+                    tree.scroll_to_node(target_node)
+                    tree.focus()
 
     def action_file_manager(self):
         """Open dual panel file manager."""
