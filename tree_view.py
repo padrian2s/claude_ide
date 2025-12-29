@@ -111,6 +111,11 @@ class FileItem(ListItem):
 class DualPanelScreen(ModalScreen):
     """Dual panel file manager for copying files."""
 
+    # Session persistence - class variables to remember paths
+    _session_left_path: Path = None
+    _session_right_path: Path = None
+    _session_sort_by_date: bool = False
+
     CSS = """
     DualPanelScreen {
         align: center middle;
@@ -172,15 +177,25 @@ class DualPanelScreen(ModalScreen):
         ("backspace", "go_up", "Up"),
         ("c", "copy_selected", "Copy"),
         ("a", "select_all", "All"),
-        ("n", "select_none", "None"),
+        ("s", "toggle_sort", "Sort"),
         ("bracketleft", "go_first", "First"),
         ("bracketright", "go_last", "Last"),
     ]
 
     def __init__(self, start_path: Path = None):
         super().__init__()
-        self.left_path = start_path or Path.cwd()
-        self.right_path = Path.home()
+        # Use session paths if available, otherwise defaults
+        if DualPanelScreen._session_left_path:
+            self.left_path = DualPanelScreen._session_left_path
+        else:
+            self.left_path = start_path or Path.cwd()
+
+        if DualPanelScreen._session_right_path:
+            self.right_path = DualPanelScreen._session_right_path
+        else:
+            self.right_path = Path.home()
+
+        self.sort_by_date = DualPanelScreen._session_sort_by_date
         self.selected_left: set[Path] = set()
         self.selected_right: set[Path] = set()
         self.active_panel = "left"
@@ -199,11 +214,23 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  n:none  \\[\\]:jump  q:close", id="help-bar")
+            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  s:sort  \\[\\]:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
-        self.query_one("#left-list", ListView).focus()
+        self._update_title()
+        list_view = self.query_one("#left-list", ListView)
+        list_view.focus()
+        # Position on first real item (skip "..")
+        if len(list_view.children) > 1:
+            list_view.index = 1
+        elif list_view.children:
+            list_view.index = 0
+
+    def _update_title(self):
+        """Update title to show current sort mode."""
+        sort_mode = "date" if self.sort_by_date else "name"
+        self.query_one("#dual-title", Label).update(f"File Manager (sort: {sort_mode})")
 
     def refresh_panels(self):
         """Refresh both panel contents."""
@@ -223,17 +250,47 @@ class DualPanelScreen(ModalScreen):
             if path.parent != path:
                 list_view.append(FileItem(path.parent, is_selected=False, is_parent=True))
 
-            # List contents
-            items = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+            # List contents with sorting
+            all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
+
+            if self.sort_by_date:
+                # Sort by access time (most recent first), dirs first
+                def sort_key(p):
+                    try:
+                        atime = p.stat().st_atime
+                    except:
+                        atime = 0
+                    return (not p.is_dir(), -atime)
+            else:
+                # Sort by name, dirs first
+                def sort_key(p):
+                    return (not p.is_dir(), p.name.lower())
+
+            items = sorted(all_items, key=sort_key)
             for item in items:
-                if not item.name.startswith("."):
-                    list_view.append(FileItem(item, item in selected))
+                list_view.append(FileItem(item, item in selected))
         except PermissionError:
             pass
 
     def action_close(self):
         if not self.copying:
+            # Save paths for session persistence
+            DualPanelScreen._session_left_path = self.left_path
+            DualPanelScreen._session_right_path = self.right_path
+            DualPanelScreen._session_sort_by_date = self.sort_by_date
             self.dismiss()
+
+    def action_toggle_sort(self):
+        """Toggle between name and date sorting."""
+        self.sort_by_date = not self.sort_by_date
+        DualPanelScreen._session_sort_by_date = self.sort_by_date
+        self._update_title()
+        self.refresh_panels()
+        # Position on first real item
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if len(list_view.children) > 1:
+            list_view.index = 1
+        list_view.focus()
 
     def action_switch_panel(self):
         """Switch focus between panels."""
@@ -274,11 +331,20 @@ class DualPanelScreen(ModalScreen):
                     self.left_path = item.path
                     self.selected_left.clear()
                     self.active_panel = "left"
+                    DualPanelScreen._session_left_path = item.path
                 else:
                     self.right_path = item.path
                     self.selected_right.clear()
                     self.active_panel = "right"
+                    DualPanelScreen._session_right_path = item.path
                 self.refresh_panels()
+                # Position cursor on first real item (skip "..")
+                list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+                if len(list_view.children) > 1:
+                    list_view.index = 1
+                elif list_view.children:
+                    list_view.index = 0
+                list_view.focus()
 
     def action_go_up(self):
         """Go to parent directory."""
