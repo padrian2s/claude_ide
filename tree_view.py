@@ -535,14 +535,17 @@ class DualPanelScreen(ModalScreen):
         self._refresh_single_panel(self.active_panel)
 
     def action_select_all(self):
-        """Select all items in current panel."""
+        """Toggle select all / unselect all in current panel."""
         path = self.left_path if self.active_panel == "left" else self.right_path
         selected = self.selected_left if self.active_panel == "left" else self.selected_right
 
         try:
-            for item in path.iterdir():
-                if not item.name.startswith("."):
-                    selected.add(item)
+            all_items = {item for item in path.iterdir() if not item.name.startswith(".")}
+            # If all are selected, unselect all; otherwise select all
+            if all_items and all_items <= selected:
+                selected.clear()
+            else:
+                selected.update(all_items)
         except:
             pass
         self._refresh_single_panel(self.active_panel)
