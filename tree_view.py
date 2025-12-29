@@ -183,8 +183,7 @@ class DualPanelScreen(ModalScreen):
         ("s", "toggle_sort", "Sort"),
         Binding("home", "go_first", "Home", priority=True),
         Binding("end", "go_last", "End", priority=True),
-        Binding("g", "go_first", "g=first"),
-        Binding("G", "go_last", "G=last"),
+        Binding("g", "toggle_position", "g=toggle"),
         ("pageup", "page_up", "PgUp"),
         ("pagedown", "page_down", "PgDn"),
     ]
@@ -222,7 +221,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  s:sort  g/G:jump  q:close", id="help-bar")
+            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  s:sort  g:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -422,7 +421,6 @@ class DualPanelScreen(ModalScreen):
         if list_view.children:
             list_view.index = 0
             list_view.focus()
-            # Scroll to top
             list_view.scroll_home(animate=False)
 
     def action_go_last(self):
@@ -431,8 +429,22 @@ class DualPanelScreen(ModalScreen):
         if list_view.children:
             list_view.index = len(list_view.children) - 1
             list_view.focus()
-            # Scroll to bottom
             list_view.scroll_end(animate=False)
+
+    def action_toggle_position(self):
+        """Toggle between first and last item."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if list_view.children:
+            current = list_view.index if list_view.index is not None else 0
+            if current == 0:
+                # At first, go to last
+                list_view.index = len(list_view.children) - 1
+                list_view.scroll_end(animate=False)
+            else:
+                # Go to first
+                list_view.index = 0
+                list_view.scroll_home(animate=False)
+            list_view.focus()
 
     def action_page_up(self):
         """Move up by visible page size."""
