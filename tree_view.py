@@ -7,6 +7,7 @@ import subprocess
 import threading
 from pathlib import Path
 from textual.app import App, ComposeResult
+from textual import work
 from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar, Input
 from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -40,21 +41,33 @@ class SizedDirectoryTree(DirectoryTree):
 
     name_width = NAME_WIDTH_NARROW
 
-    def filter_paths(self, paths):
-        """Filter paths and add '..' for parent directory."""
-        # Get the current directory path
-        parent = self.path.parent
+    @work(thread=True, exit_on_error=False)
+    def _load_directory(self, node) -> list[Path]:
+        """Load directory contents with '..' at the top."""
+        assert node.data is not None
+        dir_path = node.data.path.expanduser().resolve()
+        
+        # Get directory contents
+        try:
+            entries = list(dir_path.iterdir())
+        except PermissionError:
+            entries = []
+        
+        # Filter hidden files and sort
+        filtered = [p for p in entries if not p.name.startswith(".")]
+        sorted_entries = sorted(
+            filtered,
+            key=lambda p: (not p.is_dir(), p.name.lower())
+        )
+        
+        # Add ".." at the top if not at root (only for the root node of the tree)
         result = []
+        if node == self.root:
+            parent = dir_path.parent
+            if parent != dir_path:
+                result.append(parent)
         
-        # Add parent directory entry if not at root
-        if parent != self.path:
-            result.append(parent)
-        
-        # Add filtered paths (exclude hidden files)
-        for p in paths:
-            if not p.name.startswith("."):
-                result.append(p)
-        
+        result.extend(sorted_entries)
         return result
 
     def render_label(self, node, base_style, style):
@@ -65,7 +78,7 @@ class SizedDirectoryTree(DirectoryTree):
         width = self.name_width
 
         # Special case for parent directory ".."
-        if path == self.path.parent and path != self.path:
+        if node.parent == self.root and path == self.path.parent and path != self.path:
             label.append("📁 ")
             label.append("..", style="bold cyan")
             return label
