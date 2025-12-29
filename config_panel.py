@@ -30,7 +30,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark", "status_position": "bottom"}
+    return {"theme": "Gruvbox Dark", "status_position": "top"}
 
 
 def save_config(config: dict):
