@@ -867,6 +867,8 @@ class TreeViewApp(App):
         Binding("w", "toggle_width", "Wide"),
         Binding("o", "open_system", "Open"),
         Binding("m", "file_manager", "Manager"),
+        Binding("g", "toggle_position", "g=jump"),
+        Binding("backspace", "go_parent", "Parent"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -1032,6 +1034,45 @@ class TreeViewApp(App):
                 if file_path.is_file():
                     self.query_one(FileViewer).load_file(file_path)
                     self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
+
+
+    def action_toggle_position(self):
+        """Toggle between first and last item in tree."""
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        if tree.cursor_node:
+            # Get all visible nodes
+            def get_all_nodes(node, nodes=None):
+                if nodes is None:
+                    nodes = []
+                nodes.append(node)
+                if node.is_expanded:
+                    for child in node.children:
+                        get_all_nodes(child, nodes)
+                return nodes
+            
+            all_nodes = get_all_nodes(tree.root)
+            if all_nodes:
+                current = tree.cursor_node
+                first_node = all_nodes[0]
+                last_node = all_nodes[-1]
+                
+                # Toggle: if at first, go to last; otherwise go to first
+                if current == first_node:
+                    tree.move_cursor(last_node)
+                    tree.scroll_to_node(last_node)
+                else:
+                    tree.move_cursor(first_node)
+                    tree.scroll_to_node(first_node)
+
+    def action_go_parent(self):
+        """Navigate to parent directory in tree."""
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        current_path = tree.path
+        parent_path = current_path.parent
+        
+        if parent_path != current_path:
+            tree.path = parent_path
+            self.notify(f"📁 {parent_path.name or parent_path}", timeout=1)
 
     def action_file_manager(self):
         """Open dual panel file manager."""
