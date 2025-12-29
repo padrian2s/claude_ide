@@ -424,6 +424,12 @@ class DualPanelScreen(ModalScreen):
         if isinstance(event.item, FileItem):
             item = event.item
             if item.path.is_dir():
+                # Clear search state when entering directory
+                if self.search_active:
+                    self.search_active = False
+                    self.search_filter = ""
+                    search_container = self.query_one("#search-container")
+                    search_container.remove_class("visible")
                 # Determine which panel based on the list's id
                 list_id = event.list_view.id
                 if list_id == "left-list":
@@ -441,6 +447,12 @@ class DualPanelScreen(ModalScreen):
 
     def action_go_up(self):
         """Go to parent directory."""
+        # Clear search state when navigating
+        if self.search_active:
+            self.search_active = False
+            self.search_filter = ""
+            search_container = self.query_one("#search-container")
+            search_container.remove_class("visible")
         if self.active_panel == "left":
             if self.left_path.parent != self.left_path:
                 self.left_path = self.left_path.parent
