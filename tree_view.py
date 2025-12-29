@@ -266,19 +266,26 @@ class RenameDialog(ModalScreen):
         align: center middle;
     }
     #rename-dialog {
-        width: 60;
-        height: 8;
-        border: solid cyan;
+        width: 80%;
+        max-width: 100;
+        height: auto;
+        border: double cyan;
         background: $surface;
         padding: 1 2;
     }
     #rename-title {
         text-align: center;
         text-style: bold;
+        color: cyan;
         margin-bottom: 1;
     }
     #rename-input {
         margin-bottom: 1;
+        border: solid white;
+    }
+    #rename-help {
+        text-align: center;
+        color: $text-muted;
     }
     """
 
@@ -292,9 +299,9 @@ class RenameDialog(ModalScreen):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="rename-dialog"):
-            yield Label("Rename", id="rename-title")
+            yield Label("✏ Rename", id="rename-title")
             yield Input(value=self.current_name, id="rename-input")
-            yield Label("[Enter] Confirm  [Esc] Cancel")
+            yield Label("[Enter] Confirm  [Esc] Cancel", id="rename-help")
 
     def on_mount(self):
         input_widget = self.query_one("#rename-input", Input)
