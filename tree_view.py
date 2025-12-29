@@ -234,6 +234,7 @@ class TreeViewApp(App):
         Binding("/", "fzf_grep", "Grep", priority=True),
         Binding("tab", "toggle_focus", "Switch Panel"),
         Binding("w", "toggle_width", "Wide"),
+        Binding("o", "open_system", "Open"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -274,6 +275,14 @@ class TreeViewApp(App):
         viewer_panel = self.query_one("#viewer-panel")
         tree_panel.toggle_class("expanded")
         viewer_panel.toggle_class("shrunk")
+
+    def action_open_system(self):
+        """Open selected file/folder with system default app."""
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        if tree.cursor_node and tree.cursor_node.data:
+            path = tree.cursor_node.data.path
+            subprocess.run(["open", str(path)])
+            self.notify(f"Opened: {path.name}", timeout=1)
 
     def action_fzf_files(self):
         """Fuzzy find files with fzf."""
