@@ -181,8 +181,8 @@ class DualPanelScreen(ModalScreen):
         ("c", "copy_selected", "Copy"),
         ("a", "select_all", "All"),
         ("s", "toggle_sort", "Sort"),
-        ("home", "go_first", "Home"),
-        ("end", "go_last", "End"),
+        Binding("home", "go_first", "Home", priority=True),
+        Binding("end", "go_last", "End", priority=True),
         ("pageup", "page_up", "PgUp"),
         ("pagedown", "page_down", "PgDn"),
     ]
