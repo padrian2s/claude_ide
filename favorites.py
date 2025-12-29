@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Favorites panel - browse folders from ~/work and ~/personal, mark favorites, copy path to clipboard."""
+"""Favorites panel - browse folders from configurable root dirs, mark favorites, copy path to clipboard."""
 
 import json
 import subprocess
@@ -8,24 +8,54 @@ from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, ListItem, Static, Label, Input
 from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
 
-FAVORITES_FILE = Path(__file__).parent / ".tui_favorites.json"
-SOURCE_DIRS = [Path.home() / "work", Path.home() / "personal"]
+CONFIG_FILE = Path(__file__).parent / ".tui_favorites.json"
+DEFAULT_ROOTS = [str(Path.home() / "work"), str(Path.home() / "personal")]
+
+
+def load_config() -> dict:
+    """Load config from file."""
+    if CONFIG_FILE.exists():
+        try:
+            data = json.loads(CONFIG_FILE.read_text())
+            # Migration: old format was just a list of favorites
+            if isinstance(data, list):
+                return {"favorites": data, "roots": DEFAULT_ROOTS}
+            return data
+        except Exception:
+            pass
+    return {"favorites": [], "roots": DEFAULT_ROOTS}
+
+
+def save_config(config: dict):
+    """Save config to file."""
+    CONFIG_FILE.write_text(json.dumps(config, indent=2))
 
 
 def load_favorites() -> set:
-    """Load favorites from file."""
-    if FAVORITES_FILE.exists():
-        try:
-            return set(json.loads(FAVORITES_FILE.read_text()))
-        except Exception:
-            pass
-    return set()
+    """Load favorites from config."""
+    return set(load_config().get("favorites", []))
 
 
 def save_favorites(favorites: set):
-    """Save favorites to file."""
-    FAVORITES_FILE.write_text(json.dumps(sorted(favorites), indent=2))
+    """Save favorites to config."""
+    config = load_config()
+    config["favorites"] = sorted(favorites)
+    save_config(config)
+
+
+def load_roots() -> list[Path]:
+    """Load root folders from config."""
+    config = load_config()
+    return [Path(p) for p in config.get("roots", DEFAULT_ROOTS)]
+
+
+def save_roots(roots: list[Path]):
+    """Save root folders to config."""
+    config = load_config()
+    config["roots"] = [str(p) for p in roots]
+    save_config(config)
 
 
 def copy_to_clipboard(text: str):
@@ -34,15 +64,110 @@ def copy_to_clipboard(text: str):
     process.communicate(text.encode("utf-8"))
 
 
-def get_folders() -> list[Path]:
-    """Get all immediate subdirectories from source dirs."""
+def get_folders(roots: list[Path]) -> list[Path]:
+    """Get all immediate subdirectories from root dirs."""
     folders = []
-    for source in SOURCE_DIRS:
+    for source in roots:
         if source.exists() and source.is_dir():
             for item in sorted(source.iterdir()):
                 if item.is_dir() and not item.name.startswith("."):
                     folders.append(item)
     return folders
+
+
+class RootItem(ListItem):
+    """A root folder item."""
+
+    def __init__(self, path: Path):
+        super().__init__()
+        self.path = path
+
+    def compose(self) -> ComposeResult:
+        exists = "✓" if self.path.exists() else "✗"
+        yield Static(f" {exists}  {self.path}")
+
+
+class AdminScreen(ModalScreen):
+    """Admin screen to manage root folders."""
+
+    CSS = """
+    AdminScreen {
+        align: center middle;
+    }
+    #admin-dialog {
+        width: 70;
+        height: 20;
+        border: solid green;
+        background: $surface;
+        padding: 1;
+    }
+    #admin-title {
+        text-align: center;
+        text-style: bold;
+        height: 1;
+        margin-bottom: 1;
+    }
+    #roots-list {
+        height: 1fr;
+        border: solid gray;
+    }
+    #admin-input {
+        margin-top: 1;
+    }
+    #admin-help {
+        height: 1;
+        margin-top: 1;
+        text-align: center;
+        color: $text-muted;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("d", "delete_root", "Delete"),
+        ("enter", "add_root", "Add"),
+    ]
+
+    def __init__(self, roots: list[Path]):
+        super().__init__()
+        self.roots = roots
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="admin-dialog"):
+            yield Label("⚙ Root Folders", id="admin-title")
+            yield ListView(id="roots-list")
+            yield Input(placeholder="Add folder path (e.g. ~/projects)", id="admin-input")
+            yield Label("Enter:add  d:delete  Esc:close", id="admin-help")
+
+    def on_mount(self):
+        self.refresh_roots()
+
+    def refresh_roots(self):
+        roots_list = self.query_one("#roots-list", ListView)
+        roots_list.clear()
+        for root in self.roots:
+            roots_list.append(RootItem(root))
+
+    def action_close(self):
+        self.dismiss(self.roots)
+
+    def action_delete_root(self):
+        roots_list = self.query_one("#roots-list", ListView)
+        if roots_list.highlighted_child and isinstance(roots_list.highlighted_child, RootItem):
+            path = roots_list.highlighted_child.path
+            if path in self.roots:
+                self.roots.remove(path)
+                self.refresh_roots()
+
+    def action_add_root(self):
+        input_widget = self.query_one("#admin-input", Input)
+        path_str = input_widget.value.strip()
+        if path_str:
+            path = Path(path_str).expanduser()
+            if path not in self.roots:
+                self.roots.append(path)
+                self.refresh_roots()
+            input_widget.value = ""
 
 
 class FolderItem(ListItem):
@@ -137,11 +262,13 @@ class FavoritesPanel(App):
         ("r", "refresh", "Refresh"),
         ("/", "start_search", "Search"),
         ("escape", "cancel_search", "Cancel"),
+        ("a", "open_admin", "Admin"),
     ]
 
     def __init__(self):
         super().__init__()
         self.favorites = load_favorites()
+        self.roots = load_roots()
         self.all_folders: list[Path] = []
         self.search_active = False
 
@@ -160,14 +287,14 @@ class FavoritesPanel(App):
 
     def on_mount(self):
         self.title = "Favorites"
-        self.sub_title = "/:search  Enter:add ★  Space:copy  x:remove  TAB:switch  q:quit"
+        self.sub_title = "/:search  Enter:★  Space:copy  x:remove  a:admin  q:quit"
         self.query_one("#search-input", Input).display = False
         self.refresh_lists()
         self.query_one("#folder-list", ListView).focus()
 
     def refresh_lists(self, filter_text: str = ""):
         """Refresh both lists with optional filter."""
-        self.all_folders = get_folders()
+        self.all_folders = get_folders(self.roots)
 
         # Filter folders if search active
         if filter_text:
@@ -321,6 +448,16 @@ class FavoritesPanel(App):
         search_input.display = False
         folder_list = self.query_one("#folder-list", ListView)
         folder_list.focus()
+
+    def action_open_admin(self):
+        """Open admin screen to manage root folders."""
+        def handle_admin_result(roots: list[Path] | None):
+            if roots is not None:
+                self.roots = roots
+                save_roots(roots)
+                self.refresh_lists()
+
+        self.push_screen(AdminScreen(list(self.roots)), handle_admin_result)
 
 
 if __name__ == "__main__":

@@ -91,6 +91,7 @@ tmux status bar at bottom shows all windows:
 | Enter | Add to ★ (left panel) |
 | Space | Copy path to clipboard |
 | x | Remove from ★ |
+| a | Admin (configure root folders) |
 | q | Quit |
 
 ## Dependencies
