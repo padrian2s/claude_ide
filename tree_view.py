@@ -111,10 +111,11 @@ class FileItem(ListItem):
 class DualPanelScreen(ModalScreen):
     """Dual panel file manager for copying files."""
 
-    # Session persistence - class variables to remember paths
+    # Session persistence - class variables to remember paths and sort per panel
     _session_left_path: Path = None
     _session_right_path: Path = None
-    _session_sort_by_date: bool = False
+    _session_sort_left: bool = False  # False = name, True = date
+    _session_sort_right: bool = False
 
     CSS = """
     DualPanelScreen {
@@ -197,7 +198,8 @@ class DualPanelScreen(ModalScreen):
         else:
             self.right_path = Path.home()
 
-        self.sort_by_date = DualPanelScreen._session_sort_by_date
+        self.sort_left = DualPanelScreen._session_sort_left
+        self.sort_right = DualPanelScreen._session_sort_right
         self.selected_left: set[Path] = set()
         self.selected_right: set[Path] = set()
         self.active_panel = "left"
@@ -230,9 +232,8 @@ class DualPanelScreen(ModalScreen):
             list_view.index = 0
 
     def _update_title(self):
-        """Update title to show current sort mode."""
-        sort_mode = "⏱ date" if self.sort_by_date else "🔤 name"
-        self.query_one("#dual-title", Label).update(f"File Manager  \\[s:{sort_mode}\\]")
+        """Update title - sort shown per panel in headers."""
+        self.query_one("#dual-title", Label).update("File Manager  \\[s:toggle sort\\]")
 
     def refresh_panels(self):
         """Refresh both panel contents."""
@@ -244,8 +245,11 @@ class DualPanelScreen(ModalScreen):
         list_view = self.query_one(f"#{side}-list", ListView)
         path_label = self.query_one(f"#{side}-path", Static)
 
+        # Get sort setting for this panel
+        sort_by_date = self.sort_left if side == "left" else self.sort_right
+
         # Show path with sort indicator
-        sort_icon = "⏱" if self.sort_by_date else "🔤"
+        sort_icon = "⏱" if sort_by_date else "🔤"
         path_label.update(f"{sort_icon} {path}")
         list_view.clear()
 
@@ -257,7 +261,7 @@ class DualPanelScreen(ModalScreen):
             # List contents with sorting
             all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
 
-            if self.sort_by_date:
+            if sort_by_date:
                 # Sort by access time (most recent first), dirs first
                 def sort_key(p):
                     try:
@@ -297,23 +301,23 @@ class DualPanelScreen(ModalScreen):
 
     def action_close(self):
         if not self.copying:
-            # Save paths for session persistence
+            # Save paths and sort settings for session persistence
             DualPanelScreen._session_left_path = self.left_path
             DualPanelScreen._session_right_path = self.right_path
-            DualPanelScreen._session_sort_by_date = self.sort_by_date
+            DualPanelScreen._session_sort_left = self.sort_left
+            DualPanelScreen._session_sort_right = self.sort_right
             self.dismiss()
 
     def action_toggle_sort(self):
-        """Toggle between name and date sorting."""
-        self.sort_by_date = not self.sort_by_date
-        DualPanelScreen._session_sort_by_date = self.sort_by_date
-        self._update_title()
-        # Refresh both panels with new sort
-        self._refresh_panel("left", self.left_path, self.selected_left)
-        self._refresh_panel("right", self.right_path, self.selected_right)
-        # Set cursor after refresh
-        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
-        self.set_timer(0.01, lambda: self._set_cursor(list_view))
+        """Toggle sort for active panel only."""
+        if self.active_panel == "left":
+            self.sort_left = not self.sort_left
+            DualPanelScreen._session_sort_left = self.sort_left
+        else:
+            self.sort_right = not self.sort_right
+            DualPanelScreen._session_sort_right = self.sort_right
+        # Refresh only active panel
+        self._refresh_single_panel(self.active_panel)
 
     def action_switch_panel(self):
         """Switch focus between panels."""
@@ -420,9 +424,9 @@ class DualPanelScreen(ModalScreen):
         """Move up by visible page size."""
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         if list_view.children:
-            # Estimate visible items (list height / item height ~= 1 line each)
+            current = list_view.index if list_view.index is not None else 0
             page_size = max(1, list_view.size.height - 2)
-            new_index = max(0, list_view.index - page_size)
+            new_index = max(0, current - page_size)
             list_view.index = new_index
             list_view.focus()
 
@@ -430,8 +434,9 @@ class DualPanelScreen(ModalScreen):
         """Move down by visible page size."""
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         if list_view.children:
+            current = list_view.index if list_view.index is not None else 0
             page_size = max(1, list_view.size.height - 2)
-            new_index = min(len(list_view.children) - 1, list_view.index + page_size)
+            new_index = min(len(list_view.children) - 1, current + page_size)
             list_view.index = new_index
             list_view.focus()
 
