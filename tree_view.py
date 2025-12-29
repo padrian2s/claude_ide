@@ -6,12 +6,54 @@ import subprocess
 from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.widgets import DirectoryTree, Static, Header, Markdown
+from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.reactive import reactive
 from rich.syntax import Syntax
 from rich.text import Text
 from rich.console import Group
+
+
+def format_size(size: int) -> str:
+    """Format file size in human readable format."""
+    if size < 1024:
+        return f"{size}B"
+    elif size < 1024 * 1024:
+        return f"{size / 1024:.1f}K"
+    elif size < 1024 * 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f}M"
+    else:
+        return f"{size / (1024 * 1024 * 1024):.1f}G"
+
+
+class SizedDirectoryTree(DirectoryTree):
+    """DirectoryTree with file sizes displayed."""
+
+    def render_label(self, node, base_style, style):
+        """Render label with size column."""
+        path = node.data.path
+        label = Text()
+
+        # Get icon and name from parent
+        if path.is_dir():
+            icon = "📁 " if node.is_expanded else "📂 "
+            label.append(icon)
+            label.append(node.label, style=style)
+        else:
+            icon = "📄 "
+            label.append(icon)
+            label.append(node.label, style=style)
+
+            # Add size for files
+            try:
+                size = path.stat().st_size
+                size_str = format_size(size)
+                label.append(f"  {size_str}", style="dim")
+            except (OSError, PermissionError):
+                pass
+
+        return label
 
 
 class FileViewer(VerticalScroll):
@@ -181,12 +223,12 @@ class TreeViewApp(App):
         yield Header(show_clock=False)
         with Horizontal(id="main"):
             with Vertical(id="tree-panel"):
-                yield DirectoryTree(Path.cwd(), id="tree")
+                yield SizedDirectoryTree(Path.cwd(), id="tree")
             with Vertical(id="viewer-panel"):
                 yield FileViewer()
 
     def on_mount(self):
-        tree = self.query_one("#tree", DirectoryTree)
+        tree = self.query_one("#tree", SizedDirectoryTree)
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
@@ -197,7 +239,7 @@ class TreeViewApp(App):
         viewer.load_file(event.path)
 
     def action_toggle_focus(self):
-        tree = self.query_one("#tree", DirectoryTree)
+        tree = self.query_one("#tree", SizedDirectoryTree)
         viewer = self.query_one(FileViewer)
         if tree.has_focus:
             viewer.focus()
@@ -205,7 +247,7 @@ class TreeViewApp(App):
             tree.focus()
 
     def action_refresh(self):
-        tree = self.query_one("#tree", DirectoryTree)
+        tree = self.query_one("#tree", SizedDirectoryTree)
         tree.reload()
         self.notify("Tree refreshed", timeout=1)
 
