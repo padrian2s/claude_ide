@@ -127,6 +127,7 @@ tmux status bar shows all windows:
 | Enter | Enter directory / view file |
 | Backspace | Go to parent directory |
 | h | Go to home (initial start path) |
+| i | Sync other panel to same path |
 | Space | Toggle selection (multi-select) |
 | a | Select all / Unselect all (toggle) |
 | c | Copy selected to other panel |

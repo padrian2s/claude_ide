@@ -456,6 +456,7 @@ class DualPanelScreen(ModalScreen):
         ("pageup", "page_up", "PgUp"),
         ("pagedown", "page_down", "PgDn"),
         ("h", "go_home", "Home"),
+        ("i", "sync_panels", "Sync"),
     ]
 
     def __init__(self, start_path: Path = None):
@@ -509,7 +510,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("^S:search  Space:sel  c:copy  r:rename  d:del  a:all  s:sort  h:home  g:jump  q:close", id="help-bar")
+            yield Label("^S:search  Space:sel  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -751,6 +752,21 @@ class DualPanelScreen(ModalScreen):
         self._refresh_single_panel(self.active_panel)
         self._save_paths_to_config()
         self.notify(f"Home: {home_path}", timeout=1)
+
+    def action_sync_panels(self):
+        """Set other panel to same path as active panel (i key)."""
+        if self.active_panel == "left":
+            self.right_path = self.left_path
+            self.selected_right.clear()
+            DualPanelScreen._session_right_path = self.left_path
+            self._refresh_single_panel("right")
+        else:
+            self.left_path = self.right_path
+            self.selected_left.clear()
+            DualPanelScreen._session_left_path = self.right_path
+            self._refresh_single_panel("left")
+        self._save_paths_to_config()
+        self.notify(f"Synced panels", timeout=1)
 
     def action_select_all(self):
         """Toggle select all / unselect all in current panel."""
