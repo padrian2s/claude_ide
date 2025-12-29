@@ -30,7 +30,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark"}
+    return {"theme": "Gruvbox Dark", "status_position": "bottom"}
 
 
 def save_config(config: dict):
@@ -59,6 +59,26 @@ def apply_theme_to_tmux(theme_name: str):
             "tmux", "set-option", "-t", session,
             "status-style", f"bg={colors['bg']},fg={colors['fg']}"
         ])
+
+
+def apply_status_position(position: str):
+    """Apply status bar position to current tmux session."""
+    result = subprocess.run(
+        ["tmux", "display-message", "-p", "#{session_name}"],
+        capture_output=True, text=True
+    )
+    session = result.stdout.strip()
+    if session:
+        subprocess.run([
+            "tmux", "set-option", "-t", session,
+            "status-position", position
+        ])
+
+
+def get_status_position() -> str:
+    """Get current status position from config."""
+    config = load_config()
+    return config.get("status_position", "bottom")
 
 
 class ThemeItem(ListItem):
@@ -115,12 +135,14 @@ class ConfigPanel(App):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("escape", "quit", "Quit"),
+        Binding("p", "toggle_position", "Toggle Position"),
     ]
 
     def __init__(self):
         super().__init__()
         self.config = load_config()
         self.selected_theme = self.config.get("theme", "Catppuccin Mocha")
+        self.status_position = self.config.get("status_position", "bottom")
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -133,7 +155,8 @@ class ConfigPanel(App):
                 ],
                 id="theme-list"
             )
-            yield Static("Enter: Apply  |  q: Quit", id="help")
+            yield Static("", id="position-info")
+            yield Static("Enter: Apply  |  p: Toggle Position  |  q: Quit", id="help")
 
     def on_mount(self):
         self.title = "Config"
@@ -146,6 +169,12 @@ class ConfigPanel(App):
             if name == self.selected_theme:
                 list_view.index = i
                 break
+        self.update_position_info()
+
+    def update_position_info(self):
+        """Update position info display."""
+        pos_label = "TOP" if self.status_position == "top" else "BOTTOM"
+        self.query_one("#position-info", Static).update(f"Status Bar Position: [{pos_label}]")
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Handle theme selection on Enter."""
@@ -167,6 +196,15 @@ class ConfigPanel(App):
         for name, theme_colors in THEMES.items():
             list_view.append(ThemeItem(name, theme_colors, name == self.selected_theme))
         list_view.index = current_index
+
+    def action_toggle_position(self):
+        """Toggle status bar position between top and bottom."""
+        self.status_position = "top" if self.status_position == "bottom" else "bottom"
+        self.config["status_position"] = self.status_position
+        save_config(self.config)
+        apply_status_position(self.status_position)
+        self.update_position_info()
+        self.notify(f"Status bar: {self.status_position.upper()}", timeout=1)
 
 
 if __name__ == "__main__":

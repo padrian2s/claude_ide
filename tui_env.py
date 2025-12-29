@@ -14,8 +14,8 @@ LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
 CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
 FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
 
-# Import config to get saved theme
-from config_panel import get_theme_colors
+# Import config to get saved theme and position
+from config_panel import get_theme_colors, get_status_position
 
 
 def main():
@@ -68,8 +68,9 @@ def main():
         f" python3 '{CONFIG_SCRIPT}'", "Enter"
     ])
 
-    # Load saved theme
+    # Load saved theme and position
     theme = get_theme_colors()
+    status_position = get_status_position()
 
     # Enable focus events for focus tracking
     subprocess.run(["tmux", "set-option", "-t", SESSION, "focus-events", "on"])
@@ -85,6 +86,7 @@ def main():
 
     # Status bar
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "on"])
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "status-position", status_position])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-interval", "1"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", f"bg={theme['bg']},fg={theme['fg']}"])
     subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-format", " F#I:#W "])
