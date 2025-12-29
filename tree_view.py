@@ -38,15 +38,15 @@ class SizedDirectoryTree(DirectoryTree):
         """Render label with right-aligned size column."""
         path = node.data.path
         label = Text()
+        name = str(node.label)
 
         # Get icon and name
         if path.is_dir():
             icon = "📁 " if node.is_expanded else "📂 "
             label.append(icon)
-            label.append(node.label, style=style)
+            label.append(name, style=style)
         else:
             icon = "📄 "
-            name = str(node.label)
 
             # Truncate or pad name to fixed width
             if len(name) > NAME_WIDTH:
