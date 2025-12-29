@@ -197,9 +197,15 @@ class TreeViewApp(App):
         height: 100%;
         border-right: solid $primary;
     }
+    #tree-panel.expanded {
+        width: 50%;
+    }
     #viewer-panel {
         width: 80%;
         height: 100%;
+    }
+    #viewer-panel.shrunk {
+        width: 50%;
     }
     DirectoryTree {
         width: 100%;
@@ -227,6 +233,7 @@ class TreeViewApp(App):
         Binding("ctrl+p", "fzf_files", "Find File", priority=True),
         Binding("/", "fzf_grep", "Grep", priority=True),
         Binding("tab", "toggle_focus", "Switch Panel"),
+        Binding("w", "toggle_width", "Wide"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -242,7 +249,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find /:grep r:refresh TAB:switch q:quit"
+        self.sub_title = "^P:find /:grep w:wide TAB:switch q:quit"
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
@@ -260,6 +267,13 @@ class TreeViewApp(App):
         tree = self.query_one("#tree", SizedDirectoryTree)
         tree.reload()
         self.notify("Tree refreshed", timeout=1)
+
+    def action_toggle_width(self):
+        """Toggle tree panel between narrow and wide."""
+        tree_panel = self.query_one("#tree-panel")
+        viewer_panel = self.query_one("#viewer-panel")
+        tree_panel.toggle_class("expanded")
+        viewer_panel.toggle_class("shrunk")
 
     def action_fzf_files(self):
         """Fuzzy find files with fzf."""

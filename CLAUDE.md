@@ -76,6 +76,7 @@ tmux status bar at bottom shows all windows:
 | ↑/↓ | Navigate tree |
 | Enter | Open folder / view file |
 | TAB | Switch tree ↔ viewer |
+| w | Toggle wide tree (20% ↔ 50%) |
 | Ctrl+P | Fuzzy find files (fzf) |
 | / | Grep search (rg + fzf) |
 | q | Quit |
