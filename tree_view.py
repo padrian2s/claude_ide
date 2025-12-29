@@ -254,7 +254,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find /:grep w:wide TAB:switch q:quit"
+        self.sub_title = "^P:find /:grep o:open w:wide r:refresh TAB:switch q:quit"
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)

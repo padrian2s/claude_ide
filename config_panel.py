@@ -160,7 +160,7 @@ class ConfigPanel(App):
 
     def on_mount(self):
         self.title = "Config"
-        self.sub_title = "Select theme and press Enter"
+        self.sub_title = "Enter:apply  p:position  q:quit"
         # Focus the list and highlight current theme
         list_view = self.query_one("#theme-list", ListView)
         list_view.focus()
