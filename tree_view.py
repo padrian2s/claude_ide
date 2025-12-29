@@ -199,7 +199,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  n:none  [/]:jump  q:close", id="help-bar")
+            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  n:none  \\[\\]:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
