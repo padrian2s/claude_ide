@@ -598,6 +598,9 @@ class LizardTUI(App):
 
     def on_mount(self) -> None:
         """Initialize tables on mount."""
+        self.title = "Lizard"
+        self.sub_title = "r:refresh ^O:folders ^F:files 1/2/3:sort c:copy ?:legend ^Q:quit"
+
         # Setup functions table
         func_table = self.query_one("#functions-table", DataTable)
         func_table.add_columns(
