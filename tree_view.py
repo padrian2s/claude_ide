@@ -935,11 +935,8 @@ class TreeViewApp(App):
 
         if selected:
             path = Path(selected).resolve()
-            if path.is_file():
-                self.query_one(FileViewer).load_file(path)
-                self.notify(f"Opened: {path.name}", timeout=1)
             
-            # Try to select the file in the tree (even for binary files)
+            # Try to select the file in the tree FIRST
             tree = self.query_one("#tree", SizedDirectoryTree)
             
             # Find node matching this path
@@ -960,7 +957,11 @@ class TreeViewApp(App):
             if target_node:
                 tree.move_cursor(target_node)
                 tree.scroll_to_node(target_node)
-                tree.focus()
+            
+            # Then load the file
+            if path.is_file():
+                self.query_one(FileViewer).load_file(path)
+                self.notify(f"Opened: {path.name}", timeout=1)
 
     def action_fzf_grep(self):
         """Grep with ripgrep + fzf."""
@@ -980,11 +981,8 @@ class TreeViewApp(App):
             parts = selected.split(":", 2)
             if len(parts) >= 2:
                 file_path = Path(parts[0]).resolve()
-                if file_path.is_file():
-                    self.query_one(FileViewer).load_file(file_path)
-                    self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
                 
-                # Try to select the file in the tree
+                # Try to select the file in the tree FIRST
                 tree = self.query_one("#tree", SizedDirectoryTree)
                 
                 # Find node matching this path
@@ -1005,7 +1003,11 @@ class TreeViewApp(App):
                 if target_node:
                     tree.move_cursor(target_node)
                     tree.scroll_to_node(target_node)
-                    tree.focus()
+                
+                # Then load the file
+                if file_path.is_file():
+                    self.query_one(FileViewer).load_file(file_path)
+                    self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
 
     def action_file_manager(self):
         """Open dual panel file manager."""
