@@ -13,6 +13,7 @@ tmux session "tui-demo-{pid}"
 ├── Window 3 (F3): Tree + Viewer - Textual app (20% tree | 80% viewer)
 ├── Window 4 (F4): Lizard TUI - Python TUI app
 ├── Window 5 (F5): Glow - Markdown viewer
+├── Window 6 (F6): Favs - Folder favorites browser
 ├── Window 9 (F9): Config - Theme selector panel
 └── F10: Exit - kills session
 ```
@@ -62,6 +63,7 @@ tmux status bar at bottom shows all windows:
 | F3 | Tree + Viewer |
 | F4 | Lizard TUI |
 | F5 | Glow (Markdown viewer) |
+| F6 | Favorites (folder browser) |
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
 | F12 | Toggle key passthrough (for apps using F-keys) |
@@ -75,7 +77,19 @@ tmux status bar at bottom shows all windows:
 | Enter | Open folder / view file |
 | TAB | Switch tree ↔ viewer |
 | Ctrl+P | Fuzzy find files (fzf) |
-| Ctrl+F | Grep search (rg + fzf) |
+| / | Grep search (rg + fzf) |
+| q | Quit |
+
+### Favorites (F6)
+| Key | Action |
+|-----|--------|
+| ↑/↓ | Navigate folders |
+| / | Filter folders (fzf-style) |
+| Escape | Cancel filter |
+| TAB | Switch left ↔ right panel |
+| Enter | Add to ★ (left panel) |
+| Space | Copy path to clipboard |
+| x | Remove from ★ |
 | q | Quit |
 
 ## Dependencies
@@ -170,9 +184,11 @@ my_env/
 ├── tui_env.py      # tmux launcher (edit this to add windows)
 ├── tree_view.py    # Textual tree+viewer app (with fzf/rg search)
 ├── config_panel.py # Theme configuration panel
+├── favorites.py    # Folder favorites browser (~/work, ~/personal)
 ├── lizard_tui.py   # Lizard TUI app
 ├── start.sh        # convenience script
 ├── install.sh      # installer with dependency checks
-├── .tui_config.json # saved config (auto-generated)
-└── CLAUDE.md       # this file
+├── .tui_config.json    # saved config (auto-generated)
+├── .tui_favorites.json # saved favorites (auto-generated)
+└── CLAUDE.md           # this file
 ```

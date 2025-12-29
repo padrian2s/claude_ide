@@ -173,7 +173,7 @@ class TreeViewApp(App):
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
         Binding("ctrl+p", "fzf_files", "Find File", priority=True),
-        Binding("ctrl+f", "fzf_grep", "Grep", priority=True),
+        Binding("/", "fzf_grep", "Grep", priority=True),
         Binding("tab", "toggle_focus", "Switch Panel"),
     ]
 
@@ -190,7 +190,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find ^F:grep r:refresh TAB:switch q:quit"
+        self.sub_title = "^P:find /:grep r:refresh TAB:switch q:quit"
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
