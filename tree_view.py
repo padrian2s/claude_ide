@@ -2,14 +2,17 @@
 """Tree view with file viewer using Textual - split layout."""
 
 import os
+import shutil
 import subprocess
+import threading
 from pathlib import Path
 from textual.app import App, ComposeResult
-from textual.widgets import DirectoryTree, Static, Header, Markdown
+from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar
 from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.reactive import reactive
+from textual.screen import ModalScreen
 from rich.syntax import Syntax
 from rich.text import Text
 from rich.console import Group
@@ -68,6 +71,301 @@ class SizedDirectoryTree(DirectoryTree):
                 label.append("      ?", style="dim")
 
         return label
+
+
+class FileItem(ListItem):
+    """A file/directory item for the dual panel."""
+
+    def __init__(self, path: Path, is_selected: bool = False):
+        super().__init__()
+        self.path = path
+        self.is_selected = is_selected
+
+    def compose(self) -> ComposeResult:
+        is_dir = self.path.is_dir()
+        icon = "📁" if is_dir else "📄"
+        mark = "●" if self.is_selected else " "
+        name = self.path.name or str(self.path)
+
+        try:
+            size = "" if is_dir else format_size(self.path.stat().st_size)
+        except:
+            size = ""
+
+        yield Static(f"{mark} {icon} {name:<30} {size}")
+
+
+class DualPanelScreen(ModalScreen):
+    """Dual panel file manager for copying files."""
+
+    CSS = """
+    DualPanelScreen {
+        align: center middle;
+    }
+    #dual-container {
+        width: 95%;
+        height: 90%;
+        background: $surface;
+        border: solid $primary;
+    }
+    #dual-title {
+        height: 1;
+        text-align: center;
+        text-style: bold;
+        background: $primary;
+    }
+    #panels {
+        height: 1fr;
+    }
+    .panel {
+        width: 50%;
+        height: 100%;
+        border: solid gray;
+    }
+    .panel:focus-within {
+        border: solid green;
+    }
+    .panel-header {
+        height: 1;
+        background: $primary-background;
+        padding: 0 1;
+    }
+    .panel-list {
+        height: 1fr;
+    }
+    #progress-container {
+        height: 3;
+        padding: 0 1;
+        display: none;
+    }
+    #progress-container.visible {
+        display: block;
+    }
+    #help-bar {
+        height: 1;
+        background: $primary-background;
+        text-align: center;
+    }
+    ListItem {
+        padding: 0;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("q", "close", "Close"),
+        ("tab", "switch_panel", "Switch"),
+        ("space", "toggle_select", "Select"),
+        ("enter", "enter_dir", "Enter"),
+        ("backspace", "go_up", "Up"),
+        ("c", "copy_selected", "Copy"),
+        ("a", "select_all", "All"),
+        ("n", "select_none", "None"),
+    ]
+
+    def __init__(self, start_path: Path = None):
+        super().__init__()
+        self.left_path = start_path or Path.cwd()
+        self.right_path = Path.home()
+        self.selected_left: set[Path] = set()
+        self.selected_right: set[Path] = set()
+        self.active_panel = "left"
+        self.copying = False
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dual-container"):
+            yield Label("File Manager", id="dual-title")
+            with Horizontal(id="panels"):
+                with Vertical(id="left-panel", classes="panel"):
+                    yield Static("", id="left-path", classes="panel-header")
+                    yield ListView(id="left-list", classes="panel-list")
+                with Vertical(id="right-panel", classes="panel"):
+                    yield Static("", id="right-path", classes="panel-header")
+                    yield ListView(id="right-list", classes="panel-list")
+            with Vertical(id="progress-container"):
+                yield Static("", id="progress-text")
+                yield ProgressBar(id="progress-bar", total=100)
+            yield Label("TAB:switch  Space:select  Enter:open  Backspace:up  c:copy  a:all  n:none  q:close", id="help-bar")
+
+    def on_mount(self):
+        self.refresh_panels()
+        self.query_one("#left-list", ListView).focus()
+
+    def refresh_panels(self):
+        """Refresh both panel contents."""
+        self._refresh_panel("left", self.left_path, self.selected_left)
+        self._refresh_panel("right", self.right_path, self.selected_right)
+
+    def _refresh_panel(self, side: str, path: Path, selected: set):
+        """Refresh a single panel."""
+        list_view = self.query_one(f"#{side}-list", ListView)
+        path_label = self.query_one(f"#{side}-path", Static)
+
+        path_label.update(str(path))
+        list_view.clear()
+
+        try:
+            # Add parent directory entry
+            if path.parent != path:
+                list_view.append(FileItem(path.parent, False))
+
+            # List contents
+            items = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+            for item in items:
+                if not item.name.startswith("."):
+                    list_view.append(FileItem(item, item in selected))
+        except PermissionError:
+            pass
+
+    def action_close(self):
+        if not self.copying:
+            self.dismiss()
+
+    def action_switch_panel(self):
+        """Switch focus between panels."""
+        if self.active_panel == "left":
+            self.active_panel = "right"
+            self.query_one("#right-list", ListView).focus()
+        else:
+            self.active_panel = "left"
+            self.query_one("#left-list", ListView).focus()
+
+    def action_toggle_select(self):
+        """Toggle selection of current item."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        selected = self.selected_left if self.active_panel == "left" else self.selected_right
+
+        if list_view.highlighted_child and isinstance(list_view.highlighted_child, FileItem):
+            item = list_view.highlighted_child
+            # Don't select parent dir
+            if item.path.name:
+                if item.path in selected:
+                    selected.discard(item.path)
+                else:
+                    selected.add(item.path)
+                self.refresh_panels()
+                # Restore position
+                list_view.index = list_view.index
+
+    def action_enter_dir(self):
+        """Enter selected directory."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+
+        if list_view.highlighted_child and isinstance(list_view.highlighted_child, FileItem):
+            item = list_view.highlighted_child
+            if item.path.is_dir():
+                if self.active_panel == "left":
+                    self.left_path = item.path
+                    self.selected_left.clear()
+                else:
+                    self.right_path = item.path
+                    self.selected_right.clear()
+                self.refresh_panels()
+
+    def action_go_up(self):
+        """Go to parent directory."""
+        if self.active_panel == "left":
+            if self.left_path.parent != self.left_path:
+                self.left_path = self.left_path.parent
+                self.selected_left.clear()
+        else:
+            if self.right_path.parent != self.right_path:
+                self.right_path = self.right_path.parent
+                self.selected_right.clear()
+        self.refresh_panels()
+
+    def action_select_all(self):
+        """Select all items in current panel."""
+        path = self.left_path if self.active_panel == "left" else self.right_path
+        selected = self.selected_left if self.active_panel == "left" else self.selected_right
+
+        try:
+            for item in path.iterdir():
+                if not item.name.startswith("."):
+                    selected.add(item)
+        except:
+            pass
+        self.refresh_panels()
+
+    def action_select_none(self):
+        """Clear selection in current panel."""
+        if self.active_panel == "left":
+            self.selected_left.clear()
+        else:
+            self.selected_right.clear()
+        self.refresh_panels()
+
+    def action_copy_selected(self):
+        """Copy selected files to other panel."""
+        if self.copying:
+            return
+
+        # Get source and destination
+        if self.active_panel == "left":
+            selected = self.selected_left
+            dest_path = self.right_path
+        else:
+            selected = self.selected_right
+            dest_path = self.left_path
+
+        if not selected:
+            return
+
+        self.copying = True
+        items = list(selected)
+        total = len(items)
+
+        # Show progress
+        progress_container = self.query_one("#progress-container")
+        progress_container.add_class("visible")
+        progress_bar = self.query_one("#progress-bar", ProgressBar)
+        progress_text = self.query_one("#progress-text", Static)
+
+        def do_copy():
+            for i, src in enumerate(items):
+                try:
+                    dest = dest_path / src.name
+                    self.call_from_thread(
+                        progress_text.update,
+                        f"Copying: {src.name}"
+                    )
+                    self.call_from_thread(
+                        progress_bar.update,
+                        progress=int((i / total) * 100)
+                    )
+
+                    if src.is_dir():
+                        shutil.copytree(src, dest, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(src, dest)
+                except Exception as e:
+                    self.call_from_thread(
+                        progress_text.update,
+                        f"Error: {e}"
+                    )
+
+            self.call_from_thread(self._copy_complete)
+
+        thread = threading.Thread(target=do_copy, daemon=True)
+        thread.start()
+
+    def _copy_complete(self):
+        """Called when copy is complete."""
+        self.copying = False
+        progress_bar = self.query_one("#progress-bar", ProgressBar)
+        progress_text = self.query_one("#progress-text", Static)
+        progress_container = self.query_one("#progress-container")
+
+        progress_bar.update(progress=100)
+        progress_text.update("Copy complete!")
+
+        # Clear selections and refresh
+        self.selected_left.clear()
+        self.selected_right.clear()
+        self.refresh_panels()
+
+        # Hide progress after delay
+        self.set_timer(2, lambda: progress_container.remove_class("visible"))
 
 
 class FileViewer(VerticalScroll):
@@ -239,6 +537,7 @@ class TreeViewApp(App):
         Binding("tab", "toggle_focus", "Switch Panel"),
         Binding("w", "toggle_width", "Wide"),
         Binding("o", "open_system", "Open"),
+        Binding("m", "file_manager", "Manager"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -254,7 +553,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find /:grep o:open w:wide r:refresh TAB:switch q:quit"
+        self.sub_title = "^P:find /:grep m:manager o:open w:wide r:refresh TAB:switch q:quit"
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
@@ -332,6 +631,15 @@ class TreeViewApp(App):
                 if file_path.is_file():
                     self.query_one(FileViewer).load_file(file_path)
                     self.notify(f"Opened: {file_path.name}:{parts[1]}", timeout=1)
+
+    def action_file_manager(self):
+        """Open dual panel file manager."""
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        start_path = Path.cwd()
+        if tree.cursor_node and tree.cursor_node.data:
+            node_path = tree.cursor_node.data.path
+            start_path = node_path if node_path.is_dir() else node_path.parent
+        self.push_screen(DualPanelScreen(start_path))
 
 
 if __name__ == "__main__":
