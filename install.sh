@@ -176,5 +176,5 @@ echo
 echo -e "  ${BOLD}Keys:${NC}"
 echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F2${NC} Terminal 2   ${DIM}F9${NC} Config"
 echo -e "  ${DIM}F3${NC} File Tree   ${DIM}F4${NC} Lizard TUI   ${DIM}F10${NC} Exit"
-echo -e "  ${DIM}F5${NC} Glow        ${DIM}^P${NC} Find file    ${DIM}^F${NC} Grep"
+echo -e "  ${DIM}F5${NC} Glow        ${DIM}F12${NC} Keys Toggle  ${DIM}^P${NC} Find  ${DIM}^F${NC} Grep"
 echo

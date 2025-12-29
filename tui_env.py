@@ -80,14 +80,20 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-interval", "1"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", f"bg={theme['bg']},fg={theme['fg']}"])
     subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-format", " F#I:#W "])
-    subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-current-format", " [F#I:#W] "])
+    subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-current-format", "#[bg=cyan,fg=black,bold] F#I:#W #[default]"])
     subprocess.run([
         "tmux", "set-option", "-t", SESSION, "status-format[0]",
-        "#{@focus}#[align=centre]#{W: F#{window_index}:#{window_name} } F10:Exit"
+        "#{@focus}#{@passthrough}#[align=centre]"
+        "#{W:"
+        "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{window_index}:#{window_name} #[default], F#{window_index}:#{window_name} }"
+        "} F10:Exit F12:Keys"
     ])
     # Hide F9:Config from automatic list (it shows in #{W} already)
 
-    # Bind F1/F2/F3/F4 to windows 1/2/3/4
+    # Key passthrough mode variable (empty = normal, has value = passthrough)
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "@passthrough", ""])
+
+    # Bind F-keys to windows
     subprocess.run(["tmux", "bind-key", "-n", "F1", "select-window", "-t", f"{SESSION}:1"])
     subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", f"{SESSION}:2"])
     subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:3"])
@@ -97,6 +103,30 @@ def main():
 
     # F10 = Exit (kill session)
     subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
+
+    # Shift+Arrow keys to navigate windows (always active, even in passthrough mode)
+    subprocess.run(["tmux", "bind-key", "-n", "S-Left", "previous-window"])
+    subprocess.run(["tmux", "bind-key", "-n", "S-Right", "next-window"])
+
+    # F12 = Toggle key passthrough mode
+    # When passthrough is ON: F-keys go to the app, status shows "PASSTHROUGH"
+    # When passthrough is OFF: F-keys switch windows (normal mode)
+    toggle_cmd = (
+        f"if-shell -F '#{{@passthrough}}' "
+        f"'set-option -t {SESSION} @passthrough \"\" ; "
+        f"bind-key -n F1 select-window -t {SESSION}:1 ; "
+        f"bind-key -n F2 select-window -t {SESSION}:2 ; "
+        f"bind-key -n F3 select-window -t {SESSION}:3 ; "
+        f"bind-key -n F4 select-window -t {SESSION}:4 ; "
+        f"bind-key -n F5 select-window -t {SESSION}:5 ; "
+        f"bind-key -n F9 select-window -t {SESSION}:9 ; "
+        f"bind-key -n F10 kill-session -t {SESSION}' "
+        f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
+        f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
+        f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F9 ; "
+        f"unbind-key -n F10'"
+    )
+    subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
 
     # Select terminal window (1)
     subprocess.run(["tmux", "select-window", "-t", f"{SESSION}:1"])

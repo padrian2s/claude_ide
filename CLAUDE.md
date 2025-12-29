@@ -64,6 +64,9 @@ tmux status bar at bottom shows all windows:
 | F5 | Glow (Markdown viewer) |
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
+| F12 | Toggle key passthrough (for apps using F-keys) |
+| Shift+← | Previous window |
+| Shift+→ | Next window |
 
 ### Tree View (F3)
 | Key | Action |
