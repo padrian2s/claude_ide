@@ -16,42 +16,52 @@ from rich.console import Group
 
 
 def format_size(size: int) -> str:
-    """Format file size in human readable format."""
+    """Format file size in human readable format, right-aligned to 6 chars."""
     if size < 1024:
-        return f"{size}B"
+        return f"{size:>5}B"
     elif size < 1024 * 1024:
-        return f"{size / 1024:.1f}K"
+        return f"{size / 1024:>5.1f}K"
     elif size < 1024 * 1024 * 1024:
-        return f"{size / (1024 * 1024):.1f}M"
+        return f"{size / (1024 * 1024):>5.1f}M"
     else:
-        return f"{size / (1024 * 1024 * 1024):.1f}G"
+        return f"{size / (1024 * 1024 * 1024):>5.1f}G"
+
+
+# Fixed width for name column to align sizes
+NAME_WIDTH = 25
 
 
 class SizedDirectoryTree(DirectoryTree):
     """DirectoryTree with file sizes displayed."""
 
     def render_label(self, node, base_style, style):
-        """Render label with size column."""
+        """Render label with right-aligned size column."""
         path = node.data.path
         label = Text()
 
-        # Get icon and name from parent
+        # Get icon and name
         if path.is_dir():
             icon = "📁 " if node.is_expanded else "📂 "
             label.append(icon)
             label.append(node.label, style=style)
         else:
             icon = "📄 "
-            label.append(icon)
-            label.append(node.label, style=style)
+            name = str(node.label)
 
-            # Add size for files
+            # Truncate or pad name to fixed width
+            if len(name) > NAME_WIDTH:
+                name = name[:NAME_WIDTH-1] + "…"
+
+            label.append(icon)
+            label.append(f"{name:<{NAME_WIDTH}}", style=style)
+
+            # Add right-aligned size
             try:
                 size = path.stat().st_size
                 size_str = format_size(size)
-                label.append(f"  {size_str}", style="dim")
+                label.append(f" {size_str}", style="dim")
             except (OSError, PermissionError):
-                pass
+                label.append("      ?", style="dim")
 
         return label
 
