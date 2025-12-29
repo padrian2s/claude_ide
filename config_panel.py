@@ -8,6 +8,7 @@ from textual.app import App, ComposeResult
 from textual.widgets import Static, Header, ListView, ListItem, Label
 from textual.containers import Vertical, Horizontal
 from textual.binding import Binding
+from textual.screen import ModalScreen
 
 CONFIG_FILE = Path(__file__).parent / ".tui_config.json"
 
@@ -79,6 +80,35 @@ def get_status_position() -> str:
     """Get current status position from config."""
     config = load_config()
     return config.get("status_position", "bottom")
+
+
+class ConfirmDialog(ModalScreen):
+    """Simple confirmation dialog."""
+
+    CSS = """
+    ConfirmDialog { align: center middle; }
+    #confirm-dialog { width: 40; height: 7; border: solid red; background: $surface; padding: 1; }
+    #confirm-title { text-align: center; text-style: bold; }
+    #confirm-help { text-align: center; color: $text-muted; }
+    """
+
+    BINDINGS = [("escape", "cancel", "No"), ("y", "confirm", "Yes"), ("n", "cancel", "No")]
+
+    def __init__(self, title: str, message: str):
+        super().__init__()
+        self.title_text = title
+        self.message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Label(f"{self.title_text}: {self.message}", id="confirm-title")
+            yield Label("y:Yes  n:No", id="confirm-help")
+
+    def action_confirm(self):
+        self.dismiss(True)
+
+    def action_cancel(self):
+        self.dismiss(False)
 
 
 class ThemeItem(ListItem):
@@ -205,6 +235,13 @@ class ConfigPanel(App):
         apply_status_position(self.status_position)
         self.update_position_info()
         self.notify(f"Status bar: {self.status_position.upper()}", timeout=1)
+
+    def action_quit(self):
+        """Quit with confirmation."""
+        def handle_confirm(confirmed: bool):
+            if confirmed:
+                self.exit()
+        self.push_screen(ConfirmDialog("Quit", "Exit application?"), handle_confirm)
 
 
 if __name__ == "__main__":

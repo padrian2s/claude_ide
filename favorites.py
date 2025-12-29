@@ -87,6 +87,35 @@ class RootItem(ListItem):
         yield Static(f" {exists}  {self.path}")
 
 
+class ConfirmDialog(ModalScreen):
+    """Simple confirmation dialog."""
+
+    CSS = """
+    ConfirmDialog { align: center middle; }
+    #confirm-dialog { width: 40; height: 7; border: solid red; background: $surface; padding: 1; }
+    #confirm-title { text-align: center; text-style: bold; }
+    #confirm-help { text-align: center; color: $text-muted; }
+    """
+
+    BINDINGS = [("escape", "cancel", "No"), ("y", "confirm", "Yes"), ("n", "cancel", "No")]
+
+    def __init__(self, title: str, message: str):
+        super().__init__()
+        self.title_text = title
+        self.message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Label(f"{self.title_text}: {self.message}", id="confirm-title")
+            yield Label("y:Yes  n:No", id="confirm-help")
+
+    def action_confirm(self):
+        self.dismiss(True)
+
+    def action_cancel(self):
+        self.dismiss(False)
+
+
 class AdminScreen(ModalScreen):
     """Admin screen to manage root folders."""
 
@@ -458,6 +487,13 @@ class FavoritesPanel(App):
                 self.refresh_lists()
 
         self.push_screen(AdminScreen(list(self.roots)), handle_admin_result)
+
+    def action_quit(self):
+        """Quit with confirmation."""
+        def handle_confirm(confirmed: bool):
+            if confirmed:
+                self.exit()
+        self.push_screen(ConfirmDialog("Quit", "Exit application?"), handle_confirm)
 
 
 if __name__ == "__main__":

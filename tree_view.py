@@ -1429,6 +1429,13 @@ class TreeViewApp(App):
             start_path = node_path if node_path.is_dir() else node_path.parent
         self.push_screen(DualPanelScreen(start_path))
 
+    def action_quit(self):
+        """Quit with confirmation."""
+        def handle_confirm(confirmed: bool):
+            if confirmed:
+                self.exit()
+        self.push_screen(ConfirmDialog("Quit", "Exit application?"), handle_confirm)
+
 
 if __name__ == "__main__":
     TreeViewApp().run()
