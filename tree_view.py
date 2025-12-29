@@ -739,6 +739,22 @@ class FileViewer(VerticalScroll):
         static_widget = self.query_one("#file-content", Static)
         md_widget = self.query_one("#md-content", Markdown)
 
+        # Binary file extensions that can't be displayed as text
+        binary_extensions = {'.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', 
+                           '.zip', '.tar', '.gz', '.bz2', '.xz', '.7z', '.rar',
+                           '.exe', '.dll', '.so', '.dylib', '.bin', '.dat',
+                           '.mp3', '.mp4', '.avi', '.mov', '.mkv', '.wav', '.flac',
+                           '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'}
+        
+        suffix = path.suffix.lower()
+        
+        if suffix in binary_extensions:
+            static_widget.display = True
+            md_widget.display = False
+            static_widget.update(f"[yellow]Binary file: {path.name}[/yellow]\n\n[dim]Cannot display {suffix} files in viewer.[/dim]")
+            self.scroll_home()
+            return
+
         try:
             with open(path, 'r', errors='replace') as f:
                 code = f.read()
@@ -753,7 +769,6 @@ class FileViewer(VerticalScroll):
                 md_widget.display = False
 
                 line_count = len(code.splitlines())
-                suffix = path.suffix.lower()
 
                 # Check for Dockerfile without extension
                 lexer = self.LEXER_MAP.get(suffix)
