@@ -7,7 +7,7 @@ import subprocess
 import threading
 from pathlib import Path
 from textual.app import App, ComposeResult
-from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar
+from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar, Input
 from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
@@ -167,14 +167,27 @@ class DualPanelScreen(ModalScreen):
         background: $primary-background;
         text-align: center;
     }
+    #search-container {
+        height: 1;
+        display: none;
+        background: $boost;
+    }
+    #search-container.visible {
+        display: block;
+    }
+    #search-input {
+        width: 100%;
+        border: none;
+    }
     ListItem {
         padding: 0;
     }
     """
 
     BINDINGS = [
-        ("escape", "close", "Close"),
+        ("escape", "cancel_or_close", "Close"),
         ("q", "close", "Close"),
+        Binding("ctrl+s", "start_search", "Search", priority=True),
         ("tab", "switch_panel", "Switch"),
         ("space", "toggle_select", "Select"),
         ("backspace", "go_up", "Up"),
@@ -205,10 +218,14 @@ class DualPanelScreen(ModalScreen):
         self.selected_right: set[Path] = set()
         self.active_panel = "left"
         self.copying = False
+        self.search_active = False
+        self.search_filter = ""
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dual-container"):
             yield Label("File Manager", id="dual-title")
+            with Horizontal(id="search-container"):
+                yield Input(placeholder="Search...", id="search-input")
             with Horizontal(id="panels"):
                 with Vertical(id="left-panel", classes="panel"):
                     yield Static("", id="left-path", classes="panel-header")
@@ -219,7 +236,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("TAB:switch  Space:sel  Enter:open  c:copy  a:all  s:sort  g:jump  q:close", id="help-bar")
+            yield Label("^S:search  Space:sel  Enter:open  c:copy  a:all  s:sort  g:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -264,8 +281,12 @@ class DualPanelScreen(ModalScreen):
             if path.parent != path:
                 list_view.append(FileItem(path.parent, is_selected=False, is_parent=True))
 
-            # List contents with sorting
+            # List contents with sorting and filtering
             all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
+
+            # Apply search filter (case-sensitive)
+            if self.search_filter:
+                all_items = [p for p in all_items if self.search_filter in p.name]
 
             if sort_by_date:
                 # Sort by access time (most recent first), dirs first
@@ -318,6 +339,46 @@ class DualPanelScreen(ModalScreen):
             DualPanelScreen._session_left_index = left_list.index if left_list.index is not None else 1
             DualPanelScreen._session_right_index = right_list.index if right_list.index is not None else 1
             self.dismiss()
+
+    def action_cancel_or_close(self):
+        """Cancel search or close dialog."""
+        if self.search_active:
+            self._cancel_search()
+        elif not self.copying:
+            self.action_close()
+
+    def action_start_search(self):
+        """Start search mode."""
+        self.search_active = True
+        self.search_filter = ""
+        search_container = self.query_one("#search-container")
+        search_container.add_class("visible")
+        search_input = self.query_one("#search-input", Input)
+        search_input.value = ""
+        search_input.focus()
+
+    def _cancel_search(self):
+        """Cancel search and restore list."""
+        self.search_active = False
+        self.search_filter = ""
+        search_container = self.query_one("#search-container")
+        search_container.remove_class("visible")
+        self._refresh_single_panel(self.active_panel)
+
+    def on_input_changed(self, event: Input.Changed):
+        """Filter list as user types."""
+        if self.search_active and event.input.id == "search-input":
+            self.search_filter = event.value
+            self._refresh_single_panel(self.active_panel)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        """Confirm search and focus list."""
+        if self.search_active:
+            self.search_active = False
+            search_container = self.query_one("#search-container")
+            search_container.remove_class("visible")
+            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+            list_view.focus()
 
     def action_toggle_sort(self):
         """Toggle sort for active panel only."""
