@@ -1,11 +1,44 @@
 #!/usr/bin/env python3
 """Tree view with file viewer using Textual - split layout."""
 
+import json
 import os
 import shutil
 import subprocess
 import threading
 from pathlib import Path
+
+# Session paths config file
+SESSION_PATHS_FILE = Path(__file__).parent / ".tui_session_paths.json"
+
+
+def load_session_paths(home_key: str) -> dict:
+    """Load saved session paths for a specific home directory."""
+    if SESSION_PATHS_FILE.exists():
+        try:
+            data = json.loads(SESSION_PATHS_FILE.read_text())
+            return data.get(home_key, {})
+        except Exception:
+            pass
+    return {}
+
+
+def save_session_paths(home_key: str, left_path: Path, right_path: Path):
+    """Save session paths keyed by home directory."""
+    data = {}
+    if SESSION_PATHS_FILE.exists():
+        try:
+            data = json.loads(SESSION_PATHS_FILE.read_text())
+        except Exception:
+            pass
+
+    data[home_key] = {
+        "left": str(left_path),
+        "right": str(right_path)
+    }
+    SESSION_PATHS_FILE.write_text(json.dumps(data, indent=2))
+
+
 from textual.app import App, ComposeResult
 from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar, Input
 from textual.widgets._directory_tree import DirEntry
@@ -431,6 +464,20 @@ class DualPanelScreen(ModalScreen):
         if DualPanelScreen._initial_start_path is None:
             DualPanelScreen._initial_start_path = start_path or Path.cwd()
 
+        home_key = str(DualPanelScreen._initial_start_path)
+
+        # Load saved paths from config (keyed by home path)
+        if DualPanelScreen._session_left_path is None:
+            saved = load_session_paths(home_key)
+            if saved.get("left"):
+                saved_left = Path(saved["left"])
+                if saved_left.exists():
+                    DualPanelScreen._session_left_path = saved_left
+            if saved.get("right"):
+                saved_right = Path(saved["right"])
+                if saved_right.exists():
+                    DualPanelScreen._session_right_path = saved_right
+
         # Use session paths if available, otherwise defaults
         if DualPanelScreen._session_left_path:
             self.left_path = DualPanelScreen._session_left_path
@@ -560,6 +607,9 @@ class DualPanelScreen(ModalScreen):
             right_list = self.query_one("#right-list", ListView)
             DualPanelScreen._session_left_index = left_list.index if left_list.index is not None else 1
             DualPanelScreen._session_right_index = right_list.index if right_list.index is not None else 1
+            # Save paths to config file (keyed by home path)
+            home_key = str(DualPanelScreen._initial_start_path or Path.cwd())
+            save_session_paths(home_key, self.left_path, self.right_path)
             self.dismiss()
 
     def action_cancel_or_close(self):
