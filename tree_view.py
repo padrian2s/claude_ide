@@ -587,6 +587,11 @@ class DualPanelScreen(ModalScreen):
         list_view = self.query_one(f"#{side}-list", ListView)
         self.set_timer(0.01, lambda: self._set_cursor(list_view))
 
+    def _save_paths_to_config(self):
+        """Save current paths to config file (called on every path change)."""
+        home_key = str(DualPanelScreen._initial_start_path or Path.cwd())
+        save_session_paths(home_key, self.left_path, self.right_path)
+
     def _set_cursor(self, list_view: ListView):
         """Set cursor to first real item."""
         if len(list_view.children) > 1:
@@ -643,6 +648,7 @@ class DualPanelScreen(ModalScreen):
                         self.selected_right.clear()
                         DualPanelScreen._session_right_path = selected_path
                     self._refresh_single_panel(self.active_panel)
+                    self._save_paths_to_config()
                 else:
                     # File selected - scroll to it in list
                     list_view = self.query_one(f"#{self.active_panel}-list", ListView)
@@ -714,6 +720,7 @@ class DualPanelScreen(ModalScreen):
                     DualPanelScreen._session_right_path = item.path
                 # Refresh only the active panel
                 self._refresh_single_panel(self.active_panel)
+                self._save_paths_to_config()
 
     def action_go_up(self):
         """Go to parent directory."""
@@ -728,6 +735,7 @@ class DualPanelScreen(ModalScreen):
                 self.selected_right.clear()
                 DualPanelScreen._session_right_path = self.right_path
         self._refresh_single_panel(self.active_panel)
+        self._save_paths_to_config()
 
     def action_go_home(self):
         """Reset active panel to initial start path (h key)."""
@@ -741,6 +749,7 @@ class DualPanelScreen(ModalScreen):
             self.selected_right.clear()
             DualPanelScreen._session_right_path = home_path
         self._refresh_single_panel(self.active_panel)
+        self._save_paths_to_config()
         self.notify(f"Home: {home_path}", timeout=1)
 
     def action_select_all(self):
