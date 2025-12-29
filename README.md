@@ -1,40 +1,33 @@
-# TUI cu Terminal Real + Tree View + Lizard
+# TUI Environment
 
-Terminal real (zsh) cu tree view + nano editor și lizard-tui.
+Multi-window TUI environment using tmux with tree viewer, favorites, and more.
 
-## Rulare
+## Install
 
 ```bash
-./start.sh
-# sau
-python3 tui_env.py
+curl -fsSL https://raw.githubusercontent.com/padrian2s/my_env/main/remote-install.sh | bash
 ```
+
+Then run `tui` to launch.
 
 ## Layout
 
-- **F1** - Terminal (zsh)
-- **F2** - Tree + Viewer (split view)
-- **F3** - Lizard TUI
+| Key | Window |
+|-----|--------|
+| F1 | Terminal 1 (zsh) |
+| F2 | Terminal 2 (zsh) |
+| F3 | Tree + Viewer |
+| F4 | Lizard TUI |
+| F5 | Glow (Markdown) |
+| F6 | Favorites |
+| F9 | Config |
+| F10 | Exit |
+| F12 | Toggle key passthrough |
 
-## Keybindings (Tree View - Textual)
+## Dependencies
 
-| Key | Acțiune |
-|-----|---------|
-| ↑/↓ | Navigare în tree |
-| Enter | Deschide folder sau vizualizează fișier |
-| TAB | Switch între tree și viewer |
-| q | Quit |
-
-## Dependențe
-
-```bash
-brew install tmux
-pip install textual
-```
-
-## Cum funcționează
-
-Folosește **tmux** cu 3 windows:
-- Window 0: Terminal (zsh real)
-- Window 1: Textual app (Tree 30% | Viewer 70%)
-- Window 2: Lizard TUI
+Installed automatically:
+- tmux
+- fzf
+- ripgrep
+- textual (Python)
