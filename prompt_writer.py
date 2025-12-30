@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prompt Writer - A full-screen text editor for writing prompts using prompt-toolkit."""
 
-import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -13,6 +13,67 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.widgets import TextArea, Frame, SearchToolbar
 from prompt_toolkit.styles import Style
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.completion import Completer, Completion, WordCompleter, merge_completers
+from prompt_toolkit.document import Document
+
+
+# Common words for prompt writing
+PROMPT_WORDS = [
+    # Structure
+    "Context", "Task", "Requirements", "Output", "Format", "Examples", "Instructions",
+    "Background", "Objective", "Goal", "Input", "Response", "Step", "Steps",
+    # Actions
+    "analyze", "create", "generate", "write", "explain", "summarize", "describe",
+    "list", "provide", "include", "ensure", "avoid", "consider", "implement",
+    "review", "evaluate", "compare", "contrast", "identify", "define", "clarify",
+    # Qualifiers
+    "detailed", "concise", "comprehensive", "specific", "clear", "accurate",
+    "professional", "formal", "informal", "technical", "simple", "complex",
+    # Common phrases
+    "You are", "Act as", "Please", "Make sure", "Do not", "Always", "Never",
+    "For example", "Such as", "In addition", "Furthermore", "However", "Therefore",
+    # Roles
+    "assistant", "expert", "developer", "analyst", "writer", "reviewer",
+    "consultant", "advisor", "engineer", "designer", "architect",
+    # Formats
+    "markdown", "JSON", "bullet", "points", "numbered", "list", "table",
+    "code", "block", "paragraph", "section", "heading",
+]
+
+
+class DynamicWordCompleter(Completer):
+    """Completer that suggests words from the document + common prompt words."""
+
+    def __init__(self, prompt_words: list[str]):
+        self.prompt_words = set(w.lower() for w in prompt_words)
+        self.min_word_length = 2
+
+    def get_completions(self, document: Document, complete_event):
+        # Get word before cursor
+        word_before = document.get_word_before_cursor()
+        if len(word_before) < self.min_word_length:
+            return
+
+        word_lower = word_before.lower()
+
+        # Collect all words from document
+        text = document.text
+        doc_words = set(re.findall(r'\b[a-zA-Z]{3,}\b', text))
+
+        # Combine with prompt words
+        all_words = doc_words | set(PROMPT_WORDS)
+
+        # Find matches
+        seen = set()
+        for word in sorted(all_words):
+            word_l = word.lower()
+            if word_l.startswith(word_lower) and word_l != word_lower and word_l not in seen:
+                seen.add(word_l)
+                yield Completion(
+                    word,
+                    start_position=-len(word_before),
+                    display=word,
+                )
 
 # Config and prompts storage
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -28,6 +89,13 @@ STYLE = Style.from_dict({
     'info': '#888888',
     'saved': '#00ff00 bold',
     'filename': '#ffaa00',
+    # Completion menu
+    'completion-menu.completion': 'bg:#333333 #ffffff',
+    'completion-menu.completion.current': 'bg:#00aaaa #000000',
+    'completion-menu.meta.completion': 'bg:#333333 #888888',
+    'completion-menu.meta.completion.current': 'bg:#00aaaa #000000',
+    'scrollbar.background': 'bg:#444444',
+    'scrollbar.button': 'bg:#888888',
 })
 
 
@@ -43,6 +111,9 @@ class PromptWriter:
         # Search toolbar
         self.search_toolbar = SearchToolbar()
 
+        # Word completer for autocomplete
+        self.completer = DynamicWordCompleter(PROMPT_WORDS)
+
         # Main text area
         self.text_area = TextArea(
             text="",
@@ -51,6 +122,8 @@ class PromptWriter:
             line_numbers=True,
             search_field=self.search_toolbar,
             focus_on_click=True,
+            completer=self.completer,
+            complete_while_typing=True,
         )
 
         # Track changes
