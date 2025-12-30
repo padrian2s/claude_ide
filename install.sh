@@ -155,14 +155,19 @@ if command -v uv &> /dev/null; then
     UV_VER=$(uv --version | cut -d' ' -f2)
     status "$CHECK" "uv ${DIM}($UV_VER)${NC}"
 else
-    printf "  ${C}⠋${NC} Installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1 &
-    spin $! "Installing uv"
-    # Add uv to PATH for this session
-    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-    if command -v uv &> /dev/null; then
-        status "$CHECK" "uv installed"
+    echo -ne "  ${C}◦${NC} Installing uv..."
+    if curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1; then
+        # Add uv to PATH for this session
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        if command -v uv &> /dev/null; then
+            status "$CHECK" "uv installed"
+        else
+            echo ""
+            status "$CROSS" "uv not found in PATH after install"
+            exit 1
+        fi
     else
+        echo ""
         status "$CROSS" "Failed to install uv"
         echo -e "\n  ${Y}Install uv manually: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}\n"
         exit 1
@@ -170,10 +175,17 @@ else
 fi
 
 # Step 4: Python packages via uv
-printf "  ${C}⠋${NC} Installing Python packages..."
-uv pip install --quiet --system textual prompt-toolkit 2>/dev/null &
-spin $! "Installing Python packages"
-status "$CHECK" "textual + prompt-toolkit"
+echo -ne "  ${C}◦${NC} Installing Python packages..."
+# Use --break-system-packages for PEP 668 compliance on Debian/Ubuntu
+if uv pip install --system --break-system-packages textual prompt-toolkit >/dev/null 2>&1; then
+    status "$CHECK" "textual + prompt-toolkit"
+else
+    echo ""
+    status "$CROSS" "Failed to install packages"
+    echo -e "\n  ${Y}Try manually:${NC}"
+    echo -e "  ${DIM}uv pip install --system --break-system-packages textual prompt-toolkit${NC}\n"
+    exit 1
+fi
 
 echo
 
