@@ -177,13 +177,13 @@ fi
 # Step 4: Python packages via uv
 echo -ne "  ${C}◦${NC} Installing Python packages..."
 # Use --break-system-packages for PEP 668 compliance on Debian/Ubuntu
-if uv pip install --system --break-system-packages textual prompt-toolkit >/dev/null 2>&1; then
+UV_OUTPUT=$(uv pip install --system --break-system-packages textual prompt-toolkit 2>&1)
+if [ $? -eq 0 ]; then
     status "$CHECK" "textual + prompt-toolkit"
 else
     echo ""
     status "$CROSS" "Failed to install packages"
-    echo -e "\n  ${Y}Try manually:${NC}"
-    echo -e "  ${DIM}uv pip install --system --break-system-packages textual prompt-toolkit${NC}\n"
+    echo -e "\n  ${DIM}Error: $UV_OUTPUT${NC}\n"
     exit 1
 fi
 
