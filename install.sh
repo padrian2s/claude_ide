@@ -53,17 +53,48 @@ status() {
 # Check OS
 if [[ "$OSTYPE" == "darwin"* ]]; then
     OS="macos"
-    SHELL_RC="$HOME/.zshrc"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     OS="linux"
-    SHELL_RC="$HOME/.bashrc"
-    [[ -f "$HOME/.zshrc" ]] && SHELL_RC="$HOME/.zshrc"
 else
     status "$CROSS" "Unsupported OS: $OSTYPE"
     exit 1
 fi
 
-echo -e "  ${DIM}Detected: $OS${NC}"
+# Detect user's actual shell for RC file
+CURRENT_SHELL=$(basename "$SHELL")
+case "$CURRENT_SHELL" in
+    zsh)
+        SHELL_RC="$HOME/.zshrc"
+        ;;
+    bash)
+        # bash uses .bash_profile on macOS (login shell), .bashrc on Linux
+        if [[ "$OS" == "macos" ]]; then
+            SHELL_RC="$HOME/.bash_profile"
+            # Create .bash_profile if it doesn't exist, ensure it sources .bashrc
+            if [[ ! -f "$SHELL_RC" ]]; then
+                touch "$SHELL_RC"
+            fi
+        else
+            SHELL_RC="$HOME/.bashrc"
+        fi
+        ;;
+    fish)
+        SHELL_RC="$HOME/.config/fish/config.fish"
+        mkdir -p "$(dirname "$SHELL_RC")"
+        ;;
+    *)
+        # Fallback: try to detect from existing RC files
+        if [[ -f "$HOME/.zshrc" ]]; then
+            SHELL_RC="$HOME/.zshrc"
+        elif [[ -f "$HOME/.bashrc" ]]; then
+            SHELL_RC="$HOME/.bashrc"
+        else
+            SHELL_RC="$HOME/.bashrc"
+        fi
+        ;;
+esac
+
+echo -e "  ${DIM}Detected: $OS, shell: $CURRENT_SHELL → $(basename $SHELL_RC)${NC}"
 echo
 
 # Step 1: Python
@@ -144,15 +175,21 @@ chmod +x "$SCRIPT_DIR/favorites.py"
 chmod +x "$SCRIPT_DIR/lizard_tui.py" 2>/dev/null || true
 status "$CHECK" "Scripts marked executable"
 
-# Step 5: Create alias
-ALIAS_LINE="alias $APP_NAME='$SCRIPT_DIR/start.sh'"
+# Step 5: Create alias (shell-specific syntax)
+if [[ "$CURRENT_SHELL" == "fish" ]]; then
+    ALIAS_LINE="alias $APP_NAME '$SCRIPT_DIR/start.sh'"
+    ALIAS_PATTERN="alias $APP_NAME "
+else
+    ALIAS_LINE="alias $APP_NAME='$SCRIPT_DIR/start.sh'"
+    ALIAS_PATTERN="alias $APP_NAME="
+fi
 
-if grep -q "alias $APP_NAME=" "$SHELL_RC" 2>/dev/null; then
+if grep -q "$ALIAS_PATTERN" "$SHELL_RC" 2>/dev/null; then
     # Update existing alias
     if [[ "$OS" == "macos" ]]; then
-        sed -i '' "s|alias $APP_NAME=.*|$ALIAS_LINE|" "$SHELL_RC"
+        sed -i '' "s|${ALIAS_PATTERN}.*|$ALIAS_LINE|" "$SHELL_RC"
     else
-        sed -i "s|alias $APP_NAME=.*|$ALIAS_LINE|" "$SHELL_RC"
+        sed -i "s|${ALIAS_PATTERN}.*|$ALIAS_LINE|" "$SHELL_RC"
     fi
     status "$CHECK" "Updated alias in ${DIM}$(basename $SHELL_RC)${NC}"
 else
@@ -171,7 +208,11 @@ echo -e "${C}│${NC}  ${G}${BOLD}Installation complete!${NC}             ${C}�
 echo -e "${C}╰─────────────────────────────────────╯${NC}"
 echo
 echo -e "  ${BOLD}Quick start:${NC}"
-echo -e "  ${ARROW} Run ${C}source $(basename $SHELL_RC)${NC} or open a new terminal"
+if [[ "$CURRENT_SHELL" == "fish" ]]; then
+    echo -e "  ${ARROW} Run ${C}source $SHELL_RC${NC} or open a new terminal"
+else
+    echo -e "  ${ARROW} Run ${C}source ~/${SHELL_RC##*/}${NC} or open a new terminal"
+fi
 echo -e "  ${ARROW} Then type ${C}${APP_NAME}${NC} to launch"
 echo
 echo -e "  ${BOLD}Keys:${NC}"
