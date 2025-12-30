@@ -1,6 +1,6 @@
 #!/bin/bash
-# Remote installer for TUI Environment
-# Usage: curl -fsSL https://raw.githubusercontent.com/padrian2s/claude_ide/main/remote-install.sh | bash
+# Claude IDE Installer
+# Usage: curl -fsSL https://claude-ide.org/install | bash
 set -e
 
 # Colors
@@ -12,11 +12,11 @@ DIM='\033[2m'
 NC='\033[0m'
 
 REPO="https://github.com/padrian2s/claude_ide.git"
-INSTALL_DIR="$HOME/.tui-env"
+INSTALL_DIR="$HOME/.claude-ide"
 
 echo
 echo -e "${C}╭─────────────────────────────────────╮${NC}"
-echo -e "${C}│${NC}    ${BOLD}TUI Environment Installer${NC}       ${C}│${NC}"
+echo -e "${C}│${NC}      ${BOLD}Claude IDE Installer${NC}           ${C}│${NC}"
 echo -e "${C}╰─────────────────────────────────────╯${NC}"
 echo
 

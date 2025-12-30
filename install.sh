@@ -1,5 +1,5 @@
 #!/bin/bash
-# TUI Environment Installer
+# Claude IDE Installer
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -26,7 +26,7 @@ clear
 # Header
 echo
 echo -e "${C}╭─────────────────────────────────────╮${NC}"
-echo -e "${C}│${NC}    ${BOLD}TUI Environment Installer${NC}       ${C}│${NC}"
+echo -e "${C}│${NC}      ${BOLD}Claude IDE Installer${NC}           ${C}│${NC}"
 echo -e "${C}╰─────────────────────────────────────╯${NC}"
 echo
 
@@ -219,7 +219,7 @@ if grep -q "$ALIAS_PATTERN" "$SHELL_RC" 2>/dev/null; then
 else
     # Add new alias
     echo "" >> "$SHELL_RC"
-    echo "# TUI Environment" >> "$SHELL_RC"
+    echo "# Claude IDE" >> "$SHELL_RC"
     echo "$ALIAS_LINE" >> "$SHELL_RC"
     status "$CHECK" "Added alias to ${DIM}$(basename $SHELL_RC)${NC}"
 fi
