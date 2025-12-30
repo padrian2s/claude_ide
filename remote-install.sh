@@ -1,6 +1,6 @@
 #!/bin/bash
 # Remote installer for TUI Environment
-# Usage: curl -fsSL https://raw.githubusercontent.com/padrian2s/my_env/main/remote-install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/padrian2s/claude_ide/main/remote-install.sh | bash
 set -e
 
 # Colors
@@ -11,7 +11,7 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-REPO="https://github.com/padrian2s/my_env.git"
+REPO="https://github.com/padrian2s/claude_ide.git"
 INSTALL_DIR="$HOME/.tui-env"
 
 echo
@@ -40,6 +40,6 @@ fi
 
 echo
 
-# Run local installer
+# Run local installer from file (not piped) to avoid stdin conflicts
 cd "$INSTALL_DIR"
-bash install.sh
+exec bash install.sh </dev/null

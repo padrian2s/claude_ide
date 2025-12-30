@@ -156,7 +156,7 @@ if command -v uv &> /dev/null; then
     status "$CHECK" "uv ${DIM}($UV_VER)${NC}"
 else
     echo -ne "  ${C}◦${NC} Installing uv..."
-    if curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1 </dev/null; then
+    if curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1; then
         # Add uv to PATH for this session
         export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
         if command -v uv &> /dev/null; then
@@ -176,12 +176,7 @@ fi
 
 # Step 4: Python packages via uv
 echo -ne "  ${C}◦${NC} Installing Python packages..."
-# Use subshell with isolated stdin to avoid curl pipe conflicts
-(
-    exec </dev/null
-    uv pip install --system --break-system-packages textual prompt-toolkit >/dev/null 2>&1
-)
-if [ $? -eq 0 ]; then
+if uv pip install --system --break-system-packages textual prompt-toolkit >/dev/null 2>&1; then
     status "$CHECK" "textual + prompt-toolkit"
 else
     echo ""
