@@ -156,7 +156,7 @@ if command -v uv &> /dev/null; then
     status "$CHECK" "uv ${DIM}($UV_VER)${NC}"
 else
     echo -ne "  ${C}◦${NC} Installing uv..."
-    if curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1; then
+    if curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1 </dev/null; then
         # Add uv to PATH for this session
         export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
         if command -v uv &> /dev/null; then
@@ -177,13 +177,15 @@ fi
 # Step 4: Python packages via uv
 echo -ne "  ${C}◦${NC} Installing Python packages..."
 # Use --break-system-packages for PEP 668 compliance on Debian/Ubuntu
-UV_OUTPUT=$(uv pip install --system --break-system-packages textual prompt-toolkit 2>&1)
-if [ $? -eq 0 ]; then
+# Use </dev/null to prevent stdin conflicts with curl pipe
+UV_OUTPUT=$(uv pip install --system --break-system-packages textual prompt-toolkit </dev/null 2>&1)
+UV_EXIT=$?
+if [ $UV_EXIT -eq 0 ]; then
     status "$CHECK" "textual + prompt-toolkit"
 else
     echo ""
-    status "$CROSS" "Failed to install packages"
-    echo -e "\n  ${DIM}Error: $UV_OUTPUT${NC}\n"
+    status "$CROSS" "Failed to install packages (exit code: $UV_EXIT)"
+    echo -e "\n  ${DIM}$UV_OUTPUT${NC}\n"
     exit 1
 fi
 
