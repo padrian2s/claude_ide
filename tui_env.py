@@ -13,6 +13,7 @@ TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
 CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
 FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
+PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 
 # Import config to get saved theme and position
 from config_panel import get_theme_colors, get_status_position
@@ -59,6 +60,13 @@ def main():
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:6",
         f" python3 '{FAVORITES_SCRIPT}'", "Enter"
+    ])
+
+    # Create Window 7 = Prompt Writer
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:7", "-n", "Prompt"])
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{SESSION}:7",
+        f" python3 '{PROMPT_SCRIPT}'", "Enter"
     ])
 
     # Create Window 9 = Config
@@ -110,6 +118,7 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:4"])
     subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:5"])
     subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:6"])
+    subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:7"])
     subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", f"{SESSION}:9"])
 
     # F10 = Exit (kill session)
@@ -131,12 +140,13 @@ def main():
         f"bind-key -n F4 select-window -t {SESSION}:4 ; "
         f"bind-key -n F5 select-window -t {SESSION}:5 ; "
         f"bind-key -n F6 select-window -t {SESSION}:6 ; "
+        f"bind-key -n F7 select-window -t {SESSION}:7 ; "
         f"bind-key -n F9 select-window -t {SESSION}:9 ; "
         f"bind-key -n F10 kill-session -t {SESSION}' "
         f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
         f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
         f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
-        f"unbind-key -n F9 ; unbind-key -n F10'"
+        f"unbind-key -n F7 ; unbind-key -n F9 ; unbind-key -n F10'"
     )
     subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
 

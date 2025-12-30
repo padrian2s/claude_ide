@@ -14,6 +14,7 @@ tmux session "tui-demo-{pid}"
 ├── Window 4 (F4): Lizard TUI - Python TUI app
 ├── Window 5 (F5): Glow - Markdown viewer
 ├── Window 6 (F6): Favs - Folder favorites browser
+├── Window 7 (F7): Prompt - Prompt writer (prompt-toolkit)
 ├── Window 9 (F9): Config - Theme selector panel
 └── F10: Exit - kills session
 ```
@@ -98,6 +99,7 @@ tmux status bar shows all windows:
 | F4 | Lizard TUI |
 | F5 | Glow (Markdown viewer) |
 | F6 | Favorites (folder browser) |
+| F7 | Prompt Writer |
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
 | F12 | Toggle key passthrough (for apps using F-keys) |
@@ -168,6 +170,19 @@ tmux status bar shows all windows:
 | p | Toggle status bar position (top/bottom) |
 | q/Escape | Quit |
 
+### Prompt Writer (F7)
+| Key | Action |
+|-----|--------|
+| Ctrl+S | Save prompt |
+| Ctrl+O | Open/list saved prompts |
+| Ctrl+N | New prompt |
+| Ctrl+T | Insert prompt template |
+| Ctrl+D | Insert date/time |
+| Ctrl+F | Find text |
+| Ctrl+H | Toggle help panel |
+| Ctrl+Q | Quit (press twice if unsaved) |
+| Escape | Clear status message |
+
 ## File Operations Details
 
 ### Copy (c)
@@ -197,7 +212,7 @@ tmux status bar shows all windows:
 
 ```bash
 brew install tmux fzf ripgrep glow
-pip install textual
+pip install textual prompt-toolkit
 ```
 
 ## Usage
@@ -261,7 +276,9 @@ my_env/
 ├── tree_view.py        # Tree+viewer+file manager app
 ├── config_panel.py     # Theme configuration panel
 ├── favorites.py        # Folder favorites browser
+├── prompt_writer.py    # Prompt writing tool (prompt-toolkit)
 ├── lizard_tui.py       # Lizard TUI app
+├── prompts/            # Saved prompts directory (auto-created)
 ├── start.sh            # convenience script
 ├── install.sh          # installer with dependency checks
 ├── .tui_config.json    # saved theme/position config (auto-generated)
