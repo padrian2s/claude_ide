@@ -67,15 +67,10 @@ case "$CURRENT_SHELL" in
         SHELL_RC="$HOME/.zshrc"
         ;;
     bash)
-        # bash uses .bash_profile on macOS (login shell), .bashrc on Linux
-        if [[ "$OS" == "macos" ]]; then
-            SHELL_RC="$HOME/.bash_profile"
-            # Create .bash_profile if it doesn't exist, ensure it sources .bashrc
-            if [[ ! -f "$SHELL_RC" ]]; then
-                touch "$SHELL_RC"
-            fi
-        else
-            SHELL_RC="$HOME/.bashrc"
+        SHELL_RC="$HOME/.bashrc"
+        # Create .bashrc if it doesn't exist
+        if [[ ! -f "$SHELL_RC" ]]; then
+            touch "$SHELL_RC"
         fi
         ;;
     fish)
