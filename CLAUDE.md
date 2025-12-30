@@ -1,13 +1,13 @@
-# TUI Environment - Technical Solution
+# Claude IDE - Technical Solution
 
 ## Overview
 
-Multi-window TUI environment using **tmux** as the window manager. Each window is a separate full-screen view, switched via F-keys.
+Multi-window terminal IDE using **tmux** as the window manager. Each window is a separate full-screen view, switched via F-keys.
 
 ## Architecture
 
 ```
-tmux session "tui-demo-{pid}"
+tmux session "claude-ide-{pid}"
 ├── Window 1 (F1): Term1 - zsh shell
 ├── Window 2 (F2): Term2 - second zsh shell
 ├── Window 3 (F3): Tree + Viewer - Textual app (tree | viewer | file manager)
@@ -15,6 +15,7 @@ tmux session "tui-demo-{pid}"
 ├── Window 5 (F5): Glow - Markdown viewer
 ├── Window 6 (F6): Favs - Folder favorites browser
 ├── Window 7 (F7): Prompt - Prompt writer (prompt-toolkit)
+├── Window 8 (F8): Rec - Screen recorder (asciinema/ffmpeg)
 ├── Window 9 (F9): Config - Theme selector panel
 └── F10: Exit - kills session
 ```
@@ -100,6 +101,7 @@ tmux status bar shows all windows:
 | F5 | Glow (Markdown viewer) |
 | F6 | Favorites (folder browser) |
 | F7 | Prompt Writer |
+| F8 | Screen Recorder |
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
 | F12 | Toggle key passthrough (for apps using F-keys) |
@@ -160,6 +162,19 @@ tmux status bar shows all windows:
 | x | Remove from favorites |
 | a | Admin (configure root folders) |
 | r | Refresh |
+| q | Quit |
+
+### Screen Recorder (F8)
+| Key | Action |
+|-----|--------|
+| r | Start recording (choose mode) |
+| s | Stop current recording |
+| g | Convert selected to GIF |
+| p | Play selected recording |
+| o | Open recordings folder |
+| d | Delete selected recording |
+| Up/Down | Navigate recordings list |
+| Escape | Refresh list |
 | q | Quit |
 
 ### Config (F9)
@@ -277,8 +292,10 @@ my_env/
 ├── config_panel.py     # Theme configuration panel
 ├── favorites.py        # Folder favorites browser
 ├── prompt_writer.py    # Prompt writing tool (prompt-toolkit)
+├── recorder.py         # Screen recorder (asciinema/ffmpeg)
 ├── lizard_tui.py       # Lizard TUI app
 ├── prompts/            # Saved prompts directory (auto-created)
+├── recordings/         # Screen recordings directory (auto-created)
 ├── start.sh            # convenience script
 ├── install.sh          # installer with dependency checks
 ├── .tui_config.json    # saved theme/position config (auto-generated)
@@ -302,5 +319,5 @@ File copy operations run in background thread with `threading.Thread`.
 UI updates use `self.app.call_from_thread()` to safely update from background thread.
 
 ### Session Isolation
-Each `tui_env.py` instance creates unique tmux session with PID suffix.
+Each `tui_env.py` instance creates unique `claude-ide-{pid}` tmux session with PID suffix.
 Cleanup via `atexit` and signal handlers (SIGHUP, SIGTERM).

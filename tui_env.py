@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TUI Demo launcher - tmux with tree + terminal + lizard-tui as separate windows."""
+"""Claude IDE launcher - tmux with tree + terminal + lizard-tui as separate windows."""
 
 import atexit
 import os
@@ -7,7 +7,7 @@ import signal
 import subprocess
 from pathlib import Path
 
-SESSION = f"tui-demo-{os.getpid()}"
+SESSION = f"claude-ide-{os.getpid()}"
 SCRIPT_DIR = Path(__file__).parent
 TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
@@ -34,46 +34,44 @@ def main():
     # Renumber existing window from 0 to 1
     subprocess.run(["tmux", "move-window", "-t", f"{SESSION}:1"])
 
-    # Create Window 2 = Terminal 2
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:2", "-n", "Term2"])
-
-    # Create Window 3 = Tree + Viewer
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:3", "-n", "Tree"])
+    # Apps at high window numbers (20-26) so dynamic terminals can use 2-19
+    # Create Window 20 = Tree + Viewer
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:20", "-n", "Tree"])
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION}:3",
-        f" python3 '{TREE_SCRIPT}'", "Enter"
+        "tmux", "send-keys", "-t", f"{SESSION}:20",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{TREE_SCRIPT}'", "Enter"
     ])
 
-    # Create Window 4 = Lizard TUI
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:4", "-n", "Lizard"])
+    # Create Window 21 = Lizard TUI
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:21", "-n", "Lizard"])
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION}:4",
-        f" python3 '{LIZARD_SCRIPT}'", "Enter"
+        "tmux", "send-keys", "-t", f"{SESSION}:21",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{LIZARD_SCRIPT}'", "Enter"
     ])
 
-    # Create Window 5 = Glow
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:5", "-n", "Glow"])
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:5", " glow", "Enter"])
+    # Create Window 22 = Glow
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:22", "-n", "Glow"])
+    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:22", " glow", "Enter"])
 
-    # Create Window 6 = Favorites
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:6", "-n", "Favs"])
+    # Create Window 23 = Favorites
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:23", "-n", "Favs"])
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION}:6",
-        f" python3 '{FAVORITES_SCRIPT}'", "Enter"
+        "tmux", "send-keys", "-t", f"{SESSION}:23",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{FAVORITES_SCRIPT}'", "Enter"
     ])
 
-    # Create Window 7 = Prompt Writer
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:7", "-n", "Prompt"])
+    # Create Window 24 = Prompt Writer
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:24", "-n", "Prompt"])
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION}:7",
-        f" python3 '{PROMPT_SCRIPT}'", "Enter"
+        "tmux", "send-keys", "-t", f"{SESSION}:24",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{PROMPT_SCRIPT}'", "Enter"
     ])
 
-    # Create Window 9 = Config
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:9", "-n", "Config"])
+    # Create Window 25 = Config
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:25", "-n", "Config"])
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION}:9",
-        f" python3 '{CONFIG_SCRIPT}'", "Enter"
+        "tmux", "send-keys", "-t", f"{SESSION}:25",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{CONFIG_SCRIPT}'", "Enter"
     ])
 
     # Load saved theme and position
@@ -92,41 +90,98 @@ def main():
     subprocess.run(["tmux", "set-hook", "-g", "client-focus-out",
         "set-option -g @focus 'UNFOCUSED '"])
 
-    # Status bar
+    # Status bar - custom format to show F-keys properly (apps show as F2-F7 even though windows are 20-25)
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "on"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-position", status_position])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-interval", "1"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", f"bg={theme['bg']},fg={theme['fg']}"])
-    subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-format", " F#I:#W "])
-    subprocess.run(["tmux", "set-window-option", "-t", SESSION, "window-status-current-format", "#[bg=cyan,fg=black,bold] F#I:#W #[default]"])
+
+    # Custom status format:
+    # - F1 (window 1): show as "F1:Term1"
+    # - Dynamic terminals (2-19): show just name (e.g., "T2")
+    # - Apps (20-25): show as "F2:Tree", "F3:Lizard", etc.
     subprocess.run([
         "tmux", "set-option", "-t", SESSION, "status-format[0]",
         "#{@focus}#{@passthrough}#[align=centre]"
         "#{W:"
-        "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{window_index}:#{window_name} #[default], F#{window_index}:#{window_name} }"
-        "} F10:Exit F12:Keys"
+        "#{?#{==:#{window_index},1},"
+        "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
+        "#{?#{e|<:#{window_index},20},"
+        "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
+        "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
+        "}}"
+        "} F10:Exit ?:⌨ F12:Keys"
     ])
-    # Hide F9:Config from automatic list (it shows in #{W} already)
+
+    # Track terminal counter for auto-naming
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "@term_count", "1"])
 
     # Key passthrough mode variable (empty = normal, has value = passthrough)
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@passthrough", ""])
 
-    # Bind F-keys to windows
+    # Bind F-keys: F1=Term1, F2-F7=Apps (windows 20-25)
     subprocess.run(["tmux", "bind-key", "-n", "F1", "select-window", "-t", f"{SESSION}:1"])
-    subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", f"{SESSION}:2"])
-    subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:3"])
-    subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:4"])
-    subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:5"])
-    subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:6"])
-    subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:7"])
-    subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", f"{SESSION}:9"])
+    subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", f"{SESSION}:20"])
+    subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:21"])
+    subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:22"])
+    subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:23"])
+    subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:24"])
+    subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:25"])
 
     # F10 = Exit (kill session)
     subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
 
+    # ? = Show keyboard shortcuts help popup
+    help_text = """
+                    ⌨  KEYBOARD SHORTCUTS
+
+  NAVIGATION
+    Shift + ← →     Navigate between windows
+    Ctrl + T        Create new terminal (T2, T3...)
+    Ctrl + W        Close current terminal
+
+  WINDOWS
+    F1              Terminal - Main shell
+    F2              Tree - File browser & viewer
+    F3              Lizard - Code complexity analyzer
+    F4              Glow - Markdown viewer
+    F5              Favs - Folder favorites
+    F6              Prompt - Prompt writer
+    F7              Config - Theme settings
+
+  SYSTEM
+    F10             Exit - Kill session
+    ?               Help - This dialog
+    F12             Keys - Toggle F-key passthrough
+
+                Press ? or Esc to close
+"""
+    subprocess.run([
+        "tmux", "bind-key", "-n", "?",
+        "display-popup", "-w", "68", "-h", "26",
+        f"echo '{help_text}'"
+    ])
+
     # Shift+Arrow keys to navigate windows (always active, even in passthrough mode)
     subprocess.run(["tmux", "bind-key", "-n", "S-Left", "previous-window"])
     subprocess.run(["tmux", "bind-key", "-n", "S-Right", "next-window"])
+
+    # Ctrl+T = Create new terminal with auto-name T2, T3, etc.
+    # Increments @term_count and creates window after the last terminal (before apps at 20+)
+    subprocess.run([
+        "tmux", "bind-key", "-n", "C-t",
+        "run-shell",
+        f"tmux set-option -t {SESSION} @term_count $(($(tmux show-option -t {SESSION} -v @term_count) + 1)) && "
+        f"tmux new-window -t {SESSION} -n T$(tmux show-option -t {SESSION} -v @term_count)"
+    ])
+
+    # Ctrl+W = Close current terminal (only dynamic ones, windows 2-19)
+    subprocess.run([
+        "tmux", "bind-key", "-n", "C-w",
+        "if-shell", "-F", "#{&&:#{e|>:#{window_index},1},#{e|<:#{window_index},20}}",
+        "kill-window",
+        "display-message 'Cannot close this window'"
+    ])
 
     # F12 = Toggle key passthrough mode
     # When passthrough is ON: F-keys go to the app, status shows "PASSTHROUGH"
@@ -135,18 +190,17 @@ def main():
         f"if-shell -F '#{{@passthrough}}' "
         f"'set-option -t {SESSION} @passthrough \"\" ; "
         f"bind-key -n F1 select-window -t {SESSION}:1 ; "
-        f"bind-key -n F2 select-window -t {SESSION}:2 ; "
-        f"bind-key -n F3 select-window -t {SESSION}:3 ; "
-        f"bind-key -n F4 select-window -t {SESSION}:4 ; "
-        f"bind-key -n F5 select-window -t {SESSION}:5 ; "
-        f"bind-key -n F6 select-window -t {SESSION}:6 ; "
-        f"bind-key -n F7 select-window -t {SESSION}:7 ; "
-        f"bind-key -n F9 select-window -t {SESSION}:9 ; "
+        f"bind-key -n F2 select-window -t {SESSION}:20 ; "
+        f"bind-key -n F3 select-window -t {SESSION}:21 ; "
+        f"bind-key -n F4 select-window -t {SESSION}:22 ; "
+        f"bind-key -n F5 select-window -t {SESSION}:23 ; "
+        f"bind-key -n F6 select-window -t {SESSION}:24 ; "
+        f"bind-key -n F7 select-window -t {SESSION}:25 ; "
         f"bind-key -n F10 kill-session -t {SESSION}' "
         f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
         f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
         f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
-        f"unbind-key -n F7 ; unbind-key -n F9 ; unbind-key -n F10'"
+        f"unbind-key -n F7 ; unbind-key -n F10'"
     )
     subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
 
@@ -163,6 +217,8 @@ def main():
 
     # Attach (using subprocess so we regain control after detach/exit)
     subprocess.run(["tmux", "attach-session", "-t", SESSION])
+
+    # Session ends here - cleanup runs via atexit
 
     # Session ends here - cleanup runs via atexit
 

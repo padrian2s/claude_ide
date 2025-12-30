@@ -1437,5 +1437,9 @@ class TreeViewApp(App):
         self.push_screen(ConfirmDialog("Quit", "Exit application?"), handle_confirm)
 
 
-if __name__ == "__main__":
+def main():
     TreeViewApp().run()
+
+
+if __name__ == "__main__":
+    main()

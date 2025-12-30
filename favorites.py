@@ -496,6 +496,9 @@ class FavoritesPanel(App):
         self.push_screen(ConfirmDialog("Quit", "Exit application?"), handle_confirm)
 
 
+def main():
+    FavoritesPanel().run()
+
+
 if __name__ == "__main__":
-    app = FavoritesPanel()
-    app.run()
+    main()

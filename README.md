@@ -1,11 +1,11 @@
-# TUI Environment
+# Claude IDE
 
-Multi-window TUI environment using tmux with tree viewer, favorites, and more.
+Multi-window terminal IDE using tmux with tree viewer, favorites, prompt writer, and more.
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/padrian2s/my_env/main/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/padrian2s/claude_ide/main/remote-install.sh | bash
 ```
 
 Then run `tui` to launch.
