@@ -174,14 +174,14 @@ else
     fi
 fi
 
-# Step 4: Python packages via uv
+# Step 4: Install Python packages via uv sync
 echo -ne "  ${C}◦${NC} Installing Python packages..."
-if uv pip install --system --break-system-packages textual prompt-toolkit >/dev/null 2>&1; then
-    status "$CHECK" "textual + prompt-toolkit"
+if uv sync --project "$SCRIPT_DIR" >/dev/null 2>&1; then
+    status "$CHECK" "Python packages installed"
 else
     echo ""
     status "$CROSS" "Failed to install packages"
-    echo -e "  ${Y}Run manually: uv pip install --system --break-system-packages textual prompt-toolkit${NC}"
+    echo -e "  ${Y}Run manually: cd $SCRIPT_DIR && uv sync${NC}"
     exit 1
 fi
 
