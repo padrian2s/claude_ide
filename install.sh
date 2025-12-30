@@ -150,15 +150,34 @@ else
     status "$CHECK" "ripgrep installed"
 fi
 
-# Step 3: Python packages
-printf "  ${C}⠋${NC} Installing textual..."
-pip3 install --quiet --upgrade textual 2>/dev/null &
-spin $! "Installing textual"
-status "$CHECK" "textual"
+# Step 3: uv (Python package manager)
+if command -v uv &> /dev/null; then
+    UV_VER=$(uv --version | cut -d' ' -f2)
+    status "$CHECK" "uv ${DIM}($UV_VER)${NC}"
+else
+    printf "  ${C}⠋${NC} Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh 2>/dev/null | sh >/dev/null 2>&1 &
+    spin $! "Installing uv"
+    # Add uv to PATH for this session
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    if command -v uv &> /dev/null; then
+        status "$CHECK" "uv installed"
+    else
+        status "$CROSS" "Failed to install uv"
+        echo -e "\n  ${Y}Install uv manually: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}\n"
+        exit 1
+    fi
+fi
+
+# Step 4: Python packages via uv
+printf "  ${C}⠋${NC} Installing Python packages..."
+uv pip install --quiet --system textual prompt-toolkit 2>/dev/null &
+spin $! "Installing Python packages"
+status "$CHECK" "textual + prompt-toolkit"
 
 echo
 
-# Step 4: Permissions
+# Step 5: Permissions
 echo -e "${BOLD}Setup${NC}"
 echo -e "${DIM}─────${NC}"
 
@@ -170,7 +189,7 @@ chmod +x "$SCRIPT_DIR/favorites.py"
 chmod +x "$SCRIPT_DIR/lizard_tui.py" 2>/dev/null || true
 status "$CHECK" "Scripts marked executable"
 
-# Step 5: Create alias (shell-specific syntax)
+# Step 6: Create alias (shell-specific syntax)
 if [[ "$CURRENT_SHELL" == "fish" ]]; then
     ALIAS_LINE="alias $APP_NAME '$SCRIPT_DIR/start.sh'"
     ALIAS_PATTERN="alias $APP_NAME "
