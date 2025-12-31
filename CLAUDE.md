@@ -15,7 +15,7 @@ tmux session "claude-ide-{pid}"
 ├── Window 5 (F5): Glow - Markdown viewer
 ├── Window 6 (F6): Favs - Folder favorites browser
 ├── Window 7 (F7): Prompt - Prompt writer (prompt-toolkit)
-├── Window 8 (F8): Rec - Screen recorder (asciinema/ffmpeg)
+├── Window 8 (F8): Status - Session metrics viewer
 ├── Window 9 (F9): Config - Theme selector panel
 └── F10: Exit - kills session
 ```
@@ -101,7 +101,7 @@ tmux status bar shows all windows:
 | F5 | Glow (Markdown viewer) |
 | F6 | Favorites (folder browser) |
 | F7 | Prompt Writer |
-| F8 | Screen Recorder |
+| F8 | Status (session metrics) |
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
 | F12 | Toggle key passthrough (for apps using F-keys) |
@@ -176,6 +176,19 @@ tmux status bar shows all windows:
 | Up/Down | Navigate recordings list |
 | Escape | Refresh list |
 | q | Quit |
+
+### Status Viewer (F8)
+| Key | Action |
+|-----|--------|
+| r | Refresh metrics |
+| q/Escape | Quit |
+
+Displays:
+- Token usage (input, output, cache read/write)
+- Estimated session cost
+- Message count and duration
+- Model, project, and git branch info
+- Auto-refreshes every 5 seconds
 
 ### Config (F9)
 | Key | Action |
@@ -294,6 +307,7 @@ my_env/
 ├── prompt_writer.py    # Prompt writing tool (prompt-toolkit)
 ├── recorder.py         # Screen recorder (asciinema/ffmpeg)
 ├── lizard_tui.py       # Lizard TUI app
+├── status_viewer.py    # Session metrics viewer
 ├── prompts/            # Saved prompts directory (auto-created)
 ├── recordings/         # Screen recordings directory (auto-created)
 ├── start.sh            # convenience script

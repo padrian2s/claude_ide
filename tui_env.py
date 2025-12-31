@@ -14,6 +14,7 @@ LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
 CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
 FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
 PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
+STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 
 # Import config to get saved theme and position
 from config_panel import get_theme_colors, get_status_position
@@ -74,6 +75,13 @@ def main():
         f" uv run --project '{SCRIPT_DIR}' python3 '{CONFIG_SCRIPT}'", "Enter"
     ])
 
+    # Create Window 26 = Status Viewer
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:26", "-n", "Status"])
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{SESSION}:26",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{STATUS_SCRIPT}'", "Enter"
+    ])
+
     # Load saved theme and position
     theme = get_theme_colors()
     status_position = get_status_position()
@@ -127,6 +135,7 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:23"])
     subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:24"])
     subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:25"])
+    subprocess.run(["tmux", "bind-key", "-n", "F8", "select-window", "-t", f"{SESSION}:26"])
 
     # F10 = Exit (kill session)
     subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
@@ -148,6 +157,7 @@ def main():
     F5              Favs - Folder favorites
     F6              Prompt - Prompt writer
     F7              Config - Theme settings
+    F8              Status - Session metrics
 
   SYSTEM
     F10             Exit - Kill session
@@ -196,11 +206,12 @@ def main():
         f"bind-key -n F5 select-window -t {SESSION}:23 ; "
         f"bind-key -n F6 select-window -t {SESSION}:24 ; "
         f"bind-key -n F7 select-window -t {SESSION}:25 ; "
+        f"bind-key -n F8 select-window -t {SESSION}:26 ; "
         f"bind-key -n F10 kill-session -t {SESSION}' "
         f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
         f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
         f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
-        f"unbind-key -n F7 ; unbind-key -n F10'"
+        f"unbind-key -n F7 ; unbind-key -n F8 ; unbind-key -n F10'"
     )
     subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
 
