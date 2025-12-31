@@ -89,6 +89,13 @@ case "$CURRENT_SHELL" in
         ;;
 esac
 
+# Resolve symlinks for sed compatibility (macOS sed doesn't work with symlinks)
+if [[ -L "$SHELL_RC" ]]; then
+    SHELL_RC_REAL=$(cd "$(dirname "$SHELL_RC")" && cd "$(dirname "$(readlink "$SHELL_RC")")" && pwd)/$(basename "$(readlink "$SHELL_RC")")
+else
+    SHELL_RC_REAL="$SHELL_RC"
+fi
+
 echo -e "  ${DIM}Detected: $OS, shell: $CURRENT_SHELL → $(basename $SHELL_RC)${NC}"
 echo
 
@@ -208,19 +215,19 @@ else
     ALIAS_PATTERN="alias $APP_NAME="
 fi
 
-if grep -q "$ALIAS_PATTERN" "$SHELL_RC" 2>/dev/null; then
+if grep -q "$ALIAS_PATTERN" "$SHELL_RC_REAL" 2>/dev/null; then
     # Update existing alias
     if [[ "$OS" == "macos" ]]; then
-        sed -i '' "s|${ALIAS_PATTERN}.*|$ALIAS_LINE|" "$SHELL_RC"
+        sed -i '' "s|${ALIAS_PATTERN}.*|$ALIAS_LINE|" "$SHELL_RC_REAL"
     else
-        sed -i "s|${ALIAS_PATTERN}.*|$ALIAS_LINE|" "$SHELL_RC"
+        sed -i "s|${ALIAS_PATTERN}.*|$ALIAS_LINE|" "$SHELL_RC_REAL"
     fi
     status "$CHECK" "Updated alias in ${DIM}$(basename $SHELL_RC)${NC}"
 else
     # Add new alias
-    echo "" >> "$SHELL_RC"
-    echo "# Claude IDE" >> "$SHELL_RC"
-    echo "$ALIAS_LINE" >> "$SHELL_RC"
+    echo "" >> "$SHELL_RC_REAL"
+    echo "# Claude IDE" >> "$SHELL_RC_REAL"
+    echo "$ALIAS_LINE" >> "$SHELL_RC_REAL"
     status "$CHECK" "Added alias to ${DIM}$(basename $SHELL_RC)${NC}"
 fi
 
