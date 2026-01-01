@@ -212,6 +212,7 @@ Displays:
 | Enter | Apply theme |
 | p | Toggle status bar position (top/bottom) |
 | c | Customize screens (AI-assisted) |
+| i | Import words from Claude Code prompts |
 | q/Escape | Quit |
 
 ### AI Customization Workflow (press 'c' in Config)
@@ -230,6 +231,7 @@ Displays:
 | Ctrl+O | Open/list saved prompts |
 | Ctrl+N | New prompt |
 | Ctrl+T | Insert prompt template |
+| Ctrl+B | Browse Claude Code prompts |
 | Ctrl+D | Insert date/time |
 | Ctrl+F | Find text |
 | Ctrl+H | Toggle help panel |

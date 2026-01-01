@@ -95,6 +95,86 @@ def get_status_position() -> str:
     return config.get("status_position", "bottom")
 
 
+import re
+from collections import Counter
+
+CLAUDE_HISTORY_FILE = Path.home() / ".claude" / "history.jsonl"
+LEARNED_WORDS_FILE = Path(__file__).parent / ".prompt_learned_words.txt"
+
+# Common words to filter out
+STOP_WORDS = {
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+    'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had',
+    'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must',
+    'shall', 'can', 'need', 'it', 'this', 'that', 'these', 'those', 'i', 'you', 'he',
+    'she', 'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how', 'all',
+    'each', 'every', 'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no',
+    'not', 'only', 'same', 'so', 'than', 'too', 'very', 'just', 'also', 'now', 'here',
+    'there', 'then', 'if', 'else', 'use', 'add', 'get', 'set', 'new', 'file', 'code',
+    'make', 'like', 'want', 'see', 'look', 'using', 'used', 'first', 'last', 'next',
+    'after', 'before', 'into', 'over', 'under', 'again', 'further', 'once', 'any',
+    'me', 'my', 'your', 'its', 'our', 'their', 'up', 'down', 'out', 'off', 'about',
+}
+
+
+def import_claude_prompts() -> tuple[int, int, list[str]]:
+    """Import prompts from Claude Code history and extract learned words.
+    
+    Returns:
+        Tuple of (prompts_count, words_count, sample_words)
+    """
+    if not CLAUDE_HISTORY_FILE.exists():
+        return 0, 0, []
+    
+    prompts = []
+    try:
+        with open(CLAUDE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    if 'display' in obj:
+                        prompts.append(obj['display'])
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        return 0, 0, []
+    
+    if not prompts:
+        return 0, 0, []
+    
+    # Extract words from all prompts
+    all_words = []
+    for prompt in prompts:
+        # Extract words (alphanumeric, underscores, hyphens)
+        words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9_-]*\b', prompt.lower())
+        all_words.extend(words)
+    
+    # Count word frequencies and filter
+    word_counts = Counter(all_words)
+    
+    # Filter: min length 3, not stop words, appears at least 2 times
+    learned_words = [
+        word for word, count in word_counts.most_common()
+        if len(word) >= 3 and word not in STOP_WORDS and count >= 2
+    ]
+    
+    # Save to file
+    if learned_words:
+        try:
+            with open(LEARNED_WORDS_FILE, 'w', encoding='utf-8') as f:
+                for word in learned_words:
+                    f.write(f"{word}\n")
+        except Exception:
+            pass
+    
+    # Return stats
+    sample = learned_words[:10]  # Top 10 words as sample
+    return len(prompts), len(learned_words), sample
+
+
 class ConfirmDialog(ModalScreen):
     """Simple confirmation dialog."""
 
@@ -541,6 +621,7 @@ class ConfigPanel(App):
         Binding("escape", "quit", "Quit"),
         Binding("p", "toggle_position", "Toggle Position"),
         Binding("c", "customize", "Customize Screen"),
+        Binding("i", "import_prompts", "Import Words"),
     ]
 
     def __init__(self):
@@ -567,7 +648,7 @@ class ConfigPanel(App):
                 id="theme-list"
             )
             yield Static("", id="position-info")
-            yield Static("Enter: Apply  |  p: Position  |  c: Customize  |  q: Quit", id="help")
+            yield Static("Enter: Apply  |  p: Position  |  c: Customize  |  i: Import Words  |  q: Quit", id="help")
 
     def on_mount(self):
         self.title = "Config"
@@ -639,6 +720,35 @@ class ConfigPanel(App):
             )
             return
         self.push_screen(ScreenSelectorDialog(), self._on_screen_selected)
+
+
+    def action_import_prompts(self):
+        """Import prompts from Claude Code and extract learned words."""
+        if not CLAUDE_HISTORY_FILE.exists():
+            self.notify(
+                f"Claude history not found: {CLAUDE_HISTORY_FILE}",
+                severity="error",
+                timeout=4,
+            )
+            return
+        
+        prompts_count, words_count, sample_words = import_claude_prompts()
+        
+        if prompts_count == 0:
+            self.notify("No prompts found in Claude history", severity="warning", timeout=3)
+            return
+        
+        if words_count == 0:
+            self.notify(f"Imported {prompts_count} prompts but no words extracted", severity="warning", timeout=3)
+            return
+        
+        # Show success with sample words
+        sample_str = ", ".join(sample_words[:5])
+        self.notify(
+            f"Imported {prompts_count} prompts -> {words_count} words saved to .prompt_learned_words.txt\nTop: {sample_str}...",
+            severity="information",
+            timeout=5,
+        )
 
     def _on_screen_selected(self, screen_name: str | None):
         """Handle screen selection."""

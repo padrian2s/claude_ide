@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prompt Writer - A full-screen text editor for writing prompts using Textual."""
 
+import json
 import os
 import re
 import subprocess
@@ -9,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.widgets import Static, Header, Footer, TextArea, Button, Label, RadioSet, RadioButton, LoadingIndicator, OptionList
+from textual.widgets import Static, Header, Footer, TextArea, Button, Label, RadioSet, RadioButton, LoadingIndicator, OptionList, ListView, ListItem
 from textual.widgets.option_list import Option
 from textual.containers import Vertical, Horizontal, Container
 from textual.screen import ModalScreen
@@ -613,6 +614,279 @@ Output: [EXAMPLE OUTPUT]
         self.dismiss(None)
 
 
+
+# Claude Code history file
+CLAUDE_HISTORY_FILE = Path.home() / ".claude" / "history.jsonl"
+
+
+def load_claude_prompts() -> dict[str, list[dict]]:
+    """Load prompts from Claude Code history, grouped by project.
+    
+    Returns:
+        Dict mapping project name to list of prompts with display and timestamp.
+    """
+    if not CLAUDE_HISTORY_FILE.exists():
+        return {}
+    
+    prompts_by_project: dict[str, list[dict]] = {}
+    
+    try:
+        with open(CLAUDE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    if 'display' not in obj:
+                        continue
+                    
+                    display = obj['display'].strip()
+                    # Skip empty or command-only prompts
+                    if not display or display.startswith('/clear') or len(display) < 5:
+                        continue
+                    
+                    project = obj.get('project', 'Unknown')
+                    # Extract just the project name from path
+                    project_name = Path(project).name if project else 'Unknown'
+                    
+                    timestamp = obj.get('timestamp', 0)
+                    
+                    if project_name not in prompts_by_project:
+                        prompts_by_project[project_name] = []
+                    
+                    prompts_by_project[project_name].append({
+                        'display': display[:200] + '...' if len(display) > 200 else display,
+                        'full_display': display,
+                        'timestamp': timestamp,
+                        'project_path': project,
+                    })
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        return {}
+    
+    # Sort prompts within each project by timestamp (newest first)
+    for project in prompts_by_project:
+        prompts_by_project[project].sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return prompts_by_project
+
+
+class ProjectItem(ListItem):
+    """A project item in the list."""
+    
+    def __init__(self, project_name: str, count: int) -> None:
+        super().__init__()
+        self.project_name = project_name
+        self.count = count
+    
+    def compose(self) -> ComposeResult:
+        yield Label(f"📁 {self.project_name} ({self.count})")
+
+
+class PromptItem(ListItem):
+    """A prompt item in the list."""
+    
+    def __init__(self, prompt: dict, index: int) -> None:
+        super().__init__()
+        self.prompt = prompt
+        self.index = index
+    
+    def compose(self) -> ComposeResult:
+        # Format timestamp
+        ts = self.prompt.get('timestamp', 0)
+        if ts:
+            from datetime import datetime as dt
+            date_str = dt.fromtimestamp(ts / 1000).strftime('%m/%d %H:%M')
+        else:
+            date_str = ''
+        
+        display = self.prompt.get('display', '')[:80]
+        yield Label(f"{date_str} | {display}")
+
+
+class ClaudePromptsDialog(ModalScreen[str | None]):
+    """Dialog to browse Claude Code prompts by project."""
+
+    CSS = """
+    ClaudePromptsDialog {
+        align: center middle;
+    }
+    #prompts-dialog {
+        width: 90%;
+        height: 85%;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    #prompts-title {
+        text-align: center;
+        text-style: bold;
+        padding: 1;
+        color: $text;
+    }
+    #prompts-container {
+        height: 1fr;
+    }
+    #projects-panel {
+        width: 30%;
+        height: 100%;
+        border: solid $primary-lighten-2;
+    }
+    #prompts-panel {
+        width: 70%;
+        height: 100%;
+        border: solid $primary-lighten-2;
+    }
+    .panel-title {
+        text-align: center;
+        text-style: bold;
+        background: $primary;
+        padding: 0 1;
+    }
+    ListView {
+        height: 1fr;
+    }
+    ListItem {
+        padding: 0 1;
+    }
+    ListItem:hover {
+        background: $surface-lighten-1;
+    }
+    ListView:focus > ListItem.--highlight {
+        background: $primary;
+    }
+    #preview-panel {
+        height: 8;
+        border: solid $secondary;
+        padding: 1;
+        overflow-y: auto;
+    }
+    #preview-text {
+        width: 100%;
+    }
+    #prompts-buttons {
+        height: 3;
+        align: center middle;
+        padding-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "select", "Select"),
+        Binding("tab", "switch_panel", "Switch Panel"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.prompts_by_project = load_claude_prompts()
+        self.current_project: str | None = None
+        self.current_prompt: dict | None = None
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="prompts-dialog"):
+            yield Label("📋 Claude Code Prompts", id="prompts-title")
+            with Horizontal(id="prompts-container"):
+                with Vertical(id="projects-panel"):
+                    yield Label("Projects", classes="panel-title")
+                    yield ListView(id="projects-list")
+                with Vertical(id="prompts-panel"):
+                    yield Label("Prompts", classes="panel-title")
+                    yield ListView(id="prompts-list")
+            with Vertical(id="preview-panel"):
+                yield Static("Select a prompt to preview", id="preview-text")
+            with Horizontal(id="prompts-buttons"):
+                yield Button("Insert", variant="primary", id="btn-insert")
+                yield Button("Cancel", variant="default", id="btn-cancel")
+
+    def on_mount(self) -> None:
+        # Populate projects list
+        projects_list = self.query_one("#projects-list", ListView)
+        
+        # Sort projects by prompt count
+        sorted_projects = sorted(
+            self.prompts_by_project.items(),
+            key=lambda x: len(x[1]),
+            reverse=True
+        )
+        
+        for project_name, prompts in sorted_projects:
+            projects_list.append(ProjectItem(project_name, len(prompts)))
+        
+        projects_list.focus()
+        
+        if not self.prompts_by_project:
+            self.query_one("#preview-text", Static).update("No prompts found in ~/.claude/history.jsonl")
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Handle selection in either list."""
+        item = event.item
+        
+        if isinstance(item, ProjectItem):
+            # Project selected - show its prompts
+            self.current_project = item.project_name
+            self._populate_prompts(item.project_name)
+            # Focus prompts list
+            self.query_one("#prompts-list", ListView).focus()
+        
+        elif isinstance(item, PromptItem):
+            # Prompt selected - insert it
+            self.current_prompt = item.prompt
+            self.dismiss(item.prompt.get('full_display', ''))
+
+    def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        """Update preview when highlighting changes."""
+        item = event.item
+        preview = self.query_one("#preview-text", Static)
+        
+        if isinstance(item, ProjectItem):
+            count = len(self.prompts_by_project.get(item.project_name, []))
+            preview.update(f"Project: {item.project_name}\nPrompts: {count}\n\nPress Enter to view prompts")
+        
+        elif isinstance(item, PromptItem):
+            self.current_prompt = item.prompt
+            full_text = item.prompt.get('full_display', '')[:500]
+            preview.update(full_text)
+
+    def _populate_prompts(self, project_name: str) -> None:
+        """Populate the prompts list for a project."""
+        prompts_list = self.query_one("#prompts-list", ListView)
+        prompts_list.clear()
+        
+        prompts = self.prompts_by_project.get(project_name, [])
+        for i, prompt in enumerate(prompts[:50]):  # Limit to 50 prompts
+            prompts_list.append(PromptItem(prompt, i))
+
+    def action_switch_panel(self) -> None:
+        """Switch focus between panels."""
+        projects = self.query_one("#projects-list", ListView)
+        prompts = self.query_one("#prompts-list", ListView)
+        
+        if projects.has_focus:
+            prompts.focus()
+        else:
+            projects.focus()
+
+    def action_select(self) -> None:
+        """Select current item."""
+        if self.current_prompt:
+            self.dismiss(self.current_prompt.get('full_display', ''))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-insert":
+            if self.current_prompt:
+                self.dismiss(self.current_prompt.get('full_display', ''))
+            else:
+                self.notify("No prompt selected", severity="warning")
+        else:
+            self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class PromptWriter(App):
     """Full-screen prompt writing application."""
 
@@ -656,6 +930,7 @@ class PromptWriter(App):
         Binding("ctrl+n", "new", "New", priority=True),
         Binding("ctrl+g", "enhance", "AI", priority=True),
         Binding("ctrl+t", "template", "Tmpl", priority=True),
+        Binding("ctrl+b", "browse_prompts", "Browse", priority=True),
         Binding("ctrl+d", "insert_date", "Date", show=False),
         Binding("ctrl+space", "trigger_autocomplete", "Autocomplete", show=False),
     ]
@@ -899,6 +1174,20 @@ class PromptWriter(App):
         if template:
             editor = self.query_one("#main-editor", AutocompleteTextArea)
             editor.insert(template)
+
+
+    def action_browse_prompts(self) -> None:
+        """Open Claude prompts browser dialog."""
+        self.push_screen(ClaudePromptsDialog(), self._handle_prompt_selection)
+
+    def _handle_prompt_selection(self, prompt_text: str | None) -> None:
+        """Handle prompt selection from browser."""
+        if prompt_text:
+            editor = self.query_one("#main-editor", AutocompleteTextArea)
+            editor.insert(prompt_text)
+            self.saved = False
+            self.update_status()
+            self.notify("Prompt inserted", timeout=2)
 
     def action_insert_date(self) -> None:
         editor = self.query_one("#main-editor", AutocompleteTextArea)
