@@ -2,5 +2,21 @@
   "/Users/adrian/personal/my_env": {
     "left": "/Users/adrian/personal",
     "right": "/bin"
+  },
+  "/Users/adrian/personal/claude_ide": {
+    "left": "/Users/adrian/personal/claude_ide",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/personal/claude_ide/recordings": {
+    "left": "/Users/adrian/personal/claude_ide/recordings",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/personal/demo/lemonade-api/routers": {
+    "left": "/Users/adrian/personal/demo/lemonade-api/services",
+    "right": "/Users/adrian/personal/demo/lemonade-api/models"
+  },
+  "/Users/adrian/personal/demo/lemonade-api/data": {
+    "left": "/Users/adrian/personal/demo/lemonade-api",
+    "right": "/Users/adrian/personal/demo/lemonade-api"
   }
 }
