@@ -73,6 +73,21 @@ Theme configuration panel:
 - 8 color themes (Catppuccin, Tokyo Night, Gruvbox, Dracula, Nord, etc.)
 - Status bar position toggle (top/bottom)
 - Live preview and instant apply to tmux
+- **AI-Assisted Screen Customization** (press 'c'):
+  - Select any screen to customize
+  - Describe changes in natural language
+  - AI generates code modifications via Claude API
+  - Preview diff with syntax validation
+  - Apply changes with automatic backup
+  - Hot-reload screens without exiting IDE
+
+### ai_customizer.py
+AI-assisted code modification module:
+- `CodeBackup`: Timestamped backups in `backups/` directory (keeps last 5)
+- `CodeValidator`: Syntax validation and dangerous pattern detection
+- `AICodeModifier`: Claude API integration for code generation
+- `ScreenReloader`: Hot-reload screens via tmux (kills by PID, restarts app)
+- `get_window_index_by_name()`: Dynamic window detection by name (not hardcoded indices)
 
 ### favorites.py
 Folder favorites browser:
@@ -196,7 +211,17 @@ Displays:
 | Up/Down | Navigate themes |
 | Enter | Apply theme |
 | p | Toggle status bar position (top/bottom) |
+| c | Customize screens (AI-assisted) |
 | q/Escape | Quit |
+
+### AI Customization Workflow (press 'c' in Config)
+| Key | Action |
+|-----|--------|
+| Enter | Select screen to customize |
+| Ctrl+S | Submit prompt (in prompt dialog) |
+| a | Apply changes (in preview) |
+| e | Edit prompt (in preview) |
+| Escape | Cancel |
 
 ### Prompt Writer (F7)
 | Key | Action |
@@ -302,12 +327,14 @@ Add the new F-key to both the bind and unbind sections in the `toggle_cmd` strin
 my_env/
 ├── tui_env.py          # tmux launcher (edit this to add windows)
 ├── tree_view.py        # Tree+viewer+file manager app
-├── config_panel.py     # Theme configuration panel
+├── config_panel.py     # Theme configuration panel + AI customization
+├── ai_customizer.py    # AI-assisted code modification module
 ├── favorites.py        # Folder favorites browser
 ├── prompt_writer.py    # Prompt writing tool (prompt-toolkit)
 ├── recorder.py         # Screen recorder (asciinema/ffmpeg)
 ├── lizard_tui.py       # Lizard TUI app
 ├── status_viewer.py    # Session metrics viewer
+├── backups/            # Code backups directory (auto-created)
 ├── prompts/            # Saved prompts directory (auto-created)
 ├── recordings/         # Screen recordings directory (auto-created)
 ├── start.sh            # convenience script
@@ -335,3 +362,58 @@ UI updates use `self.app.call_from_thread()` to safely update from background th
 ### Session Isolation
 Each `tui_env.py` instance creates unique `claude-ide-{pid}` tmux session with PID suffix.
 Cleanup via `atexit` and signal handlers (SIGHUP, SIGTERM).
+
+## AI-Assisted Screen Customization
+
+### Overview
+The Config panel (press 'c') allows modifying any screen's Python code using natural language prompts. Changes are applied with automatic backup and hot-reload.
+
+### Requirements
+- Set `ANTHROPIC_API_KEY` environment variable
+
+### How It Works
+
+1. **Select Screen**: Choose from Tree View, Lizard TUI, Favorites, Prompt Writer, or Config Panel
+2. **Enter Prompt**: Describe changes in natural language (e.g., "change background to dark blue")
+3. **AI Generation**: Claude API generates modified Python code
+4. **Preview Diff**: Review changes before applying
+5. **Apply & Reload**: Code is saved, backup created, screen hot-reloaded
+
+### Hot-Reload Mechanism
+
+The reload process uses dynamic window detection and PID-based process killing:
+
+```python
+# 1. Find window by name (not hardcoded index)
+def get_window_index_by_name(window_name: str) -> int:
+    # tmux list-windows -F "#{window_index}:#{window_name}"
+    # "Tree" -> 3, "Lizard" -> 4, etc.
+
+# 2. Kill process by PID (more reliable than Ctrl+C)
+pane_pid = tmux list-panes -F "#{pane_pid}"
+child_pids = pgrep -P $pane_pid
+kill $child_pids
+
+# 3. Restart the app
+tmux send-keys "uv run python3 script.py" Enter
+```
+
+### Safety Features
+- **Automatic Backup**: Every modification creates a timestamped backup in `backups/`
+- **Syntax Validation**: Code is parsed with `ast.parse()` before preview
+- **Dangerous Pattern Detection**: Warns about `eval()`, `exec()`, `os.system()`, etc.
+- **Backup Retention**: Keeps last 5 backups per script, auto-cleans older ones
+
+### Restoring from Backup
+If a modification breaks an app:
+```bash
+# List backups
+ls backups/
+
+# Restore (example)
+cp backups/tree_view_20251231_234142.py.bak tree_view.py
+
+# Reload the window manually
+tmux send-keys -t SESSION:WINDOW C-c
+tmux send-keys -t SESSION:WINDOW "uv run python3 tree_view.py" Enter
+```
