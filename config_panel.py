@@ -22,6 +22,7 @@ from ai_customizer import (
     get_screen_path,
     get_window_index_by_name,
 )
+from upgrader import get_current_version
 
 CONFIG_FILE = Path(__file__).parent / ".tui_config.json"
 
@@ -614,6 +615,11 @@ class ConfigPanel(App):
     ListView:focus > ListItem.--highlight {
         background: $primary;
     }
+    #version-info {
+        text-align: center;
+        color: $text-muted;
+        padding: 0 1;
+    }
     """
 
     BINDINGS = [
@@ -648,6 +654,8 @@ class ConfigPanel(App):
                 id="theme-list"
             )
             yield Static("", id="position-info")
+            version = get_current_version() or "dev"
+            yield Static(f"Version: {version}", id="version-info")
             yield Static("Enter: Apply  |  p: Position  |  c: Customize  |  i: Import Words  |  q: Quit", id="help")
 
     def on_mount(self):

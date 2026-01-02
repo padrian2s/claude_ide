@@ -194,7 +194,41 @@ fi
 
 echo
 
-# Step 5: Permissions
+# Step 5: Check for upgrades
+echo -e "${BOLD}Upgrade Check${NC}"
+echo -e "${DIM}─────────────${NC}"
+
+# Get current version
+CURRENT_VER=$(cd "$SCRIPT_DIR" && git describe --tags --exact-match HEAD 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || echo "none")
+
+if [[ "$CURRENT_VER" == "none" ]]; then
+    status "$CHECK" "Fresh install (no version tag)"
+else
+    echo -ne "  ${C}◦${NC} Checking for updates..."
+    # Run upgrade check via Python
+    UPGRADE_OUTPUT=$(cd "$SCRIPT_DIR" && uv run python3 -c "
+from upgrader import auto_upgrade
+auto_upgrade(silent=False)
+" 2>&1)
+
+    if echo "$UPGRADE_OUTPUT" | grep -q "Upgrade:"; then
+        # Upgrade was performed
+        NEW_VER=$(cd "$SCRIPT_DIR" && git describe --tags --exact-match HEAD 2>/dev/null || echo "$CURRENT_VER")
+        if [[ "$NEW_VER" != "$CURRENT_VER" ]]; then
+            status "$CHECK" "Upgraded: ${DIM}$CURRENT_VER → $NEW_VER${NC}"
+        else
+            status "$CHECK" "Already at latest ${DIM}($CURRENT_VER)${NC}"
+        fi
+    elif echo "$UPGRADE_OUTPUT" | grep -q "already at latest\|No updates"; then
+        status "$CHECK" "Already at latest ${DIM}($CURRENT_VER)${NC}"
+    else
+        status "$CHECK" "Version ${DIM}($CURRENT_VER)${NC}"
+    fi
+fi
+
+echo
+
+# Step 6: Permissions
 echo -e "${BOLD}Setup${NC}"
 echo -e "${DIM}─────${NC}"
 
