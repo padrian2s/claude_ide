@@ -6,6 +6,7 @@ Only updates from tagged releases, not from main/master branch.
 """
 
 import json
+import os
 import re
 import subprocess
 import urllib.request
@@ -19,7 +20,6 @@ GITHUB_REPO = "padrian2s/claude_ide"  # owner/repo format
 # Files that can be AI-modified (from ai_customizer.py SCREEN_CONFIGS)
 AI_MODIFIABLE_FILES = [
     "tree_view.py",
-    "lizard_tui.py",
     "favorites.py",
     "prompt_writer.py",
     "config_panel.py",
@@ -288,12 +288,20 @@ def auto_upgrade(silent: bool = False) -> bool:
 
     Only updates from tagged releases, not from main/master branch.
 
+    Set CLAUDE_IDE_NO_UPGRADE=1 to disable auto-upgrade at startup.
+
     Args:
         silent: If True, don't print messages
 
     Returns:
         True if upgrade was performed or no updates available
     """
+    # Check if auto-upgrade is disabled via environment variable
+    if os.environ.get("CLAUDE_IDE_NO_UPGRADE", "").lower() in ("1", "true", "yes"):
+        if not silent:
+            print("Auto-upgrade disabled via CLAUDE_IDE_NO_UPGRADE")
+        return True
+
     # Check if we're in a git repo
     result = subprocess.run(
         ["git", "rev-parse", "--git-dir"],
