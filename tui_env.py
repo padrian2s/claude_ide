@@ -18,9 +18,13 @@ STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 
 # Import config to get saved theme and position
 from config_panel import get_theme_colors, get_status_position
+from upgrader import auto_upgrade
 
 
 def main():
+    # Auto-upgrade from git (preserves AI-modified files)
+    auto_upgrade(silent=False)
+
     # Get terminal size
     size = os.get_terminal_size()
 
