@@ -1384,16 +1384,19 @@ class TreeViewApp(App):
             self.tree_width = 50
         else:
             self.tree_width = 20
+        self.notify(f"Tree: {self.tree_width}%", timeout=1)
 
     def action_shrink_tree(self):
         """Shrink tree panel by 5%."""
         if self.tree_width > 10:
             self.tree_width = max(10, self.tree_width - 5)
+            self.notify(f"Tree: {self.tree_width}%", timeout=1)
 
     def action_grow_tree(self):
         """Grow tree panel by 5%."""
         if self.tree_width < 80:
             self.tree_width = min(80, self.tree_width + 5)
+            self.notify(f"Tree: {self.tree_width}%", timeout=1)
 
     def action_open_system(self):
         """Open selected file/folder with system default app."""
