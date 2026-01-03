@@ -157,6 +157,21 @@ else
     status "$CHECK" "ripgrep installed"
 fi
 
+# Step 2d: lazygit
+if command -v lazygit &> /dev/null; then
+    LG_VER=$(lazygit --version | grep -oE 'version=[0-9.]+' | cut -d'=' -f2)
+    status "$CHECK" "lazygit ${DIM}($LG_VER)${NC}"
+else
+    printf "  ${C}⠋${NC} Installing lazygit..."
+    if [[ "$OS" == "macos" ]]; then
+        brew install lazygit > /dev/null 2>&1 &
+    else
+        (sudo apt-get install -y lazygit) > /dev/null 2>&1 &
+    fi
+    spin $! "Installing lazygit"
+    status "$CHECK" "lazygit installed"
+fi
+
 # Step 3: uv (Python package manager)
 if command -v uv &> /dev/null; then
     UV_VER=$(uv --version | cut -d' ' -f2)
@@ -281,7 +296,8 @@ fi
 echo -e "  ${ARROW} Then type ${C}${APP_NAME}${NC} to launch"
 echo
 echo -e "  ${BOLD}Keys:${NC}"
-echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F2${NC} Terminal 2   ${DIM}F9${NC} Config"
-echo -e "  ${DIM}F3${NC} File Tree   ${DIM}F4${NC} Lizard TUI   ${DIM}F10${NC} Exit"
-echo -e "  ${DIM}F5${NC} Glow        ${DIM}F6${NC} Favorites    ${DIM}F12${NC} Keys Toggle"
+echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F5${NC} Favorites    ${DIM}F9${NC} Config"
+echo -e "  ${DIM}F2${NC} File Tree   ${DIM}F6${NC} Prompt       ${DIM}F10${NC} Exit"
+echo -e "  ${DIM}F3${NC} Lizard      ${DIM}F7${NC} Git          ${DIM}F12${NC} Keys Toggle"
+echo -e "  ${DIM}F4${NC} Glow        ${DIM}F8${NC} Status"
 echo

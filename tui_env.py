@@ -82,18 +82,25 @@ def main():
         f" uv run --project '{SCRIPT_DIR}' python3 '{PROMPT_SCRIPT}'", "Enter"
     ])
 
-    # Create Window 25 = Config
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:25", "-n", "Config"])
+    # Create Window 25 = Git (F7)
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:25", "-n", "Git"])
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:25",
-        f" uv run --project '{SCRIPT_DIR}' python3 '{CONFIG_SCRIPT}'", "Enter"
+        f" cd '{START_DIR}' && lazygit", "Enter"
     ])
 
-    # Create Window 26 = Status Viewer
+    # Create Window 26 = Status Viewer (F8)
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:26", "-n", "Status"])
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:26",
         f" uv run --project '{SCRIPT_DIR}' python3 '{STATUS_SCRIPT}'", "Enter"
+    ])
+
+    # Create Window 27 = Config (F9)
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:27", "-n", "Config"])
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{SESSION}:27",
+        f" uv run --project '{SCRIPT_DIR}' python3 '{CONFIG_SCRIPT}'", "Enter"
     ])
 
     # Load saved theme and position
@@ -151,8 +158,8 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:25"])
     subprocess.run(["tmux", "bind-key", "-n", "F8", "select-window", "-t", f"{SESSION}:26"])
 
-    # F9 = unbind (clear any stale bindings)
-    subprocess.run(["tmux", "unbind-key", "-n", "F9"])
+    # F9 = Config
+    subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", f"{SESSION}:27"])
 
     # F10 = Exit (kill session)
     subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
@@ -173,8 +180,9 @@ def main():
     F4              Glow - Markdown viewer
     F5              Favs - Folder favorites
     F6              Prompt - Prompt writer
-    F7              Config - Theme settings
+    F7              Git - Lazygit
     F8              Status - Session metrics
+    F9              Config - Theme settings
 
   SYSTEM
     F10             Exit - Kill session
@@ -185,7 +193,7 @@ def main():
 """
     subprocess.run([
         "tmux", "bind-key", "-n", "?",
-        "display-popup", "-w", "68", "-h", "26",
+        "display-popup", "-w", "68", "-h", "27",
         f"echo '{help_text}'"
     ])
 
@@ -226,11 +234,12 @@ def main():
         f"bind-key -n F6 select-window -t {SESSION}:24 ; "
         f"bind-key -n F7 select-window -t {SESSION}:25 ; "
         f"bind-key -n F8 select-window -t {SESSION}:26 ; "
+        f"bind-key -n F9 select-window -t {SESSION}:27 ; "
         f"bind-key -n F10 kill-session -t {SESSION}' "
         f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
         f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
         f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
-        f"unbind-key -n F7 ; unbind-key -n F8 ; unbind-key -n F10'"
+        f"unbind-key -n F7 ; unbind-key -n F8 ; unbind-key -n F9 ; unbind-key -n F10'"
     )
     subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
 
