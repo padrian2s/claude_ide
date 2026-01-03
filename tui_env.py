@@ -18,6 +18,7 @@ CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
 FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
 PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
+QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
 
 # Import config to get saved theme and position
 from config_panel import get_theme_colors, get_status_position
@@ -218,6 +219,13 @@ def main():
         "if-shell", "-F", "#{&&:#{e|>:#{window_index},1},#{e|<:#{window_index},20}}",
         "kill-window",
         "display-message 'Cannot close this window'"
+    ])
+
+    # Ctrl+I = Quick input popup (sends to F1) with autocomplete
+    subprocess.run([
+        "tmux", "bind-key", "-n", "C-i",
+        "display-popup", "-E", "-w", "70", "-h", "12",
+        f"uv run python3 '{QUICK_INPUT_SCRIPT}'"
     ])
 
     # F12 = Toggle key passthrough mode
