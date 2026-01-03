@@ -1349,7 +1349,7 @@ class TreeViewApp(App):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
-        Binding("ctrl+p", "fzf_files", "Find File", priority=True),
+        Binding("ctrl+f", "fzf_files", "Find File", priority=True),
         Binding("/", "fzf_grep", "Grep", priority=True),
         Binding("tab", "toggle_focus", "Switch Panel"),
         Binding("w", "toggle_width", "Wide"),
@@ -1385,7 +1385,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find /:grep m:manager o:open w:wide []:resize g:jump q:quit"
+        self.sub_title = "^F:find /:grep m:manager o:open w:wide []:resize g:jump q:quit"
         # Set initial panel widths
         self._update_panel_widths()
 

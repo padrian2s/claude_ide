@@ -221,9 +221,9 @@ def main():
         "display-message 'Cannot close this window'"
     ])
 
-    # Ctrl+I = Quick input popup (sends to F1) with autocomplete
+    # Ctrl+P = Quick input popup (sends to F1) with autocomplete
     subprocess.run([
-        "tmux", "bind-key", "-n", "C-i",
+        "tmux", "bind-key", "-n", "C-p",
         "display-popup", "-E", "-w", "70", "-h", "12",
         f"uv run python3 '{QUICK_INPUT_SCRIPT}'"
     ])

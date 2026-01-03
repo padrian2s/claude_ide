@@ -120,7 +120,7 @@ tmux status bar shows all windows:
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
 | F12 | Toggle key passthrough (for apps using F-keys) |
-| Ctrl+I | Quick input popup (sends to F1) |
+| Ctrl+P | Quick input popup (sends to F1) |
 | Shift+Left | Previous window |
 | Shift+Right | Next window |
 
@@ -135,7 +135,7 @@ tmux status bar shows all windows:
 | TAB | Switch tree <-> viewer |
 | w | Toggle wide tree (20% <-> 50%) |
 | g | Toggle first/last position |
-| Ctrl+P | Fuzzy find files (fzf) |
+| Ctrl+F | Fuzzy find files (fzf) |
 | / | Grep search (rg + fzf) |
 | q | Quit |
 
