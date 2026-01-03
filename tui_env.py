@@ -173,6 +173,7 @@ def main():
     Shift + ← →     Navigate between windows
     Ctrl + T        Create new terminal (T2, T3...)
     Ctrl + W        Close current terminal
+    Ctrl + P        Quick input popup (→ F1)
 
   WINDOWS
     F1              Terminal - Main shell
