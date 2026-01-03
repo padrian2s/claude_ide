@@ -1057,7 +1057,31 @@ class DualPanelScreen(ModalScreen):
             self.notify("Cannot view directory", timeout=2)
             return
 
+        # Image files - display with imgcat (iTerm2)
+        image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.tiff', '.tif', '.svg'}
+        if item.path.suffix.lower() in image_extensions:
+            self._view_image(item.path)
+            return
+
         self.app.push_screen(FileViewerScreen(item.path))
+
+    def _view_image(self, path: Path):
+        """Display image using imgcat (iTerm2) with suspend."""
+        imgcat_path = "/Applications/iTerm.app/Contents/Resources/utilities/imgcat"
+
+        def show_image():
+            print(f"\n📷 {path.name}\n{'─' * 50}\n")
+            subprocess.run([imgcat_path, str(path)])
+            print("\n\nPress Enter to return...")
+            input()
+
+        if Path(imgcat_path).exists():
+            with self.app.suspend():
+                show_image()
+        else:
+            # Fallback: open with system viewer
+            subprocess.run(["open", str(path)])
+            self.notify(f"Opened: {path.name}", timeout=2)
 
 
 class FileViewer(VerticalScroll):
@@ -1154,22 +1178,11 @@ class FileViewer(VerticalScroll):
 
         suffix = path.suffix.lower()
 
-        # Display images using iTerm2 inline images protocol
+        # Display images using imgcat (iTerm2)
         if suffix in image_extensions:
             static_widget.display = True
             md_widget.display = False
-            try:
-                with open(path, 'rb') as f:
-                    image_data = f.read()
-                b64_data = base64.b64encode(image_data).decode('ascii')
-                # iTerm2 inline image escape sequence
-                osc = "\033]1337;File=inline=1;preserveAspectRatio=1"
-                st = "\007"
-                iterm_image = f"{osc}:{b64_data}{st}"
-                # Display image info + the image
-                static_widget.update(f"[bold magenta]📷 {path.name}[/bold magenta]\n[dim]{'─' * 50}[/dim]\n\n{iterm_image}")
-            except Exception as e:
-                static_widget.update(f"[red]Error loading image: {e}[/red]")
+            static_widget.update(f"[bold magenta]📷 {path.name}[/bold magenta]\n\n[dim]Press 'o' to open image, or use File Manager to view[/dim]")
             self.scroll_home()
             return
 
