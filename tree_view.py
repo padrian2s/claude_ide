@@ -1314,7 +1314,7 @@ class TreeViewApp(App):
     ]
 
     # Tree panel width in percent (10-80)
-    tree_width = reactive(20)
+    tree_width = reactive(35)
 
     def __init__(self, start_path: Path = None):
         super().__init__()
@@ -1379,11 +1379,11 @@ class TreeViewApp(App):
         self.notify("Tree refreshed", timeout=1)
 
     def action_toggle_width(self):
-        """Toggle tree panel between narrow (20%) and wide (50%)."""
+        """Toggle tree panel between narrow (35%) and wide (50%)."""
         if self.tree_width < 50:
             self.tree_width = 50
         else:
-            self.tree_width = 20
+            self.tree_width = 35
         self.notify(f"Tree: {self.tree_width}%", timeout=1)
 
     def action_shrink_tree(self):
