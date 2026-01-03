@@ -5,9 +5,12 @@ import atexit
 import os
 import signal
 import subprocess
+import sys
 from pathlib import Path
 
 SESSION = f"claude-ide-{os.getpid()}"
+# Get the start directory from command line arg, default to cwd
+START_DIR = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
 SCRIPT_DIR = Path(__file__).parent
 TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
@@ -38,13 +41,20 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "base-index", "1"])
     # Renumber existing window from 0 to 1
     subprocess.run(["tmux", "move-window", "-t", f"{SESSION}:1"])
+    # Change to user's start directory in Terminal 1
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{SESSION}:1",
+        f" cd '{START_DIR}'", "Enter"
+    ])
+    # Store START_DIR in tmux variable for new terminals
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "@start_dir", str(START_DIR)])
 
     # Apps at high window numbers (20-26) so dynamic terminals can use 2-19
     # Create Window 20 = Tree + Viewer
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:20", "-n", "Tree"])
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:20",
-        f" uv run --project '{SCRIPT_DIR}' python3 '{TREE_SCRIPT}'", "Enter"
+        f" uv run --project '{SCRIPT_DIR}' python3 '{TREE_SCRIPT}' '{START_DIR}'", "Enter"
     ])
 
     # Create Window 21 = Lizard TUI
@@ -182,11 +192,13 @@ def main():
 
     # Ctrl+T = Create new terminal with auto-name T2, T3, etc.
     # Increments @term_count and creates window after the last terminal (before apps at 20+)
+    # Also cd to start directory after creating the window
     subprocess.run([
         "tmux", "bind-key", "-n", "C-t",
         "run-shell",
         f"tmux set-option -t {SESSION} @term_count $(($(tmux show-option -t {SESSION} -v @term_count) + 1)) && "
-        f"tmux new-window -t {SESSION} -n T$(tmux show-option -t {SESSION} -v @term_count)"
+        f"tmux new-window -t {SESSION} -n T$(tmux show-option -t {SESSION} -v @term_count) && "
+        f"tmux send-keys -t {SESSION} \" cd '$(tmux show-option -t {SESSION} -v @start_dir)'\" Enter"
     ])
 
     # Ctrl+W = Close current terminal (only dynamic ones, windows 2-19)

@@ -50,6 +50,8 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.console import Group
 
+from config_panel import get_border_style
+
 
 def format_size(size: int) -> str:
     """Format file size in human readable format, right-aligned to 6 chars."""
@@ -457,6 +459,7 @@ class DualPanelScreen(ModalScreen):
         ("pagedown", "page_down", "PgDn"),
         ("h", "go_home", "Home"),
         ("i", "sync_panels", "Sync"),
+        ("v", "view_file", "View"),
     ]
 
     def __init__(self, start_path: Path = None):
@@ -510,7 +513,7 @@ class DualPanelScreen(ModalScreen):
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("^S:search  Space:sel  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump  q:close", id="help-bar")
+            yield Label("^S:search  Space:sel  v:view  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump  q:close", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -1027,6 +1030,27 @@ class DualPanelScreen(ModalScreen):
         
         self.app.push_screen(ConfirmDialog("⚠ Delete", message), handle_confirm)
 
+    def action_view_file(self):
+        """View the highlighted file in a modal viewer."""
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        if not list_view.highlighted_child:
+            self.notify("No file selected", timeout=2)
+            return
+
+        item = list_view.highlighted_child
+        if not isinstance(item, FileItem):
+            return
+
+        if item.is_parent:
+            self.notify("Cannot view '..'", timeout=2)
+            return
+
+        if item.path.is_dir():
+            self.notify("Cannot view directory", timeout=2)
+            return
+
+        self.app.push_screen(FileViewerScreen(item.path))
+
 
 class FileViewer(VerticalScroll):
     """Scrollable file content viewer with syntax highlighting."""
@@ -1076,6 +1100,32 @@ class FileViewer(VerticalScroll):
         '.lua': 'lua',
         '.r': 'r',
         '.dockerfile': 'dockerfile',
+        '.hs': 'haskell',
+        '.lhs': 'haskell',
+        '.scala': 'scala',
+        '.sc': 'scala',
+        '.ex': 'elixir',
+        '.exs': 'elixir',
+        '.nim': 'nim',
+        '.nims': 'nim',
+        '.clj': 'clojure',
+        '.cljs': 'clojure',
+        '.erl': 'erlang',
+        '.hrl': 'erlang',
+        '.ml': 'ocaml',
+        '.mli': 'ocaml',
+        '.fs': 'fsharp',
+        '.fsx': 'fsharp',
+        '.zig': 'zig',
+        '.dart': 'dart',
+        '.groovy': 'groovy',
+        '.gradle': 'groovy',
+        '.pl': 'perl',
+        '.pm': 'perl',
+        '.tcl': 'tcl',
+        '.v': 'v',
+        '.cr': 'crystal',
+        '.jl': 'julia',
     }
 
     def load_file(self, path: Path):
@@ -1163,6 +1213,58 @@ class FileViewer(VerticalScroll):
         )
 
 
+class FileViewerScreen(ModalScreen):
+    """Modal screen for viewing a file."""
+
+    CSS = """
+    FileViewerScreen {
+        align: center middle;
+    }
+    #viewer-container {
+        width: 95%;
+        height: 95%;
+        background: $surface;
+        border: solid $primary;
+    }
+    #viewer-header {
+        height: 1;
+        background: $primary;
+        text-align: center;
+        text-style: bold;
+    }
+    #viewer-content {
+        height: 1fr;
+    }
+    #viewer-help {
+        height: 1;
+        background: $primary-background;
+        text-align: center;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("q", "close", "Close"),
+    ]
+
+    def __init__(self, file_path: Path):
+        super().__init__()
+        self.file_path = file_path
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="viewer-container"):
+            yield Label(f"📄 {self.file_path.name}", id="viewer-header")
+            yield FileViewer(id="viewer-content")
+            yield Label("q/Esc: close  ↑↓: scroll", id="viewer-help")
+
+    def on_mount(self):
+        viewer = self.query_one("#viewer-content", FileViewer)
+        viewer.load_file(self.file_path)
+
+    def action_close(self):
+        self.dismiss()
+
+
 class TreeViewApp(App):
     CSS = """
     #main {
@@ -1217,11 +1319,19 @@ class TreeViewApp(App):
         Binding("backspace", "go_parent", "Parent"),
     ]
 
+    def __init__(self, start_path: Path = None):
+        super().__init__()
+        self.start_path = start_path or Path.cwd()
+        # Apply border style from config
+        border_style = get_border_style()
+        if border_style != "solid":
+            self.CSS = self.CSS.replace("border-right: solid", f"border-right: {border_style}")
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Horizontal(id="main"):
             with Vertical(id="tree-panel"):
-                yield SizedDirectoryTree(Path.cwd(), id="tree")
+                yield SizedDirectoryTree(self.start_path, id="tree")
             with Vertical(id="viewer-panel"):
                 yield FileViewer()
 
@@ -1423,7 +1533,7 @@ class TreeViewApp(App):
     def action_file_manager(self):
         """Open dual panel file manager."""
         tree = self.query_one("#tree", SizedDirectoryTree)
-        start_path = Path.cwd()
+        start_path = self.start_path
         if tree.cursor_node and tree.cursor_node.data:
             node_path = tree.cursor_node.data.path
             start_path = node_path if node_path.is_dir() else node_path.parent
@@ -1438,7 +1548,9 @@ class TreeViewApp(App):
 
 
 def main():
-    TreeViewApp().run()
+    import sys
+    start_path = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
+    TreeViewApp(start_path=start_path).run()
 
 
 if __name__ == "__main__":
