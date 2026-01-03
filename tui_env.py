@@ -41,10 +41,10 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "base-index", "1"])
     # Renumber existing window from 0 to 1
     subprocess.run(["tmux", "move-window", "-t", f"{SESSION}:1"])
-    # Change to user's start directory in Terminal 1 (silent)
+    # Change to user's start directory in Terminal 1 and start Claude
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:1",
-        f" cd '{START_DIR}' && clear", "Enter"
+        f" cd '{START_DIR}' && clear && claude", "Enter"
     ])
     # Store START_DIR in tmux variable for new terminals
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@start_dir", str(START_DIR)])
