@@ -1,0 +1,568 @@
+
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width,
+            initial-scale=1.0,maximum-scale=1.0" />
+        <style type="text/css">
+            canvas {
+                border: 1px solid black;
+                width: 700px;
+                height: 700px;
+            }
+        </style>
+        <script type="text/javascript">
+        
+
+function TagCloud(w, h, context) {
+    "use strict";
+    this.ctx = context;
+    this.canvasWidth = w;
+    this.canvasHeight = h;
+    this.fontSize = this.canvasHeight / 3;
+    this.shape = "rectangle";
+}
+
+TagCloud.prototype.setShape = function () {
+    this.shape = "circle";
+};
+
+TagCloud.prototype.render = function (tags) {
+    this.ctx.textBaseline = "top";
+    tags.forEach(function (tag) {
+        this.placeTag(tag[0]);
+    }, this);
+};
+
+TagCloud.prototype.placeTag = function (tag) {
+    var placement;
+    while (!(placement = this._getNonOverlappingPlaceWithBestSize(
+            this.fontSize, tag)))
+        this.fontSize *= 0.9;
+
+    this.ctx.fillStyle = this._getRandomColor();
+    this.ctx.fillText(tag, placement.x, placement.y);
+};
+
+TagCloud.prototype._getNonOverlappingPlaceWithBestSize =
+    function (fontSize, tag) {
+    this.ctx.font = "" + fontSize + "pt " + "Arial";
+    var lineHeight=this.getLineHeight(fontSize);
+    var tagWidth = this.ctx.measureText(tag).width;
+
+    var base = new BasePlacement(
+        (this.canvasWidth - tagWidth) * Math.random(),
+        (this.canvasHeight - lineHeight) * Math.random(),
+        lineHeight
+        );
+
+    var placement;
+    /* jshint ignore:start */
+    while (placement = base.nextPlaceToTry()) {
+        if (this._isPlaceEmpty(placement, tagWidth, lineHeight))
+            break;
+    }
+    /* jshint ignore:end */
+    return placement;
+};
+
+TagCloud.prototype.getLineHeight = function (fontSize) {
+    return this.ctx.measureText('M').width * 1.2;
+}
+
+TagCloud.prototype._getRandomColor = function (){
+    var colors = ["aqua", "black", "blue", "fuchsia", "gray", "green",
+                  "lime", "maroon", "navy", "olive", "orange", "purple",
+                  "red", "silver", "teal"];
+    return colors[Math.floor(colors.length * Math.random())];
+};
+
+TagCloud.prototype._isPlaceEmpty = function (placement, width, height) {
+    if (placement.x < 0 || placement.y < 0 || placement.x + width >
+         this.canvasWidth || placement.y + height > this.canvasHeight)
+        return false;
+
+    var pix = this.ctx.getImageData(
+                placement.x, placement.y, width, height).data;
+
+    for (var i = 0, n = pix.length; i < n; i += 4)
+        if (pix[i+3])
+                return false;
+
+    return [[placement.x, placement.y],
+            [placement.x + width, placement.y],
+            [placement.x, placement.y + height],
+            [placement.x + width, placement.y + height]].every(
+                function(pos) {
+                    var a = this.canvasWidth / 2;
+                    var b = this.canvasHeight / 2;
+                    var X = pos[0] - a;
+                    var Y = pos[1] - b;
+                    return (X * X / a / a + Y * Y / b / b < 1);
+                }, this);
+};
+
+TagCloud.prototype.getCoverage = function () {
+    var pix = this.ctx.getImageData(
+                0, 0, this.canvasWidth, this.canvasHeight).data;
+    var pixCount = 0;
+    for (var i = 0, n = pix.length; i < n; i += 4) {
+        if (pix[i+3])
+            pixCount++;
+    }
+    return pixCount * 100 / this.canvasWidth / this.canvasHeight;
+};
+
+function BasePlacement(x, y, h) {
+    var baseX = x,
+        baseY = y,
+        scale = h,
+        tryNumber = 0;
+
+    this.nextPlaceToTry = function() {
+        if (tryNumber < this._spiralOffsets.length)
+            return {
+                x : baseX + this._spiralOffsets[tryNumber][0] * scale,
+                y : baseY + this._spiralOffsets[tryNumber++][1] * scale
+            };
+    };
+}
+
+function generateSpiralOffsets() {
+    var spiralOffsets = [];
+    var radius = 0;
+    var dr = 0.2;
+    for (var i = 0; radius < 40; i+=0.4, radius += dr) {
+        spiralOffsets.push([
+                   radius * Math.sin(i),
+                   radius * Math.cos(i)
+                ]);
+    }
+    return spiralOffsets;
+}
+
+BasePlacement.prototype._spiralOffsets = generateSpiralOffsets();
+
+    
+        </script>
+        <script type="application/javascript">
+            function draw() {
+                var canvas = document.getElementById("canvas");
+                    if (canvas.getContext) {
+                        var ctx = canvas.getContext("2d");
+                        // scale 2x
+                        if(window.devicePixelRatio == 2) {
+                            canvas.setAttribute('width', canvas.width * 2);
+                            canvas.setAttribute('height', canvas.height * 2);
+                        }
+                        var tagCloud = new TagCloud(canvas.width,
+                            canvas.height, ctx);
+                        tagCloud.render([                                        ["None", 20585],
+                                        ["r", 18551],
+                                        ["str", 9182],
+                                        ["0", 5660],
+                                        ["not", 5136],
+                                        ["int", 4687],
+                                        ["1", 4644],
+                                        ["bool", 4194],
+                                        ["Name", 4114],
+                                        ["False", 3979],
+                                        ["String", 3900],
+                                        ["True", 3425],
+                                        ["Keyword", 3193],
+                                        ["name", 3108],
+                                        ["f", 3047],
+                                        ["value", 3036],
+                                        ["Any", 2920],
+                                        ["text", 2816],
+                                        ["and", 2558],
+                                        ["Punctuation", 2452],
+                                        ["Whitespace", 2391],
+                                        ["yield", 2260],
+                                        ["bygroups", 2239],
+                                        ["84", 2186],
+                                        ["Comment", 2168],
+                                        ["raise", 2057],
+                                        ["cls", 2050],
+                                        ["include", 2038],
+                                        ["style", 2018],
+                                        ["or", 1880],
+                                        ["event", 1871],
+                                        ["list", 1834],
+                                        ["__init__", 1817],
+                                        ["isinstance", 1816],
+                                        ["elif", 1805],
+                                        ["append", 1804],
+                                        ["token", 1792],
+                                        ["Text", 1767],
+                                        ["Number", 1734],
+                                        ["type", 1724],
+                                        ["state", 1671],
+                                        ["len", 1640],
+                                        ["typing", 1588],
+                                        ["try", 1548],
+                                        ["except", 1519],
+                                        ["Optional", 1507],
+                                        ["Literal", 1396],
+                                        ["Operator", 1391],
+                                        ["re", 1370],
+                                        ["2", 1363],
+                                        ["options", 1363],
+                                        ["width", 1326],
+                                        ["**", 1317],
+                                        ["as", 1306],
+                                        ["start", 1305],
+                                        ["...", 1277],
+                                        ["get", 1272],
+                                        ["match", 1255],
+                                        ["v", 1231],
+                                        ["tokens", 1188],
+                                        ["property", 1187],
+                                        ["textual", 1184],
+                                        ["async", 1177],
+                                        ["float", 1173],
+                                        ["assert", 1129],
+                                        ["url", 1122],
+                                        ["line", 1091],
+                                        ["Callable", 1080],
+                                        ["data", 1080],
+                                        ["await", 1074],
+                                        ["Style", 1063],
+                                        ["key", 1062],
+                                        ["tuple", 1058],
+                                        ["pos", 1023],
+                                        ["words", 1019],
+                                        ["result", 995],
+                                        ["dict", 982],
+                                        ["obj", 973],
+                                        ["app", 967],
+                                        ["__all__", 965],
+                                        ["Generic", 959],
+                                        ["Union", 934],
+                                        ["index", 904],
+                                        ["default", 899],
+                                        ["Keys", 890],
+                                        ["schema", 883],
+                                        ["pygments", 868],
+                                        ["3", 850],
+                                        ["height", 847],
+                                        ["path", 847],
+                                        ["annotations", 846],
+                                        ["node", 846],
+                                        ["Iterable", 833],
+                                        ["docstring", 829],
+                                        ["color", 824],
+                                        ["content", 818],
+                                        ["x", 817],
+                                        ["console", 816],
+                                        ["Type", 810],
+                                        ["bytes", 809],
+                                        ["suffix", 790],
+                                        ["timeout", 789],
+                                        ["args", 786],
+                                        ["__future__", 771],
+                                        ["b", 760],
+                                        ["i", 754],
+                                        ["y", 731],
+                                        ["styles", 701],
+                                        ["id", 700],
+                                        ["RegexLexer", 689],
+                                        ["Variable", 674],
+                                        ["request", 668],
+                                        ["Single", 665],
+                                        ["aliases", 657],
+                                        ["core_schema", 650],
+                                        ["kwargs", 648],
+                                        ["Omit", 646],
+                                        ["join", 645],
+                                        ["with", 643],
+                                        ["List", 635],
+                                        ["Required", 635],
+                                        ["widget", 633],
+                                        ["TYPE_CHECKING", 626],
+                                        ["func", 626],
+                                        ["omit", 626],
+                                        ["params", 625],
+                                        ["set", 625],
+                                        ["68", 619],
+                                        ["field", 617],
+                                        ["classmethod", 602],
+                                        ["object", 600],
+                                        ["version_added", 599],
+                                        ["pass", 598],
+                                        ["config", 594],
+                                        ["rich", 591],
+                                        ["super", 591],
+                                        ["filenames", 588],
+                                        ["sys", 588],
+                                        ["Multiline", 586],
+                                        ["Escape", 584],
+                                        ["typing_extensions", 582],
+                                        ["response", 576],
+                                        ["headers", 570],
+                                        ["lines", 569],
+                                        ["items", 568],
+                                        ["rf", 552],
+                                        ["document", 551],
+                                        ["info", 550],
+                                        ["message", 550],
+                                        ["cast", 549],
+                                        ["Tuple", 541],
+                                        ["item", 534],
+                                        ["lexer", 526],
+                                        ["k", 523],
+                                        ["BaseModel", 516],
+                                        ["extra_headers", 510],
+                                        ["stream", 504],
+                                        ["Function", 502],
+                                        ["Token", 502],
+                                        ["Builtin", 500],
+                                        ["_", 497],
+                                        ["size", 494],
+                                        ["type_", 482],
+                                        ["Double", 474],
+                                        ["255", 470],
+                                        ["prompt_toolkit", 470],
+                                        ["while", 469],
+                                        ["handle", 466],
+                                        ["Widget", 463],
+                                        ["metadata", 462],
+                                        ["os", 459],
+                                        ["s", 458],
+                                        ["TypeVar", 450],
+                                        ["group", 447],
+                                        ["mimetypes", 446],
+                                        ["total", 441],
+                                        ["Path", 439],
+                                        ["TypedDict", 436],
+                                        ["context", 436],
+                                        ["values", 435],
+                                        ["ValueError", 434],
+                                        ["code", 431],
+                                        ["cursor_position", 431],
+                                        ["screen", 427],
+                                        ["update", 427],
+                                        ["Float", 424],
+                                        ["Exception", 423],
+                                        ["continue", 422],
+                                        ["Preproc", 421],
+                                        ["prefix", 418],
+                                        ["filter", 417],
+                                        ["title", 416],
+                                        ["write", 410],
+                                        ["description", 409],
+                                        ["parent", 409],
+                                        ["other", 408],
+                                        ["Dict", 404],
+                                        ["getattr", 404],
+                                        ["exc", 403],
+                                        ["lambda", 400],
+                                        ["layout", 398],
+                                        ["count", 396],
+                                        ["T", 392],
+                                        ["arg", 389],
+                                        ["using", 388],
+                                        ["strip", 386],
+                                        ["overload", 385],
+                                        ["Class", 384],
+                                        ["TypeError", 383],
+                                        ["errors", 380],
+                                        ["meta", 379],
+                                        ["Integer", 377],
+                                        ["error", 369],
+                                        ["e", 362],
+                                        ["origin", 362],
+                                        ["ctx", 353],
+                                        ["max", 353],
+                                        ["print", 350],
+                                        ["repr", 349],
+                                        ["Constant", 345],
+                                        ["parse", 344],
+                                        ["CoreSchema", 343],
+                                        ["Sequence", 343],
+                                        ["events", 343],
+                                        ["offset", 343],
+                                        ["types", 340],
+                                        ["abc", 339],
+                                        ["children", 337],
+                                        ["TypeAlias", 335],
+                                        ["Color", 332],
+                                        ["format", 332],
+                                        ["Namespace", 331],
+                                        ["Segment", 330],
+                                        ["c", 330],
+                                        ["region", 330],
+                                        ["E", 327],
+                                        ["label", 326],
+                                        ["4", 321],
+                                        ["row", 320],
+                                        ["Binding", 319],
+                                        ["asyncio", 319],
+                                        ["ref", 317],
+                                        ["pop", 316],
+                                        ["fields", 312],
+                                        ["socket", 311],
+                                        ["pydantic", 307],
+                                        ["t", 306],
+                                        ["string", 305],
+                                        ["m", 302],
+                                        ["Other", 301],
+                                        ["query_one", 301],
+                                        ["buffer", 300],
+                                        ["compile", 300],
+                                        ["Declaration", 295],
+                                        ["stack", 294],
+                                        ["startLine", 294],
+                                        ["encoding", 293],
+                                        ["_T", 290],
+                                        ["Label", 289],
+                                        ["__name__", 288],
+                                        ["httpx", 288],
+                                        ["mode", 288],
+                                        ["dataclass", 287],
+                                        ["BaseException", 285],
+                                        ["Reserved", 285],
+                                        ["Tag", 284],
+                                        ["base", 284],
+                                        ["json_schema", 283],
+                                        ["body", 280],
+                                        ["current_buffer", 280],
+                                        ["flags", 280],
+                                        ["clear", 277],
+                                        ["model", 276],
+                                        ["renderable", 276],
+                                        ["add", 275],
+                                        ["keys", 273],
+                                        ["abstractmethod", 272],
+                                        ["Error", 271],
+                                        ["field_info", 271],
+                                        ["split", 271],
+                                        ["level", 270],
+                                        ["classes", 268],
+                                        ["search", 267],
+                                        ["strict", 266],
+                                        ["Mapping", 265],
+                                        ["Hex", 264],
+                                        ["handler", 264],
+                                        ["warnings", 264],
+                                        ["attrs", 262],
+                                        ["src", 261],
+                                        ["this", 261],
+                                        ["serialization", 259],
+                                        ["Size", 257],
+                                        ["datetime", 257],
+                                        ["output", 257],
+                                        ["char", 256],
+                                        ["extra_body", 256],
+                                        ["extra_query", 256],
+                                        ["position", 256],
+                                        ["messages", 254],
+                                        ["parts", 253],
+                                        ["collections", 252],
+                                        ["column", 252],
+                                        ["5", 249],
+                                        ["lower", 249],
+                                        ["task", 248],
+                                        ["_Unset", 247],
+                                        ["range", 247],
+                                        ["Annotated", 246],
+                                        ["maximum", 246],
+                                        ["hasattr", 245],
+                                        ["startswith", 245],
+                                        ["annotation", 244],
+                                        ["Content", 241],
+                                        ["reactive", 241],
+                                        ["files", 239],
+                                        ["Attribute", 238],
+                                        ["nextLine", 236],
+                                        ["markup", 234],
+                                        ["loop", 231],
+                                        ["css", 229],
+                                        ["Console", 228],
+                                        ["cast_to", 227],
+                                        ["child", 227],
+                                        ["min", 227],
+                                        ["ClassVar", 226],
+                                        ["selection", 225],
+                                        ["ttype", 224],
+                                        ["Event", 222],
+                                        ["buff", 222],
+                                        ["source", 222],
+                                        ["Iterator", 218],
+                                        ["Region", 218],
+                                        ["Request", 218],
+                                        ["a", 218],
+                                        ["betas", 218],
+                                        ["disabled", 218],
+                                        ["cached_property", 217],
+                                        ["json", 217],
+                                        ["NotGiven", 216],
+                                        ["alias", 215],
+                                        ["host", 214],
+                                        ["Response", 212],
+                                        ["analyse_text", 212],
+                                        ["_models", 211],
+                                        ["left", 211],
+                                        ["p", 210],
+                                        ["lexers", 209],
+                                        ["close", 206],
+                                        ["Regex", 205],
+                                        ["segment", 205],
+                                        ["Decorator", 204],
+                                        ["Interpol", 204],
+                                        ["control", 204],
+                                        ["copy", 204],
+                                        ["file", 204],
+                                        ["key_bindings", 204],
+                                        ["10", 203],
+                                        ["method", 203],
+                                        ["widgets", 203],
+                                        ["%", 202],
+                                        ["decode", 202],
+                                        ["rules", 202],
+                                        ["type_name", 202],
+                                        ["tp", 200],
+                                        ["extend", 197],
+                                        ["table", 197],
+                                        ["segments", 196],
+                                        ["target", 196],
+                                        ["animate", 195],
+                                        ["theme", 195],
+                                        ["colors", 194],
+                                        ["background", 193],
+                                        ["version", 192],
+                                        ["right", 189],
+                                        ["time", 189],
+                                        ["container", 188],
+                                        ["__repr__", 186],
+                                        ["bgcolor", 186],
+                                        ["inspect", 184],
+                                        ["replace", 184],
+                                        ["Headers", 183],
+                                        ["version_info", 183],
+                                        ["Word", 182],
+                                        ["Message", 181],
+                                        ["log", 178],
+                                        ["stdout", 178],
+                                        ["idx", 177],
+                                        ["plain", 176],
+                                        ["__class__", 175],
+                                        ["chunk", 175],
+                                        ["filename", 175],
+                                        ["md", 174],
+                                        ["by_alias", 173],
+                                        ["get_tokens_unprocessed", 173],
+                                        ["not_given", 173],
+                                        ["port", 173],
+                                        ["write_position", 173],
+                                        ["exclude", 172],
+                                        ["KeyError", 171],
+
+                                    ]);
+                                }
+                        }
+                    </script>
+                </head>
+                <body onload="draw();">
+                    <canvas id="canvas" width="700" height="700"></canvas>
+                </body>
+            </html>

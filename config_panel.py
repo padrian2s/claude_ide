@@ -37,6 +37,13 @@ THEMES = {
     "Monokai": {"bg": "#272822", "fg": "#f8f8f2"},
 }
 
+# Available Textual border styles
+BORDER_STYLES = [
+    "solid", "double", "round", "heavy", "thick", "tall", "wide",
+    "dashed", "ascii", "panel", "outer", "inner", "hkey", "vkey",
+    "blank", "hidden", "none",
+]
+
 
 def load_config() -> dict:
     """Load config from file."""
@@ -45,7 +52,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark", "status_position": "top"}
+    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid"}
 
 
 def save_config(config: dict):
@@ -94,6 +101,12 @@ def get_status_position() -> str:
     """Get current status position from config."""
     config = load_config()
     return config.get("status_position", "bottom")
+
+
+def get_border_style() -> str:
+    """Get current border style from config."""
+    config = load_config()
+    return config.get("border_style", "solid")
 
 
 import re
@@ -626,6 +639,7 @@ class ConfigPanel(App):
         Binding("q", "quit", "Quit"),
         Binding("escape", "quit", "Quit"),
         Binding("p", "toggle_position", "Toggle Position"),
+        Binding("b", "toggle_border", "Toggle Border"),
         Binding("c", "customize", "Customize Screen"),
         Binding("i", "import_prompts", "Import Words"),
     ]
@@ -635,6 +649,7 @@ class ConfigPanel(App):
         self.config = load_config()
         self.selected_theme = self.config.get("theme", "Catppuccin Mocha")
         self.status_position = self.config.get("status_position", "bottom")
+        self.border_style = self.config.get("border_style", "solid")
         # Customization state
         self._current_screen: str | None = None
         self._current_prompt: str | None = None
@@ -654,13 +669,14 @@ class ConfigPanel(App):
                 id="theme-list"
             )
             yield Static("", id="position-info")
+            yield Static("", id="border-info")
             version = get_current_version() or "dev"
             yield Static(f"Version: {version}", id="version-info")
-            yield Static("Enter: Apply  |  p: Position  |  c: Customize  |  i: Import Words  |  q: Quit", id="help")
+            yield Static("Enter: Apply | p: Position | b: Border | c: Customize | i: Import | q: Quit", id="help")
 
     def on_mount(self):
         self.title = "Config"
-        self.sub_title = "Enter:apply  p:position  q:quit"
+        self.sub_title = "Enter:apply  p:position  b:border  q:quit"
         # Focus the list and highlight current theme
         list_view = self.query_one("#theme-list", ListView)
         list_view.focus()
@@ -670,6 +686,7 @@ class ConfigPanel(App):
                 list_view.index = i
                 break
         self.update_position_info()
+        self.update_border_info()
 
         # Cache the tmux session name for later use
         ScreenReloader.get_session_name()
@@ -678,6 +695,10 @@ class ConfigPanel(App):
         """Update position info display."""
         pos_label = "TOP" if self.status_position == "top" else "BOTTOM"
         self.query_one("#position-info", Static).update(f"Status Bar Position: [{pos_label}]")
+
+    def update_border_info(self):
+        """Update border info display."""
+        self.query_one("#border-info", Static).update(f"Border Style: [{self.border_style.upper()}]")
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Handle theme selection on Enter."""
@@ -708,6 +729,16 @@ class ConfigPanel(App):
         apply_status_position(self.status_position)
         self.update_position_info()
         self.notify(f"Status bar: {self.status_position.upper()}", timeout=1)
+
+    def action_toggle_border(self):
+        """Cycle through border styles."""
+        current_idx = BORDER_STYLES.index(self.border_style) if self.border_style in BORDER_STYLES else 0
+        next_idx = (current_idx + 1) % len(BORDER_STYLES)
+        self.border_style = BORDER_STYLES[next_idx]
+        self.config["border_style"] = self.border_style
+        save_config(self.config)
+        self.update_border_info()
+        self.notify(f"Border: {self.border_style.upper()} (restart apps to apply)", timeout=2)
 
     def action_quit(self):
         """Quit with confirmation."""

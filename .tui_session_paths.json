@@ -18,5 +18,13 @@
   "/Users/adrian/personal/demo/lemonade-api/data": {
     "left": "/Users/adrian/personal/demo/lemonade-api",
     "right": "/Users/adrian/personal/demo/lemonade-api"
+  },
+  "/Users/adrian/personal/LeaderKit": {
+    "left": "/Users/adrian/personal/LeaderKit",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/personal/beetracker": {
+    "left": "/Users/adrian/personal/procese-tehnologice-site/public/img/apicultura",
+    "right": "/Users/adrian"
   }
 }

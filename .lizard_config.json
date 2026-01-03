@@ -1,0 +1,12 @@
+{
+  "ccn_threshold": 15,
+  "nloc_threshold": 100,
+  "params_threshold": 5,
+  "ns_threshold": 4,
+  "languages": [],
+  "exclude_patterns": [],
+  "enable_duplicates": true,
+  "enable_wordcount": false,
+  "enable_ns": true,
+  "working_threads": 4
+}
