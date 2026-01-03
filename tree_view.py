@@ -1272,19 +1272,11 @@ class TreeViewApp(App):
         height: 100%;
     }
     #tree-panel {
-        width: 20%;
         height: 100%;
         border-right: solid $primary;
     }
-    #tree-panel.expanded {
-        width: 50%;
-    }
     #viewer-panel {
-        width: 80%;
         height: 100%;
-    }
-    #viewer-panel.shrunk {
-        width: 50%;
     }
     DirectoryTree {
         width: 100%;
@@ -1313,11 +1305,16 @@ class TreeViewApp(App):
         Binding("/", "fzf_grep", "Grep", priority=True),
         Binding("tab", "toggle_focus", "Switch Panel"),
         Binding("w", "toggle_width", "Wide"),
+        Binding("[", "shrink_tree", "Shrink"),
+        Binding("]", "grow_tree", "Grow"),
         Binding("o", "open_system", "Open"),
         Binding("m", "file_manager", "Manager"),
         Binding("g", "toggle_position", "g=jump"),
         Binding("backspace", "go_parent", "Parent"),
     ]
+
+    # Tree panel width in percent (10-80)
+    tree_width = reactive(20)
 
     def __init__(self, start_path: Path = None):
         super().__init__()
@@ -1340,7 +1337,29 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^P:find /:grep m:manager o:open w:wide g:jump BS:up q:quit"
+        self.sub_title = "^P:find /:grep m:manager o:open w:wide []:resize g:jump q:quit"
+        # Set initial panel widths
+        self._update_panel_widths()
+
+    def watch_tree_width(self, width: int):
+        """Called when tree_width changes."""
+        self._update_panel_widths()
+
+    def _update_panel_widths(self):
+        """Update panel widths based on tree_width."""
+        try:
+            tree_panel = self.query_one("#tree-panel")
+            viewer_panel = self.query_one("#viewer-panel")
+            tree = self.query_one("#tree", SizedDirectoryTree)
+
+            tree_panel.styles.width = f"{self.tree_width}%"
+            viewer_panel.styles.width = f"{100 - self.tree_width}%"
+
+            # Update name width based on tree width
+            tree.name_width = NAME_WIDTH_WIDE if self.tree_width >= 40 else NAME_WIDTH_NARROW
+            tree.refresh()
+        except Exception:
+            pass  # Widgets not yet mounted
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
@@ -1360,18 +1379,21 @@ class TreeViewApp(App):
         self.notify("Tree refreshed", timeout=1)
 
     def action_toggle_width(self):
-        """Toggle tree panel between narrow and wide."""
-        tree_panel = self.query_one("#tree-panel")
-        viewer_panel = self.query_one("#viewer-panel")
-        tree = self.query_one("#tree", SizedDirectoryTree)
+        """Toggle tree panel between narrow (20%) and wide (50%)."""
+        if self.tree_width < 50:
+            self.tree_width = 50
+        else:
+            self.tree_width = 20
 
-        tree_panel.toggle_class("expanded")
-        viewer_panel.toggle_class("shrunk")
+    def action_shrink_tree(self):
+        """Shrink tree panel by 5%."""
+        if self.tree_width > 10:
+            self.tree_width = max(10, self.tree_width - 5)
 
-        # Update name width and refresh tree
-        is_wide = tree_panel.has_class("expanded")
-        tree.name_width = NAME_WIDTH_WIDE if is_wide else NAME_WIDTH_NARROW
-        tree.refresh()
+    def action_grow_tree(self):
+        """Grow tree panel by 5%."""
+        if self.tree_width < 80:
+            self.tree_width = min(80, self.tree_width + 5)
 
     def action_open_system(self):
         """Open selected file/folder with system default app."""
