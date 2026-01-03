@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Tree view with file viewer using Textual - split layout."""
 
+import base64
 import json
 import os
 import shutil
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -1141,15 +1143,36 @@ class FileViewer(VerticalScroll):
         static_widget = self.query_one("#file-content", Static)
         md_widget = self.query_one("#md-content", Markdown)
 
+        # Image extensions (can be displayed in iTerm2)
+        image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.tiff', '.tif'}
+
         # Binary file extensions that can't be displayed as text
-        binary_extensions = {'.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', 
-                           '.zip', '.tar', '.gz', '.bz2', '.xz', '.7z', '.rar',
+        binary_extensions = {'.pdf', '.zip', '.tar', '.gz', '.bz2', '.xz', '.7z', '.rar',
                            '.exe', '.dll', '.so', '.dylib', '.bin', '.dat',
                            '.mp3', '.mp4', '.avi', '.mov', '.mkv', '.wav', '.flac',
                            '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'}
-        
+
         suffix = path.suffix.lower()
-        
+
+        # Display images using iTerm2 inline images protocol
+        if suffix in image_extensions:
+            static_widget.display = True
+            md_widget.display = False
+            try:
+                with open(path, 'rb') as f:
+                    image_data = f.read()
+                b64_data = base64.b64encode(image_data).decode('ascii')
+                # iTerm2 inline image escape sequence
+                osc = "\033]1337;File=inline=1;preserveAspectRatio=1"
+                st = "\007"
+                iterm_image = f"{osc}:{b64_data}{st}"
+                # Display image info + the image
+                static_widget.update(f"[bold magenta]📷 {path.name}[/bold magenta]\n[dim]{'─' * 50}[/dim]\n\n{iterm_image}")
+            except Exception as e:
+                static_widget.update(f"[red]Error loading image: {e}[/red]")
+            self.scroll_home()
+            return
+
         if suffix in binary_extensions:
             static_widget.display = True
             md_widget.display = False
