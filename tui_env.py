@@ -41,10 +41,10 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "base-index", "1"])
     # Renumber existing window from 0 to 1
     subprocess.run(["tmux", "move-window", "-t", f"{SESSION}:1"])
-    # Change to user's start directory in Terminal 1
+    # Change to user's start directory in Terminal 1 (silent)
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:1",
-        f" cd '{START_DIR}'", "Enter"
+        f" cd '{START_DIR}' && clear", "Enter"
     ])
     # Store START_DIR in tmux variable for new terminals
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@start_dir", str(START_DIR)])
@@ -198,7 +198,7 @@ def main():
         "run-shell",
         f"tmux set-option -t {SESSION} @term_count $(($(tmux show-option -t {SESSION} -v @term_count) + 1)) && "
         f"tmux new-window -t {SESSION} -n T$(tmux show-option -t {SESSION} -v @term_count) && "
-        f"tmux send-keys -t {SESSION} \" cd '$(tmux show-option -t {SESSION} -v @start_dir)'\" Enter"
+        f"tmux send-keys -t {SESSION} \" cd '$(tmux show-option -t {SESSION} -v @start_dir)' && clear\" Enter"
     ])
 
     # Ctrl+W = Close current terminal (only dynamic ones, windows 2-19)
