@@ -123,6 +123,44 @@ class AutocompleteTextArea(TextArea):
         # Let parent handle normally
         await super()._on_key(event)
 
+    def _delete_word_before_cursor(self) -> None:
+        """Delete word before cursor (Ctrl+W behavior like bash)."""
+        row, col = self.cursor_location
+        line = self.document.get_line(row)
+
+        # If at beginning of line, go to previous line
+        if col == 0:
+            if row == 0:
+                return  # Nothing to delete
+            # Go to end of previous line and delete word there
+            prev_row = row - 1
+            prev_line = self.document.get_line(prev_row)
+            prev_col = len(prev_line)
+
+            # Find start of word on previous line
+            pos = prev_col
+            while pos > 0 and prev_line[pos - 1] in ' \t':
+                pos -= 1
+            while pos > 0 and prev_line[pos - 1] not in ' \t':
+                pos -= 1
+
+            # Delete from pos to end of prev line + newline + current position
+            self.replace("", (prev_row, pos), (row, col))
+            return
+
+        # Find start of word (skip trailing spaces, then find word start)
+        pos = col
+        # Skip spaces before cursor
+        while pos > 0 and line[pos - 1] in ' \t':
+            pos -= 1
+        # Find start of word
+        while pos > 0 and line[pos - 1] not in ' \t':
+            pos -= 1
+
+        # Delete from pos to col
+        if pos < col:
+            self.replace("", (row, pos), (row, col))
+
 
 class AutocompleteDropdown(Static):
     """Custom autocomplete dropdown for TextArea."""
@@ -933,6 +971,8 @@ class PromptWriter(App):
         Binding("ctrl+b", "browse_prompts", "Browse", priority=True),
         Binding("ctrl+d", "insert_date", "Date", show=False),
         Binding("ctrl+space", "trigger_autocomplete", "Autocomplete", show=False),
+        Binding("ctrl+r", "send_to_terminal", "→F1", priority=True),
+        Binding("ctrl+u", "delete_word", "DelW", priority=True),
     ]
 
     def __init__(self):
@@ -1145,6 +1185,45 @@ class PromptWriter(App):
                 self.notify("Failed to copy", severity="error", timeout=3)
         else:
             self.notify("Nothing to copy", severity="warning", timeout=2)
+
+    def action_delete_word(self) -> None:
+        """Delete word before cursor (Ctrl+W like bash)."""
+        editor = self.query_one("#main-editor", AutocompleteTextArea)
+        editor._delete_word_before_cursor()
+
+    def action_send_to_terminal(self) -> None:
+        """Send text to F1 (Terminal 1) via tmux."""
+        editor = self.query_one("#main-editor", AutocompleteTextArea)
+        text = editor.text.strip()
+        if not text:
+            self.notify("Nothing to send", severity="warning", timeout=2)
+            return
+
+        try:
+            # Send text to window 1 (F1: Term1) in current tmux session
+            # Using -l for literal text (handles special chars), then Enter
+            subprocess.run(
+                ["tmux", "send-keys", "-t", ":1", "-l", text],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Send Enter to execute
+            subprocess.run(
+                ["tmux", "send-keys", "-t", ":1", "Enter"],
+                capture_output=True,
+                text=True
+            )
+            # Switch to F1 window
+            subprocess.run(
+                ["tmux", "select-window", "-t", ":1"],
+                capture_output=True,
+                text=True
+            )
+        except FileNotFoundError:
+            self.notify("tmux not found", severity="error", timeout=3)
+        except Exception as e:
+            self.notify(f"Error: {e}", severity="error", timeout=3)
 
     def action_new(self) -> None:
         if not self.saved:

@@ -233,8 +233,10 @@ Displays:
 | Ctrl+T | Insert prompt template |
 | Ctrl+B | Browse Claude Code prompts |
 | Ctrl+D | Insert date/time |
-| Ctrl+F | Find text |
-| Ctrl+H | Toggle help panel |
+| Ctrl+G | AI enhance prompt |
+| Ctrl+R | Send text to F1 (Terminal) |
+| Ctrl+U | Delete word before cursor |
+| Ctrl+C | Copy all text |
 | Ctrl+Q | Quit (press twice if unsaved) |
 | Escape | Clear status message |
 
