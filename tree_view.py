@@ -1031,7 +1031,13 @@ class DualPanelScreen(ModalScreen):
         self.app.push_screen(ConfirmDialog("⚠ Delete", message), handle_confirm)
 
     def action_view_file(self):
-        """View the highlighted file in a modal viewer."""
+        """Toggle file viewer - open if closed, close if open."""
+        # Check if FileViewerScreen is already open
+        for screen in self.app.screen_stack:
+            if isinstance(screen, FileViewerScreen):
+                screen.dismiss()
+                return
+
         list_view = self.query_one(f"#{self.active_panel}-list", ListView)
         if not list_view.highlighted_child:
             self.notify("No file selected", timeout=2)
@@ -1245,6 +1251,7 @@ class FileViewerScreen(ModalScreen):
     BINDINGS = [
         ("escape", "close", "Close"),
         ("q", "close", "Close"),
+        ("v", "close", "Close"),
     ]
 
     def __init__(self, file_path: Path):
@@ -1255,7 +1262,7 @@ class FileViewerScreen(ModalScreen):
         with Vertical(id="viewer-container"):
             yield Label(f"📄 {self.file_path.name}", id="viewer-header")
             yield FileViewer(id="viewer-content")
-            yield Label("q/Esc: close  ↑↓: scroll", id="viewer-help")
+            yield Label("v/q/Esc: close  ↑↓: scroll", id="viewer-help")
 
     def on_mount(self):
         viewer = self.query_one("#viewer-content", FileViewer)
