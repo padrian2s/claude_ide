@@ -151,6 +151,9 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:25"])
     subprocess.run(["tmux", "bind-key", "-n", "F8", "select-window", "-t", f"{SESSION}:26"])
 
+    # F9 = unbind (clear any stale bindings)
+    subprocess.run(["tmux", "unbind-key", "-n", "F9"])
+
     # F10 = Exit (kill session)
     subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
 
