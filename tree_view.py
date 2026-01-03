@@ -1194,13 +1194,12 @@ class FileViewer(VerticalScroll):
                     )
                     static_widget.update(Group(header, syntax))
                 else:
-                    # Plain text with line numbers
+                    # Plain text with line numbers (no syntax highlighting)
                     lines = code.splitlines()
-                    content = []
+                    plain_content = Text()
                     for i, line in enumerate(lines, 1):
-                        safe_line = line.replace("[", "\\[").replace("]", "\\]")
-                        content.append(f"[dim]{i:4}[/dim] {safe_line}")
-                    plain_content = Text("\n".join(content))
+                        plain_content.append(f"{i:4} ", style="dim")
+                        plain_content.append(f"{line}\n")
                     static_widget.update(Group(header, plain_content))
 
         except Exception as e:
