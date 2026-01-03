@@ -2,15 +2,17 @@
 """Favorites panel - browse folders from configurable root dirs, mark favorites, copy path to clipboard."""
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, ListView, ListItem, Static, Label, Input
+from textual.widgets import Header, Footer, ListView, ListItem, Static, Label, Input, TextArea
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 
 CONFIG_FILE = Path(__file__).parent / ".tui_favorites.json"
+DEPS_FILE = Path(__file__).parent / ".tui_dependencies.json"
 DEFAULT_ROOTS = [str(Path.home() / "work"), str(Path.home() / "personal")]
 
 
@@ -56,6 +58,58 @@ def save_roots(roots: list[Path]):
     config = load_config()
     config["roots"] = [str(p) for p in roots]
     save_config(config)
+
+
+def load_dependencies() -> dict:
+    """Load all project dependencies from file."""
+    if DEPS_FILE.exists():
+        try:
+            return json.loads(DEPS_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def save_dependencies(deps: dict):
+    """Save all project dependencies to file."""
+    DEPS_FILE.write_text(json.dumps(deps, indent=2))
+
+
+def get_project_deps(project_path: str) -> tuple[list[str], str]:
+    """Get dependency chain and instructions for a project."""
+    deps = load_dependencies()
+    data = deps.get(project_path, {})
+    # Handle old format (list) and new format (dict)
+    if isinstance(data, list):
+        return data, ""
+    return data.get("chain", []), data.get("instructions", "")
+
+
+def save_project_deps(project_path: str, dep_chain: list[str], instructions: str = ""):
+    """Save dependency chain and instructions for a project."""
+    deps = load_dependencies()
+    if dep_chain or instructions:
+        deps[project_path] = {"chain": dep_chain, "instructions": instructions}
+    elif project_path in deps:
+        del deps[project_path]
+    save_dependencies(deps)
+
+
+def has_project_deps(project_path: str) -> bool:
+    """Check if a project has dependencies defined."""
+    chain, instructions = get_project_deps(project_path)
+    return bool(chain) or bool(instructions)
+
+
+def get_claude_md_content(folder_path: str) -> str | None:
+    """Get CLAUDE.md content from a folder if it exists."""
+    claude_md = Path(folder_path) / "CLAUDE.md"
+    if claude_md.exists():
+        try:
+            return claude_md.read_text()
+        except Exception:
+            pass
+    return None
 
 
 def copy_to_clipboard(text: str):
@@ -199,22 +253,236 @@ class AdminScreen(ModalScreen):
             input_widget.value = ""
 
 
+class DepItem(ListItem):
+    """A dependency item in the chain."""
+
+    def __init__(self, path: str, index: int, has_claude_md: bool = False):
+        super().__init__()
+        self.dep_path = path
+        self.index = index
+        self.has_claude_md = has_claude_md
+
+    def compose(self) -> ComposeResult:
+        icon = "📄" if self.has_claude_md else "📁"
+        name = Path(self.dep_path).name
+        yield Static(f" {self.index + 1}. {icon} {name}")
+
+
+class DependencyScreen(ModalScreen):
+    """Screen to manage dependency chain for a project."""
+
+    CSS = """
+    DependencyScreen {
+        align: center middle;
+    }
+    #dep-dialog {
+        width: 90%;
+        height: 90%;
+        border: solid cyan;
+        background: $surface;
+        padding: 1;
+    }
+    #dep-title {
+        text-align: center;
+        text-style: bold;
+        height: 1;
+        margin-bottom: 1;
+    }
+    #dep-project {
+        text-align: center;
+        color: $text-muted;
+        height: 1;
+        margin-bottom: 1;
+    }
+    #dep-container {
+        height: 10;
+    }
+    #available-list {
+        width: 50%;
+        height: 100%;
+        border: solid gray;
+    }
+    #available-list:focus {
+        border: solid green;
+    }
+    #chain-list {
+        width: 50%;
+        height: 100%;
+        border: solid gray;
+    }
+    #chain-list:focus {
+        border: solid yellow;
+    }
+    .list-title {
+        height: 1;
+        text-align: center;
+        background: $primary;
+    }
+    #instructions-label {
+        height: 1;
+        margin-top: 1;
+        text-style: bold;
+    }
+    #instructions {
+        height: 1fr;
+        border: solid gray;
+    }
+    #instructions:focus {
+        border: solid magenta;
+    }
+    #dep-help {
+        height: 1;
+        margin-top: 1;
+        text-align: center;
+        color: $text-muted;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("a", "add_dep", "Add →"),
+        ("x", "remove_dep", "Remove"),
+        ("up", "move_up", "Move ↑"),
+        ("down", "move_down", "Move ↓"),
+        ("tab", "toggle_focus", "Switch"),
+        ("c", "copy_chain", "Copy All"),
+    ]
+
+    def __init__(self, project_path: str, favorites: set):
+        super().__init__()
+        self.project_path = project_path
+        self.favorites = favorites
+        self.chain, self.instructions = get_project_deps(project_path)
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dep-dialog"):
+            yield Label("🔗 Dependency Chain", id="dep-title")
+            yield Label(f"Project: {Path(self.project_path).name}", id="dep-project")
+            with Horizontal(id="dep-container"):
+                with Vertical():
+                    yield Label(" ★ Favorites ", classes="list-title")
+                    yield ListView(id="available-list")
+                with Vertical():
+                    yield Label(" → Chain ", classes="list-title")
+                    yield ListView(id="chain-list")
+            yield Label("📝 Instructions (copied with chain):", id="instructions-label")
+            yield TextArea(self.instructions, id="instructions")
+            yield Label("a:add  x:remove  ↑↓:reorder  c:copy all  Tab:switch  Esc:save & close", id="dep-help")
+
+    def on_mount(self):
+        self.refresh_lists()
+        self.query_one("#available-list", ListView).focus()
+
+    def refresh_lists(self):
+        # Available favorites (not in chain)
+        avail_list = self.query_one("#available-list", ListView)
+        avail_list.clear()
+        for fav in sorted(self.favorites):
+            if fav not in self.chain and fav != self.project_path:
+                has_claude = get_claude_md_content(fav) is not None
+                item = ListItem(Static(f" {'📄' if has_claude else '📁'} {Path(fav).name}"))
+                item.fav_path = fav  # Store path on item
+                avail_list.append(item)
+
+        # Chain list
+        chain_list = self.query_one("#chain-list", ListView)
+        chain_list.clear()
+        for i, dep in enumerate(self.chain):
+            has_claude = get_claude_md_content(dep) is not None
+            chain_list.append(DepItem(dep, i, has_claude))
+
+    def action_toggle_focus(self):
+        avail = self.query_one("#available-list", ListView)
+        chain = self.query_one("#chain-list", ListView)
+        instructions = self.query_one("#instructions", TextArea)
+        if avail.has_focus:
+            chain.focus()
+        elif chain.has_focus:
+            instructions.focus()
+        else:
+            avail.focus()
+
+    def action_add_dep(self):
+        avail = self.query_one("#available-list", ListView)
+        if avail.has_focus and avail.highlighted_child:
+            item = avail.highlighted_child
+            if hasattr(item, 'fav_path'):
+                self.chain.append(item.fav_path)
+                self.refresh_lists()
+
+    def action_remove_dep(self):
+        chain = self.query_one("#chain-list", ListView)
+        if chain.has_focus and chain.highlighted_child:
+            item = chain.highlighted_child
+            if isinstance(item, DepItem) and item.dep_path in self.chain:
+                self.chain.remove(item.dep_path)
+                self.refresh_lists()
+
+    def action_move_up(self):
+        chain = self.query_one("#chain-list", ListView)
+        if chain.has_focus and chain.highlighted_child:
+            item = chain.highlighted_child
+            if isinstance(item, DepItem) and item.index > 0:
+                idx = item.index
+                self.chain[idx], self.chain[idx - 1] = self.chain[idx - 1], self.chain[idx]
+                self.refresh_lists()
+                chain.index = idx - 1
+
+    def action_move_down(self):
+        chain = self.query_one("#chain-list", ListView)
+        if chain.has_focus and chain.highlighted_child:
+            item = chain.highlighted_child
+            if isinstance(item, DepItem) and item.index < len(self.chain) - 1:
+                idx = item.index
+                self.chain[idx], self.chain[idx + 1] = self.chain[idx + 1], self.chain[idx]
+                self.refresh_lists()
+                chain.index = idx + 1
+
+    def action_copy_chain(self):
+        """Copy instructions + paths to clipboard."""
+        instructions_text = self.query_one("#instructions", TextArea).text.strip()
+        parts = []
+
+        # Add custom instructions first
+        if instructions_text:
+            parts.append(instructions_text)
+
+        # Add paths
+        if self.chain:
+            paths_section = "\n".join(f"- {dep}" for dep in self.chain)
+            parts.append(paths_section)
+
+        if parts:
+            full_text = "\n\n".join(parts)
+            copy_to_clipboard(full_text)
+            self.notify(f"Copied: instructions + {len(self.chain)} paths")
+        else:
+            self.notify("Nothing to copy", severity="warning")
+
+    def action_close(self):
+        instructions_text = self.query_one("#instructions", TextArea).text
+        save_project_deps(self.project_path, self.chain, instructions_text)
+        self.dismiss((self.chain, instructions_text))
+
+
 class FolderItem(ListItem):
     """A folder item in the list."""
 
-    def __init__(self, path: Path, is_favorite: bool = False, show_star: bool = True):
+    def __init__(self, path: Path, is_favorite: bool = False, show_star: bool = True, has_chain: bool = False):
         super().__init__()
         self.path = path
         self.is_favorite = is_favorite
         self.show_star = show_star
+        self.has_chain = has_chain
 
     def compose(self) -> ComposeResult:
         parent = self.path.parent.name
+        chain_icon = "🔗" if self.has_chain else "  "
         if self.show_star:
             star = "★" if self.is_favorite else "☆"
-            yield Static(f" {star}  {parent}/{self.path.name}")
+            yield Static(f" {star} {chain_icon} {parent}/{self.path.name}")
         else:
-            yield Static(f" ★  {parent}/{self.path.name}")
+            yield Static(f" ★ {chain_icon} {parent}/{self.path.name}")
 
 
 class FavoritesPanel(App):
@@ -284,7 +552,7 @@ class FavoritesPanel(App):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("enter", "add_favorite", "Add ★"),
+        ("f", "add_favorite", "Add ★"),
         ("space", "copy_path", "Copy"),
         ("x", "remove_favorite", "Remove ★"),
         ("tab", "toggle_focus", "Switch Panel"),
@@ -292,6 +560,9 @@ class FavoritesPanel(App):
         ("/", "start_search", "Search"),
         ("escape", "cancel_search", "Cancel"),
         ("a", "open_admin", "Admin"),
+        ("d", "open_deps", "Deps"),
+        ("c", "copy_chain", "Copy Chain"),
+        ("s", "send_chain", "Send→F1"),
     ]
 
     def __init__(self):
@@ -316,7 +587,7 @@ class FavoritesPanel(App):
 
     def on_mount(self):
         self.title = "Favorites"
-        self.sub_title = "/:search  Enter:★  Space:copy  x:remove  a:admin  q:quit"
+        self.sub_title = "/:search  f:★  Space:copy  d:deps  c:chain  s:send→F1  a:admin  q:quit"
         self.query_one("#search-input", Input).display = False
         self.refresh_lists()
         self.query_one("#folder-list", ListView).focus()
@@ -337,7 +608,8 @@ class FavoritesPanel(App):
         folder_list.clear()
         for folder in folders:
             is_fav = str(folder) in self.favorites
-            folder_list.append(FolderItem(folder, is_fav, show_star=True))
+            has_chain = has_project_deps(str(folder))
+            folder_list.append(FolderItem(folder, is_fav, show_star=True, has_chain=has_chain))
         if folders:
             folder_list.index = 0
 
@@ -348,7 +620,8 @@ class FavoritesPanel(App):
             path = Path(fav_path)
             if path.exists():
                 if not filter_text or filter_text.lower() in path.name.lower():
-                    fav_list.append(FolderItem(path, is_favorite=True, show_star=False))
+                    has_chain = has_project_deps(fav_path)
+                    fav_list.append(FolderItem(path, is_favorite=True, show_star=False, has_chain=has_chain))
         if fav_list.children:
             fav_list.index = 0
 
@@ -487,6 +760,89 @@ class FavoritesPanel(App):
                 self.refresh_lists()
 
         self.push_screen(AdminScreen(list(self.roots)), handle_admin_result)
+
+    def action_open_deps(self):
+        """Open dependency screen for current project (cwd)."""
+        info = self.query_one("#info", Static)
+        project_path = os.getcwd()
+
+        def handle_deps_result(result: tuple | None):
+            if result is not None:
+                chain, instructions = result
+                info.update(f"Saved {len(chain)} deps for {Path(project_path).name}")
+                self.refresh_lists()  # Update chain indicators
+
+        self.push_screen(DependencyScreen(project_path, self.favorites), handle_deps_result)
+
+    def action_copy_chain(self):
+        """Quick copy instructions + paths from current project's dependency chain."""
+        info = self.query_one("#info", Static)
+        project_path = os.getcwd()
+
+        chain, instructions = get_project_deps(project_path)
+        if not chain and not instructions:
+            info.update(f"No dependencies defined for {Path(project_path).name} (press 'd' to add)")
+            return
+
+        parts = []
+
+        # Add custom instructions first
+        if instructions:
+            parts.append(instructions)
+
+        # Add paths
+        if chain:
+            paths_section = "\n".join(f"- {dep}" for dep in chain)
+            parts.append(paths_section)
+
+        if parts:
+            full_text = "\n\n".join(parts)
+            copy_to_clipboard(full_text)
+            info.update(f"Copied: instructions + {len(chain)} paths")
+        else:
+            info.update("Nothing to copy")
+
+    def action_send_chain(self):
+        """Send instructions + paths to F1 terminal via tmux."""
+        info = self.query_one("#info", Static)
+        project_path = os.getcwd()
+
+        chain, instructions = get_project_deps(project_path)
+        if not chain and not instructions:
+            info.update(f"No dependencies defined for {Path(project_path).name} (press 'd' to add)")
+            return
+
+        parts = []
+
+        # Add custom instructions first
+        if instructions:
+            parts.append(instructions)
+
+        # Add paths
+        if chain:
+            paths_section = "\n".join(f"- {dep}" for dep in chain)
+            parts.append(paths_section)
+
+        if parts:
+            full_text = "\n\n".join(parts)
+            # Find current tmux session and send to window 1 (F1)
+            try:
+                # Get current session name
+                result = subprocess.run(
+                    ["tmux", "display-message", "-p", "#{session_name}"],
+                    capture_output=True, text=True
+                )
+                session = result.stdout.strip()
+                # Send keys to window 1 (F1 terminal)
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", f"{session}:1", full_text],
+                    check=True
+                )
+                info.update(f"Sent to F1: instructions + {len(chain)} paths")
+            except Exception as e:
+                info.update(f"Error: {e}")
+        else:
+            info.update("Nothing to send")
 
     def action_quit(self):
         """Quit with confirmation."""
