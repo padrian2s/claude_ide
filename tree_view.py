@@ -1070,6 +1070,12 @@ class DualPanelScreen(ModalScreen):
         imgcat_path = "/Applications/iTerm.app/Contents/Resources/utilities/imgcat"
 
         def show_image():
+            # Enable tmux passthrough for iTerm2 escape sequences
+            in_tmux = os.environ.get("TMUX")
+            if in_tmux:
+                subprocess.run(["tmux", "set", "-p", "allow-passthrough", "on"],
+                             capture_output=True)
+
             print(f"\n📷 {path.name}\n{'─' * 50}\n")
             subprocess.run([imgcat_path, str(path)])
             print("\n\nPress Enter to return...")
