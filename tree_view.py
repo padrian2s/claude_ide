@@ -1359,10 +1359,12 @@ class TreeViewApp(App):
         Binding("m", "file_manager", "Manager"),
         Binding("g", "toggle_position", "g=jump"),
         Binding("backspace", "go_parent", "Parent"),
+        Binding("f", "toggle_fullscreen", "Fullscreen"),
     ]
 
     # Tree panel width in percent (10-80)
     tree_width = reactive(35)
+    viewer_fullscreen = reactive(False)
 
     def __init__(self, start_path: Path = None):
         super().__init__()
@@ -1385,7 +1387,7 @@ class TreeViewApp(App):
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^F:find /:grep m:manager o:open w:wide []:resize g:jump q:quit"
+        self.sub_title = "^F:find /:grep m:manager o:open w:wide f:fullscreen []:resize g:jump q:quit"
         # Set initial panel widths
         self._update_panel_widths()
 
@@ -1394,20 +1396,30 @@ class TreeViewApp(App):
         self._update_panel_widths()
 
     def _update_panel_widths(self):
-        """Update panel widths based on tree_width."""
+        """Update panel widths based on tree_width and fullscreen mode."""
         try:
             tree_panel = self.query_one("#tree-panel")
             viewer_panel = self.query_one("#viewer-panel")
             tree = self.query_one("#tree", SizedDirectoryTree)
 
-            tree_panel.styles.width = f"{self.tree_width}%"
-            viewer_panel.styles.width = f"{100 - self.tree_width}%"
+            if self.viewer_fullscreen:
+                tree_panel.styles.width = "0%"
+                tree_panel.styles.display = "none"
+                viewer_panel.styles.width = "100%"
+            else:
+                tree_panel.styles.display = "block"
+                tree_panel.styles.width = f"{self.tree_width}%"
+                viewer_panel.styles.width = f"{100 - self.tree_width}%"
 
             # Update name width based on tree width
             tree.name_width = NAME_WIDTH_WIDE if self.tree_width >= 40 else NAME_WIDTH_NARROW
             tree.refresh()
         except Exception:
             pass  # Widgets not yet mounted
+
+    def watch_viewer_fullscreen(self, fullscreen: bool):
+        """Called when viewer_fullscreen changes."""
+        self._update_panel_widths()
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
         viewer = self.query_one(FileViewer)
@@ -1433,6 +1445,16 @@ class TreeViewApp(App):
         else:
             self.tree_width = 35
         self.notify(f"Tree: {self.tree_width}%", timeout=1)
+
+    def action_toggle_fullscreen(self):
+        """Toggle viewer fullscreen mode (hide/show tree panel)."""
+        self.viewer_fullscreen = not self.viewer_fullscreen
+        if self.viewer_fullscreen:
+            self.notify("Viewer: fullscreen (f to restore)", timeout=1)
+            self.query_one(FileViewer).focus()
+        else:
+            self.notify("Viewer: normal", timeout=1)
+            self.query_one("#tree", SizedDirectoryTree).focus()
 
     def action_shrink_tree(self):
         """Shrink tree panel by 5%."""
