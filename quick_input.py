@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Quick input popup for sending text to F1 terminal with autocomplete."""
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -15,20 +16,51 @@ CORPUS_FILE = SCRIPT_DIR / "prompt_words.txt"
 LEARNED_FILE = SCRIPT_DIR / ".prompt_learned_words.txt"
 
 
-def load_words() -> list[str]:
-    """Load words from corpus + learned files."""
-    words = set()
+def load_words() -> tuple[list[str], set[str]]:
+    """Load words from corpus + learned files. Returns (sorted list, corpus set)."""
+    corpus_words = set()
     if CORPUS_FILE.exists():
         for line in CORPUS_FILE.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#"):
-                words.add(line.lower())
+                corpus_words.add(line.lower())
+
+    learned_words = set()
     if LEARNED_FILE.exists():
         for line in LEARNED_FILE.read_text().splitlines():
             line = line.strip()
             if line:
-                words.add(line.lower())
-    return sorted(words)
+                learned_words.add(line.lower())
+
+    all_words = corpus_words | learned_words
+    return sorted(all_words), corpus_words
+
+
+def save_learned_words(new_words: set[str], corpus_words: set[str]) -> int:
+    """Save new learned words to file. Returns count of words saved."""
+    if not new_words:
+        return 0
+
+    # Load existing learned words
+    existing = set()
+    if LEARNED_FILE.exists():
+        existing = set(w.lower() for w in LEARNED_FILE.read_text().splitlines() if w.strip())
+
+    # Filter: only save words not in corpus and not already learned
+    words_to_save = {w.lower() for w in new_words
+                     if w.lower() not in corpus_words and w.lower() not in existing}
+
+    if words_to_save:
+        with open(LEARNED_FILE, "a") as f:
+            for word in sorted(words_to_save):
+                f.write(f"{word}\n")
+
+    return len(words_to_save)
+
+
+def extract_new_words(text: str) -> set[str]:
+    """Extract words (4+ letters) from text."""
+    return set(re.findall(r'\b[a-zA-Z]{4,}\b', text))
 
 
 class NumberedCompleter(Completer):
@@ -67,7 +99,7 @@ class NumberedCompleter(Completer):
 
 def main():
     bindings = KeyBindings()
-    words = load_words()
+    words, corpus_words = load_words()
     completer = NumberedCompleter(words)
 
     @bindings.add(Keys.Escape)
@@ -133,6 +165,10 @@ def main():
         )
 
         if text and text.strip():
+            # Save learned words (same as F7 Prompt Writer)
+            new_words = extract_new_words(text)
+            save_learned_words(new_words, corpus_words)
+
             # Send text to F1 (window 1)
             subprocess.run(
                 ["tmux", "send-keys", "-t", ":1", "-l", text.strip()],
