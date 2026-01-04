@@ -134,6 +134,7 @@ tmux status bar shows all windows:
 | m | File manager (dual-panel mode) |
 | TAB | Switch tree <-> viewer |
 | w | Toggle wide tree (20% <-> 50%) |
+| f | Toggle viewer fullscreen |
 | g | Toggle first/last position |
 | Ctrl+F | Fuzzy find files (fzf) |
 | / | Grep search (rg + fzf) |
