@@ -1,0 +1,281 @@
+{
+  "version": "1.0",
+  "description": "Claude IDE keyboard shortcuts configuration",
+  "contexts": {
+    "global": {
+      "label": "Global (tmux)",
+      "shortcuts": {
+        "F1": { "action": "select-window", "target": "Term1", "label": "Terminal", "description": "Main shell/Claude" },
+        "F2": { "action": "select-window", "target": "Tree", "label": "Tree", "description": "File browser & viewer" },
+        "F3": { "action": "select-window", "target": "Lizard", "label": "Lizard", "description": "Code complexity analyzer" },
+        "F4": { "action": "select-window", "target": "Glow", "label": "Glow", "description": "Markdown viewer" },
+        "F5": { "action": "select-window", "target": "Favs", "label": "Favs", "description": "Folder favorites" },
+        "F6": { "action": "select-window", "target": "Prompt", "label": "Prompt", "description": "Prompt writer" },
+        "F7": { "action": "select-window", "target": "Git", "label": "Git", "description": "Lazygit" },
+        "F8": { "action": "select-window", "target": "Status", "label": "Status", "description": "Session metrics" },
+        "F9": { "action": "select-window", "target": "Config", "label": "Config", "description": "Theme settings" },
+        "F10": { "action": "kill-session", "label": "Exit", "description": "Kill session", "confirm": true },
+        "F12": { "action": "toggle-passthrough", "label": "Keys", "description": "Toggle F-key passthrough" },
+        "?": { "action": "show-help", "label": "Help", "description": "Show keyboard shortcuts" },
+        "Shift+Left": { "action": "previous-window", "label": "Prev Window", "description": "Navigate to previous window" },
+        "Shift+Right": { "action": "next-window", "label": "Next Window", "description": "Navigate to next window" },
+        "Ctrl+T": { "action": "new-terminal", "label": "New Term", "description": "Create new terminal (T2, T3...)" },
+        "Ctrl+W": { "action": "close-terminal", "label": "Close Term", "description": "Close current terminal" },
+        "Ctrl+P": { "action": "quick-input", "label": "Quick Input", "description": "Quick input popup (sends to F1)" }
+      }
+    },
+    "tree_view": {
+      "label": "Tree View (F2)",
+      "file": "tree_view.py",
+      "shortcuts": {
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up in tree" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate down in tree" },
+        "Enter": { "action": "open", "label": "Open", "description": "Open folder / view file" },
+        "Backspace": { "action": "parent", "label": "Parent", "description": "Go to parent directory" },
+        "Tab": { "action": "switch-focus", "label": "Switch", "description": "Switch tree <-> viewer" },
+        "w": { "action": "toggle-width", "label": "Width", "description": "Toggle tree width (35% <-> 50%)" },
+        "[": { "action": "shrink-tree", "label": "Shrink", "description": "Shrink tree panel by 5%" },
+        "]": { "action": "grow-tree", "label": "Grow", "description": "Grow tree panel by 5%" },
+        "g": { "action": "toggle-position", "label": "Go First/Last", "description": "Toggle first/last position" },
+        "o": { "action": "open-system", "label": "Open System", "description": "Open with system (macOS: open)" },
+        "m": { "action": "file-manager", "label": "File Manager", "description": "Open dual-panel file manager" },
+        "r": { "action": "refresh", "label": "Refresh", "description": "Refresh tree" },
+        "Ctrl+F": { "action": "fuzzy-find", "label": "Find", "description": "Fuzzy find files (fzf)" },
+        "/": { "action": "grep-search", "label": "Grep", "description": "Grep search (rg + fzf)" },
+        "q": { "action": "quit", "label": "Quit", "description": "Quit application" }
+      }
+    },
+    "file_manager": {
+      "label": "File Manager",
+      "file": "tree_view.py",
+      "screen": "DualPanelScreen",
+      "shortcuts": {
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up in panel" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate down in panel" },
+        "Left": { "action": "switch-left", "label": "Left Panel", "description": "Switch to left panel" },
+        "Right": { "action": "switch-right", "label": "Right Panel", "description": "Switch to right panel" },
+        "Tab": { "action": "switch-focus", "label": "Switch", "description": "Switch between panels" },
+        "Enter": { "action": "open", "label": "Enter/View", "description": "Enter directory / view file" },
+        "Backspace": { "action": "parent", "label": "Parent", "description": "Go to parent directory" },
+        "PageUp": { "action": "page-up", "label": "Page Up", "description": "Page up in panel" },
+        "PageDown": { "action": "page-down", "label": "Page Down", "description": "Page down in panel" },
+        "h": { "action": "go-home", "label": "Home", "description": "Go to home (initial start path)" },
+        "i": { "action": "sync-panels", "label": "Sync", "description": "Sync other panel to same path" },
+        "g": { "action": "toggle-position", "label": "Go First/Last", "description": "Toggle first/last position" },
+        "Space": { "action": "toggle-select", "label": "Select", "description": "Toggle selection (multi-select)" },
+        "a": { "action": "select-all", "label": "Select All", "description": "Select all / Unselect all" },
+        "c": { "action": "copy", "label": "Copy", "description": "Copy selected to other panel" },
+        "r": { "action": "rename", "label": "Rename", "description": "Rename highlighted item" },
+        "d": { "action": "delete", "label": "Delete", "description": "Delete selected (with confirmation)" },
+        "v": { "action": "toggle-viewer", "label": "Viewer", "description": "Toggle file viewer" },
+        "s": { "action": "toggle-sort", "label": "Sort", "description": "Toggle sort mode (name <-> date)" },
+        "Ctrl+S": { "action": "search", "label": "Search", "description": "Search/filter files (fzf-style)" },
+        "Escape": { "action": "close", "label": "Close", "description": "Close file manager" },
+        "q": { "action": "close", "label": "Close", "description": "Close file manager" }
+      }
+    },
+    "search_dialog": {
+      "label": "Search Dialog",
+      "file": "tree_view.py",
+      "shortcuts": {
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate results (when list focused)" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate results (when list focused)" },
+        "Tab": { "action": "auto-select", "label": "Tab", "description": "Auto-select (1 result) or focus list" },
+        "Enter": { "action": "select", "label": "Select", "description": "Select highlighted and close" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel search" }
+      }
+    },
+    "favorites": {
+      "label": "Favorites (F5)",
+      "file": "favorites.py",
+      "shortcuts": {
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up in panel" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate down in panel" },
+        "Tab": { "action": "switch-focus", "label": "Switch", "description": "Switch between panels" },
+        "f": { "action": "add-favorite", "label": "Add Fav", "description": "Add to favorites (left panel)" },
+        "x": { "action": "remove-favorite", "label": "Remove", "description": "Remove from favorites (right panel)" },
+        "Space": { "action": "copy-path", "label": "Copy Path", "description": "Copy path to clipboard" },
+        "Enter": { "action": "action", "label": "Action", "description": "Add to favorites or copy path" },
+        "/": { "action": "search", "label": "Search", "description": "Start search/filter mode" },
+        "Escape": { "action": "cancel-search", "label": "Cancel", "description": "Cancel search and restore list" },
+        "d": { "action": "dependency-chain", "label": "Deps", "description": "Open dependency chain manager" },
+        "c": { "action": "copy-deps", "label": "Copy Deps", "description": "Copy dependency chain to clipboard" },
+        "s": { "action": "send-deps", "label": "Send Deps", "description": "Send dependency chain to F1" },
+        "a": { "action": "admin", "label": "Admin", "description": "Manage root folders" },
+        "r": { "action": "refresh", "label": "Refresh", "description": "Refresh folder lists" },
+        "q": { "action": "quit", "label": "Quit", "description": "Quit application" }
+      }
+    },
+    "dependency_chain": {
+      "label": "Dependency Chain Manager",
+      "file": "favorites.py",
+      "shortcuts": {
+        "Tab": { "action": "switch-focus", "label": "Switch", "description": "Switch between lists and instructions" },
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up / Move item up" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate down / Move item down" },
+        "a": { "action": "add-to-chain", "label": "Add", "description": "Add selected to chain" },
+        "x": { "action": "remove-from-chain", "label": "Remove", "description": "Remove from chain" },
+        "c": { "action": "copy", "label": "Copy", "description": "Copy instructions + paths to clipboard" },
+        "Escape": { "action": "save-close", "label": "Save & Close", "description": "Save and close" }
+      }
+    },
+    "favorites_admin": {
+      "label": "Favorites Admin",
+      "file": "favorites.py",
+      "shortcuts": {
+        "Enter": { "action": "add-root", "label": "Add", "description": "Add new root folder path" },
+        "d": { "action": "delete-root", "label": "Delete", "description": "Delete selected root folder" },
+        "Escape": { "action": "save-close", "label": "Save & Close", "description": "Close and save" }
+      }
+    },
+    "prompt_writer": {
+      "label": "Prompt Writer (F6)",
+      "file": "prompt_writer.py",
+      "shortcuts": {
+        "Ctrl+S": { "action": "save", "label": "Save", "description": "Save prompt to file" },
+        "Ctrl+N": { "action": "new", "label": "New", "description": "New prompt" },
+        "Ctrl+O": { "action": "open", "label": "Open", "description": "Open/list saved prompts" },
+        "Ctrl+C": { "action": "copy-all", "label": "Copy All", "description": "Copy all text to clipboard" },
+        "Ctrl+Q": { "action": "quit", "label": "Quit", "description": "Quit (twice if unsaved)" },
+        "Ctrl+U": { "action": "delete-word", "label": "Del Word", "description": "Delete word before cursor" },
+        "Ctrl+G": { "action": "ai-enhance", "label": "Enhance", "description": "AI enhance prompt" },
+        "Ctrl+T": { "action": "insert-template", "label": "Template", "description": "Insert prompt template" },
+        "Ctrl+B": { "action": "browse-prompts", "label": "Browse", "description": "Browse Claude Code prompts" },
+        "Ctrl+D": { "action": "insert-date", "label": "Date", "description": "Insert current date/time" },
+        "Ctrl+R": { "action": "send-terminal", "label": "Send", "description": "Send text to F1 terminal" },
+        "Ctrl+Space": { "action": "autocomplete", "label": "Complete", "description": "Trigger autocomplete dropdown" },
+        "Escape": { "action": "close-autocomplete", "label": "Close AC", "description": "Close autocomplete dropdown" }
+      }
+    },
+    "prompt_enhance_dialog": {
+      "label": "Enhancement Dialog",
+      "file": "prompt_writer.py",
+      "shortcuts": {
+        "1": { "action": "enhance-little", "label": "Little", "description": "Fix typos only" },
+        "2": { "action": "enhance-medium", "label": "Medium", "description": "Improve clarity" },
+        "3": { "action": "enhance-deep", "label": "Deep", "description": "Restructure" },
+        "4": { "action": "enhance-aggressive", "label": "Aggressive", "description": "Full rewrite" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel enhancement" }
+      }
+    },
+    "prompt_preview_dialog": {
+      "label": "Preview Dialog",
+      "file": "prompt_writer.py",
+      "shortcuts": {
+        "y": { "action": "accept", "label": "Accept", "description": "Accept enhanced text" },
+        "n": { "action": "reject", "label": "Reject", "description": "Reject enhanced text" },
+        "Escape": { "action": "reject", "label": "Reject", "description": "Reject and cancel" }
+      }
+    },
+    "prompt_template_dialog": {
+      "label": "Template Dialog",
+      "file": "prompt_writer.py",
+      "shortcuts": {
+        "1": { "action": "template-basic", "label": "Basic", "description": "Basic structure" },
+        "2": { "action": "template-role", "label": "Role", "description": "Role-based prompt" },
+        "3": { "action": "template-cot", "label": "Chain", "description": "Chain of thought" },
+        "4": { "action": "template-code", "label": "Code", "description": "Code generation" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel" }
+      }
+    },
+    "config_panel": {
+      "label": "Config (F9)",
+      "file": "config_panel.py",
+      "shortcuts": {
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate themes" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate themes" },
+        "Enter": { "action": "apply-theme", "label": "Apply", "description": "Apply selected theme" },
+        "p": { "action": "toggle-position", "label": "Position", "description": "Toggle status bar position (top/bottom)" },
+        "b": { "action": "cycle-border", "label": "Border", "description": "Cycle border styles" },
+        "c": { "action": "customize", "label": "Customize", "description": "AI-assisted screen customization" },
+        "i": { "action": "import-words", "label": "Import", "description": "Import words from Claude Code prompts" },
+        "q": { "action": "quit", "label": "Quit", "description": "Quit" },
+        "Escape": { "action": "quit", "label": "Quit", "description": "Quit" }
+      }
+    },
+    "config_customize": {
+      "label": "AI Customization",
+      "file": "config_panel.py",
+      "shortcuts": {
+        "Enter": { "action": "select-screen", "label": "Select", "description": "Select screen to customize" },
+        "Ctrl+S": { "action": "submit-prompt", "label": "Submit", "description": "Submit modification prompt" },
+        "a": { "action": "apply-changes", "label": "Apply", "description": "Apply changes" },
+        "e": { "action": "edit-prompt", "label": "Edit", "description": "Edit prompt" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel" }
+      }
+    },
+    "status_viewer": {
+      "label": "Status (F8)",
+      "file": "status_viewer.py",
+      "shortcuts": {
+        "r": { "action": "refresh", "label": "Refresh", "description": "Refresh metrics" },
+        "q": { "action": "quit", "label": "Quit", "description": "Quit" },
+        "Escape": { "action": "quit", "label": "Quit", "description": "Quit" }
+      }
+    },
+    "quick_input": {
+      "label": "Quick Input (Ctrl+P)",
+      "file": "quick_input.py",
+      "shortcuts": {
+        "1": { "action": "select-1", "label": "1st", "description": "Select 1st suggestion" },
+        "2": { "action": "select-2", "label": "2nd", "description": "Select 2nd suggestion" },
+        "3": { "action": "select-3", "label": "3rd", "description": "Select 3rd suggestion" },
+        "4": { "action": "select-4", "label": "4th", "description": "Select 4th suggestion" },
+        "5": { "action": "select-5", "label": "5th", "description": "Select 5th suggestion" },
+        "Enter": { "action": "send", "label": "Send", "description": "Send text to F1 terminal" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Exit without sending" }
+      }
+    },
+    "confirmation_dialog": {
+      "label": "Confirmation Dialog",
+      "shortcuts": {
+        "y": { "action": "confirm", "label": "Yes", "description": "Confirm action" },
+        "n": { "action": "cancel", "label": "No", "description": "Cancel action" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel action" }
+      }
+    }
+  },
+  "help_popup": {
+    "width": 68,
+    "height": 27,
+    "sections": [
+      {
+        "title": "NAVIGATION",
+        "items": [
+          { "key": "Shift + \u2190 \u2192", "description": "Navigate between windows" },
+          { "key": "Ctrl + T", "description": "Create new terminal (T2, T3...)" },
+          { "key": "Ctrl + W", "description": "Close current terminal" },
+          { "key": "Ctrl + P", "description": "Quick input popup (to F1)" }
+        ]
+      },
+      {
+        "title": "WINDOWS",
+        "items": [
+          { "key": "F1", "description": "Terminal - Main shell" },
+          { "key": "F2", "description": "Tree - File browser & viewer" },
+          { "key": "F3", "description": "Lizard - Code complexity analyzer" },
+          { "key": "F4", "description": "Glow - Markdown viewer" },
+          { "key": "F5", "description": "Favs - Folder favorites" },
+          { "key": "F6", "description": "Prompt - Prompt writer" },
+          { "key": "F7", "description": "Git - Lazygit" },
+          { "key": "F8", "description": "Status - Session metrics" },
+          { "key": "F9", "description": "Config - Theme settings" }
+        ]
+      },
+      {
+        "title": "SYSTEM",
+        "items": [
+          { "key": "F10", "description": "Exit - Kill session" },
+          { "key": "?", "description": "Help - This dialog" },
+          { "key": "F12", "description": "Keys - Toggle F-key passthrough" }
+        ]
+      }
+    ]
+  },
+  "status_bar": {
+    "format": "F{n}:{label}",
+    "separator": " ",
+    "active_style": { "bg": "cyan", "fg": "black", "bold": true },
+    "suffix": "F10:Exit ?:Help F12:Keys"
+  }
+}

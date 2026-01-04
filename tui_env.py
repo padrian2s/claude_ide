@@ -2,6 +2,7 @@
 """Claude IDE launcher - tmux with tree + terminal + lizard-tui as separate windows."""
 
 import atexit
+import json
 import os
 import signal
 import subprocess
@@ -19,6 +20,44 @@ FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
 PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
+SHORTCUTS_FILE = SCRIPT_DIR / "shortcuts.json"
+
+
+def load_shortcuts():
+    """Load keyboard shortcuts from JSON file."""
+    with open(SHORTCUTS_FILE) as f:
+        return json.load(f)
+
+
+def generate_help_text(shortcuts_data):
+    """Generate help popup text from shortcuts JSON."""
+    help_popup = shortcuts_data.get("help_popup", {})
+    sections = help_popup.get("sections", [])
+
+    lines = ["", "                    \u2328  KEYBOARD SHORTCUTS", ""]
+
+    for section in sections:
+        lines.append(f"  {section['title']}")
+        for item in section["items"]:
+            key = item["key"]
+            desc = item["description"]
+            # Pad key to align descriptions
+            lines.append(f"    {key:<16}{desc}")
+        lines.append("")
+
+    lines.append("                Press ? or Esc to close")
+    return "\n".join(lines)
+
+
+def get_status_suffix(shortcuts_data):
+    """Get status bar suffix from shortcuts JSON."""
+    global_shortcuts = shortcuts_data.get("contexts", {}).get("global", {}).get("shortcuts", {})
+
+    f10_label = global_shortcuts.get("F10", {}).get("label", "Exit")
+    f12_label = global_shortcuts.get("F12", {}).get("label", "Keys")
+
+    return f"F10:{f10_label} ?:Help F12:{f12_label}"
+
 
 # Import config to get saved theme and position
 from config_panel import get_theme_colors, get_status_position
@@ -28,6 +67,9 @@ from upgrader import auto_upgrade
 def main():
     # Auto-upgrade from git (preserves AI-modified files)
     auto_upgrade(silent=False)
+
+    # Load shortcuts configuration
+    shortcuts_data = load_shortcuts()
 
     # Get terminal size
     size = os.get_terminal_size()
@@ -130,6 +172,7 @@ def main():
     # - F1 (window 1): show as "F1:Term1"
     # - Dynamic terminals (2-19): show just name (e.g., "T2")
     # - Apps (20-25): show as "F2:Tree", "F3:Lizard", etc.
+    status_suffix = get_status_suffix(shortcuts_data)
     subprocess.run([
         "tmux", "set-option", "-t", SESSION, "status-format[0]",
         "#{@focus}#{@passthrough}#[align=centre]"
@@ -140,7 +183,7 @@ def main():
         "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
         "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
         "}}"
-        "} F10:Exit ?:⌨ F12:Keys"
+        f"}} {status_suffix}"
     ])
 
     # Track terminal counter for auto-naming
@@ -162,40 +205,21 @@ def main():
     # F9 = Config
     subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", f"{SESSION}:27"])
 
-    # F10 = Exit (kill session)
-    subprocess.run(["tmux", "bind-key", "-n", "F10", "kill-session", "-t", SESSION])
+    # F10 = Exit (kill session) with confirmation
+    subprocess.run([
+        "tmux", "bind-key", "-n", "F10",
+        "confirm-before", "-p", "Exit session? (y/n)",
+        f"kill-session -t {SESSION}"
+    ])
 
-    # ? = Show keyboard shortcuts help popup
-    help_text = """
-                    ⌨  KEYBOARD SHORTCUTS
-
-  NAVIGATION
-    Shift + ← →     Navigate between windows
-    Ctrl + T        Create new terminal (T2, T3...)
-    Ctrl + W        Close current terminal
-    Ctrl + P        Quick input popup (→ F1)
-
-  WINDOWS
-    F1              Terminal - Main shell
-    F2              Tree - File browser & viewer
-    F3              Lizard - Code complexity analyzer
-    F4              Glow - Markdown viewer
-    F5              Favs - Folder favorites
-    F6              Prompt - Prompt writer
-    F7              Git - Lazygit
-    F8              Status - Session metrics
-    F9              Config - Theme settings
-
-  SYSTEM
-    F10             Exit - Kill session
-    ?               Help - This dialog
-    F12             Keys - Toggle F-key passthrough
-
-                Press ? or Esc to close
-"""
+    # ? = Show keyboard shortcuts help popup (generated from shortcuts.json)
+    help_text = generate_help_text(shortcuts_data)
+    help_popup = shortcuts_data.get("help_popup", {})
+    popup_width = help_popup.get("width", 68)
+    popup_height = help_popup.get("height", 27)
     subprocess.run([
         "tmux", "bind-key", "-n", "?",
-        "display-popup", "-w", "68", "-h", "27",
+        "display-popup", "-w", str(popup_width), "-h", str(popup_height),
         f"echo '{help_text}'"
     ])
 
@@ -244,7 +268,7 @@ def main():
         f"bind-key -n F7 select-window -t {SESSION}:25 ; "
         f"bind-key -n F8 select-window -t {SESSION}:26 ; "
         f"bind-key -n F9 select-window -t {SESSION}:27 ; "
-        f"bind-key -n F10 kill-session -t {SESSION}' "
+        f"bind-key -n F10 confirm-before -p \"Exit session? (y/n)\" \"kill-session -t {SESSION}\"' "
         f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
         f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
         f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
