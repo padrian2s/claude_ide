@@ -49,6 +49,7 @@ from textual.reactive import reactive
 from textual import work
 from rich.text import Text
 
+from config_panel import get_textual_theme, get_theme_colors
 
 # =============================================================================
 # Configuration and Data Structures
@@ -1226,123 +1227,6 @@ class SummaryWidget(Widget):
 class LizardTUI(App):
     """Main TUI application for Lizard visualization."""
 
-    CSS = """
-    Screen {
-        background: $surface;
-    }
-
-    #main-container {
-        height: 100%;
-    }
-
-    #toolbar {
-        height: 3;
-        padding: 0 1;
-        background: $primary-background;
-    }
-
-    #path-input {
-        width: 1fr;
-    }
-
-    #analyze-btn {
-        width: 12;
-    }
-
-    #settings-btn {
-        width: 4;
-        min-width: 4;
-    }
-
-    #export-btn {
-        width: 10;
-    }
-
-    #content-area {
-        height: 1fr;
-    }
-
-    #sidebar {
-        width: 30;
-        border-right: solid $primary;
-        background: $surface;
-        padding: 1;
-    }
-
-    #sidebar.collapsed {
-        width: 0;
-        display: none;
-    }
-
-    #main-panel {
-        width: 1fr;
-    }
-
-    #filter-bar {
-        height: 3;
-        padding: 0 1;
-        background: $primary-background-darken-1;
-    }
-
-    #filter-input {
-        width: 1fr;
-    }
-
-    #sort-label {
-        width: auto;
-        padding: 1 1 0 1;
-    }
-
-    DataTable {
-        height: 1fr;
-    }
-
-    #code-preview {
-        height: 40%;
-        border-top: solid $primary;
-        background: $surface;
-        padding: 0 1;
-        display: none;
-    }
-
-    #code-preview.visible {
-        display: block;
-    }
-
-    #code-preview-content {
-        width: auto;
-        min-width: 100%;
-    }
-
-    #status-bar {
-        height: 1;
-        dock: bottom;
-        background: $primary;
-        color: $text;
-        padding: 0 1;
-    }
-
-    #word-cloud-content {
-        padding: 1;
-    }
-
-    #duplicates-list {
-        height: 1fr;
-    }
-
-    .duplicate-item {
-        padding: 0 1;
-    }
-
-    TabbedContent {
-        height: 1fr;
-    }
-
-    TabPane {
-        padding: 0;
-    }
-    """
-
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("r", "refresh", "Refresh"),
@@ -1370,7 +1254,162 @@ class LizardTUI(App):
     sort_options = ["ccn", "nloc", "name", "params", "tokens"]
 
     def __init__(self, initial_path: str = "."):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        Screen {{
+            background: {bg};
+            color: {fg};
+        }}
+
+        #main-container {{
+            height: 100%;
+        }}
+
+        #toolbar {{
+            height: 3;
+            padding: 0 1;
+            background: {bg};
+        }}
+
+        #path-input {{
+            width: 1fr;
+        }}
+
+        #analyze-btn {{
+            width: 12;
+        }}
+
+        #settings-btn {{
+            width: 4;
+            min-width: 4;
+        }}
+
+        #export-btn {{
+            width: 10;
+        }}
+
+        #content-area {{
+            height: 1fr;
+        }}
+
+        #sidebar {{
+            width: 30;
+            border-right: solid {fg};
+            background: {bg};
+            padding: 1;
+        }}
+
+        #sidebar.collapsed {{
+            width: 0;
+            display: none;
+        }}
+
+        #main-panel {{
+            width: 1fr;
+        }}
+
+        #filter-bar {{
+            height: 3;
+            padding: 0 1;
+            background: {bg};
+        }}
+
+        #filter-input {{
+            width: 1fr;
+        }}
+
+        #sort-label {{
+            width: auto;
+            padding: 1 1 0 1;
+        }}
+
+        DataTable {{
+            height: 1fr;
+            background: {bg};
+            color: {fg};
+        }}
+
+        #code-preview {{
+            height: 40%;
+            border-top: solid {fg};
+            background: {bg};
+            padding: 0 1;
+            display: none;
+        }}
+
+        #code-preview.visible {{
+            display: block;
+        }}
+
+        #code-preview-content {{
+            width: auto;
+            min-width: 100%;
+        }}
+
+        #status-bar {{
+            height: 1;
+            dock: bottom;
+            background: {fg};
+            color: {bg};
+            padding: 0 1;
+        }}
+
+        #word-cloud-content {{
+            padding: 1;
+        }}
+
+        #duplicates-list {{
+            height: 1fr;
+            background: {bg};
+            color: {fg};
+        }}
+
+        .duplicate-item {{
+            padding: 0 1;
+        }}
+
+        TabbedContent {{
+            height: 1fr;
+            background: {bg};
+            color: {fg};
+        }}
+
+        TabPane {{
+            padding: 0;
+            background: {bg};
+            color: {fg};
+        }}
+
+        ListView {{
+            background: {bg};
+            color: {fg};
+        }}
+
+        ListItem {{
+            background: {bg};
+            color: {fg};
+        }}
+
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+
+        Input {{
+            background: {bg};
+            color: {fg};
+        }}
+
+        Button {{
+            background: {bg};
+            color: {fg};
+        }}
+        """
         super().__init__()
+        self.theme = get_textual_theme()
         self.initial_path = initial_path
         self._displayed_functions: list[FunctionMetrics] = []
 

@@ -16,6 +16,7 @@ from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static, ProgressBar
 from textual.timer import Timer
 
+from config_panel import get_textual_theme
 
 # Token pricing (USD per 1M tokens) - Claude Opus 4.5
 PRICING = {
@@ -171,6 +172,7 @@ class StatusViewer(App):
 
     def __init__(self, project_path: str = None):
         super().__init__()
+        self.theme = get_textual_theme()
         self.project_path = project_path or os.getcwd()
         self._timer: Timer | None = None
 

@@ -52,7 +52,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.console import Group
 
-from config_panel import get_border_style
+from config_panel import get_border_style, get_textual_theme, get_theme_colors
 
 
 def format_size(size: int) -> str:
@@ -166,40 +166,72 @@ class SearchItem(ListItem):
 class SearchDialog(ModalScreen):
     """Popup search dialog - fzf style."""
 
-    CSS = """
-    SearchDialog {
-        align: center middle;
-    }
-    #search-dialog {
-        width: 60;
-        height: 20;
-        border: solid cyan;
-        background: $surface;
-    }
-    #search-title {
-        height: 1;
-        padding: 0 1;
-        background: $primary;
-    }
-    #search-input {
-        margin: 0 1;
-    }
-    #search-results {
-        height: 1fr;
-        margin: 0 1 1 1;
-        border: solid gray;
-    }
-    #search-results:focus {
-        border: solid cyan;
-    }
-    """
-
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
         ("tab", "select_first", "Select First"),
     ]
 
     def __init__(self, items: list[Path]):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        SearchDialog {{
+            align: center middle;
+        }}
+        #search-dialog {{
+            width: 60;
+            height: 20;
+            border: solid {fg};
+            background: {bg};
+        }}
+        #search-title {{
+            height: 1;
+            padding: 0 1;
+            background: {fg};
+            color: {bg};
+        }}
+        #search-input {{
+            margin: 0 1;
+            background: {bg};
+            color: {fg};
+        }}
+        #search-results {{
+            height: 1fr;
+            margin: 0 1 1 1;
+            border: solid {fg};
+            background: {bg};
+            color: {fg};
+        }}
+        #search-results:focus {{
+            border: double {fg};
+        }}
+        ListView {{
+            background: {bg};
+            color: {fg};
+        }}
+        ListItem {{
+            background: {bg};
+            color: {fg};
+        }}
+        ListItem.-highlight {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        ListItem.-highlight > Static {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+        """
         super().__init__()
         self.all_items = items
         self.filter_text = ""
@@ -262,32 +294,6 @@ class SearchDialog(ModalScreen):
 class ConfirmDialog(ModalScreen):
     """Confirmation dialog."""
 
-    CSS = """
-    ConfirmDialog {
-        align: center middle;
-    }
-    #confirm-dialog {
-        width: 50;
-        height: 10;
-        border: solid red;
-        background: $surface;
-        padding: 1 2;
-    }
-    #confirm-title {
-        text-align: center;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-    #confirm-message {
-        text-align: center;
-        margin-bottom: 1;
-    }
-    #confirm-buttons {
-        align: center middle;
-        height: 3;
-    }
-    """
-
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
         ("y", "confirm", "Yes"),
@@ -295,6 +301,43 @@ class ConfirmDialog(ModalScreen):
     ]
 
     def __init__(self, title: str, message: str):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        ConfirmDialog {{
+            align: center middle;
+        }}
+        #confirm-dialog {{
+            width: 50;
+            height: 10;
+            border: solid #ff6b6b;
+            background: {bg};
+            color: {fg};
+            padding: 1 2;
+        }}
+        #confirm-title {{
+            text-align: center;
+            text-style: bold;
+            margin-bottom: 1;
+            color: #ff6b6b;
+        }}
+        #confirm-message {{
+            text-align: center;
+            margin-bottom: 1;
+            color: {fg};
+        }}
+        #confirm-buttons {{
+            align: center middle;
+            height: 3;
+            color: {fg};
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        """
         super().__init__()
         self.dialog_title = title
         self.message = message
@@ -315,39 +358,53 @@ class ConfirmDialog(ModalScreen):
 class RenameDialog(ModalScreen):
     """Rename dialog with input."""
 
-    CSS = """
-    RenameDialog {
-        align: center middle;
-    }
-    #rename-dialog {
-        width: 80%;
-        max-width: 100;
-        height: auto;
-        border: double cyan;
-        background: $surface;
-        padding: 1 2;
-    }
-    #rename-title {
-        text-align: center;
-        text-style: bold;
-        color: cyan;
-        margin-bottom: 1;
-    }
-    #rename-input {
-        margin-bottom: 1;
-        border: solid white;
-    }
-    #rename-help {
-        text-align: center;
-        color: $text-muted;
-    }
-    """
-
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
     ]
 
     def __init__(self, current_name: str):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        RenameDialog {{
+            align: center middle;
+        }}
+        #rename-dialog {{
+            width: 80%;
+            max-width: 100;
+            height: auto;
+            border: double {fg};
+            background: {bg};
+            color: {fg};
+            padding: 1 2;
+        }}
+        #rename-title {{
+            text-align: center;
+            text-style: bold;
+            color: {fg};
+            margin-bottom: 1;
+        }}
+        #rename-input {{
+            margin-bottom: 1;
+            border: solid {fg};
+            background: {bg};
+            color: {fg};
+        }}
+        #rename-help {{
+            text-align: center;
+            color: {fg};
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        Input {{
+            background: {bg};
+            color: {fg};
+        }}
+        """
         super().__init__()
         self.current_name = current_name
 
@@ -391,59 +448,6 @@ class DualPanelScreen(ModalScreen):
     _session_right_index: int = 1
     _initial_start_path: Path = None  # Original path when tool started
 
-    CSS = """
-    DualPanelScreen {
-        align: center middle;
-    }
-    #dual-container {
-        width: 95%;
-        height: 90%;
-        background: $surface;
-        border: solid $primary;
-    }
-    #dual-title {
-        height: 1;
-        text-align: center;
-        text-style: bold;
-        background: $primary;
-    }
-    #panels {
-        height: 1fr;
-    }
-    .panel {
-        width: 50%;
-        height: 100%;
-        border: solid gray;
-    }
-    .panel:focus-within {
-        border: solid green;
-    }
-    .panel-header {
-        height: 1;
-        background: $primary-background;
-        padding: 0 1;
-    }
-    .panel-list {
-        height: 1fr;
-    }
-    #progress-container {
-        height: 3;
-        padding: 0 1;
-        display: none;
-    }
-    #progress-container.visible {
-        display: block;
-    }
-    #help-bar {
-        height: 1;
-        background: $primary-background;
-        text-align: center;
-    }
-    ListItem {
-        padding: 0;
-    }
-    """
-
     BINDINGS = [
         ("escape", "cancel_or_close", "Close"),
         ("q", "close", "Close"),
@@ -465,6 +469,112 @@ class DualPanelScreen(ModalScreen):
     ]
 
     def __init__(self, start_path: Path = None):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        DualPanelScreen {{
+            align: center middle;
+        }}
+        #dual-container {{
+            width: 95%;
+            height: 90%;
+            background: {bg};
+            border: solid {fg};
+        }}
+        #dual-title {{
+            height: 1;
+            text-align: center;
+            text-style: bold;
+            background: {fg};
+            color: {bg};
+        }}
+        #panels {{
+            height: 1fr;
+            background: {bg};
+        }}
+        .panel {{
+            width: 50%;
+            height: 100%;
+            border: solid {fg};
+            background: {bg};
+        }}
+        .panel:focus-within {{
+            border: double {fg};
+        }}
+        .panel-header {{
+            height: 1;
+            background: {bg};
+            color: {fg};
+            padding: 0 1;
+        }}
+        .panel-list {{
+            height: 1fr;
+            background: {bg};
+            color: {fg};
+        }}
+        #progress-container {{
+            height: 3;
+            padding: 0 1;
+            display: none;
+            background: {bg};
+        }}
+        #progress-container.visible {{
+            display: block;
+        }}
+        #help-bar {{
+            height: 1;
+            background: {bg};
+            color: {fg};
+            text-align: center;
+        }}
+        ListItem {{
+            padding: 0;
+            background: {bg};
+            color: {fg};
+        }}
+        ListItem.-highlight {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        ListItem.-highlight > Static {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        ListItem.-highlight #item-content {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        ListView {{
+            background: {bg};
+            color: {fg};
+        }}
+        ListView:focus {{
+            background: {bg};
+        }}
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+        #item-content {{
+            background: {bg};
+            color: {fg};
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        Vertical {{
+            background: {bg};
+        }}
+        Horizontal {{
+            background: {bg};
+        }}
+        ProgressBar {{
+            background: {bg};
+        }}
+        """
         super().__init__()
         # Store initial start path (only once, when tool first starts)
         if DualPanelScreen._initial_start_path is None:
@@ -1226,11 +1336,14 @@ class FileViewer(VerticalScroll):
                 header.append("\n" + "─" * 50 + "\n", style="dim")
 
                 if lexer:
-                    # Use syntax highlighting with header
+                    # Use syntax highlighting with header (follows theme)
+                    textual_theme = get_textual_theme()
+                    is_light = "light" in textual_theme.lower() or "latte" in textual_theme.lower()
+                    syntax_theme = "github-light" if is_light else "monokai"
                     syntax = Syntax(
                         code,
                         lexer,
-                        theme="monokai",
+                        theme=syntax_theme,
                         line_numbers=True,
                         word_wrap=False,
                     )
@@ -1263,32 +1376,6 @@ class FileViewer(VerticalScroll):
 class FileViewerScreen(ModalScreen):
     """Modal screen for viewing a file."""
 
-    CSS = """
-    FileViewerScreen {
-        align: center middle;
-    }
-    #viewer-container {
-        width: 95%;
-        height: 95%;
-        background: $surface;
-        border: solid $primary;
-    }
-    #viewer-header {
-        height: 1;
-        background: $primary;
-        text-align: center;
-        text-style: bold;
-    }
-    #viewer-content {
-        height: 1fr;
-    }
-    #viewer-help {
-        height: 1;
-        background: $primary-background;
-        text-align: center;
-    }
-    """
-
     BINDINGS = [
         ("escape", "close", "Close"),
         ("q", "close", "Close"),
@@ -1296,6 +1383,51 @@ class FileViewerScreen(ModalScreen):
     ]
 
     def __init__(self, file_path: Path):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        FileViewerScreen {{
+            align: center middle;
+        }}
+        #viewer-container {{
+            width: 95%;
+            height: 95%;
+            background: {bg};
+            border: solid {fg};
+        }}
+        #viewer-header {{
+            height: 1;
+            background: {fg};
+            color: {bg};
+            text-align: center;
+            text-style: bold;
+        }}
+        #viewer-content {{
+            height: 1fr;
+            background: {bg};
+            color: {fg};
+        }}
+        #viewer-help {{
+            height: 1;
+            background: {bg};
+            color: {fg};
+            text-align: center;
+        }}
+        FileViewer {{
+            background: {bg};
+            color: {fg};
+        }}
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        """
         super().__init__()
         self.file_path = file_path
 
@@ -1314,38 +1446,6 @@ class FileViewerScreen(ModalScreen):
 
 
 class TreeViewApp(App):
-    CSS = """
-    #main {
-        width: 100%;
-        height: 100%;
-    }
-    #tree-panel {
-        height: 100%;
-        border-right: solid $primary;
-    }
-    #viewer-panel {
-        height: 100%;
-    }
-    DirectoryTree {
-        width: 100%;
-        height: 100%;
-        background: $surface;
-    }
-    FileViewer {
-        width: 100%;
-        height: 100%;
-        background: $surface;
-        padding: 0 1;
-    }
-    #file-content {
-        width: 100%;
-    }
-    #md-content {
-        width: 100%;
-        padding: 1 2;
-    }
-    """
-
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
@@ -1367,12 +1467,109 @@ class TreeViewApp(App):
     viewer_fullscreen = reactive(False)
 
     def __init__(self, start_path: Path = None):
-        super().__init__()
-        self.start_path = start_path or Path.cwd()
-        # Apply border style from config
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
         border_style = get_border_style()
-        if border_style != "solid":
-            self.CSS = self.CSS.replace("border-right: solid", f"border-right: {border_style}")
+        self.CSS = f"""
+        Screen {{
+            background: {bg};
+            color: {fg};
+        }}
+        #main {{
+            width: 100%;
+            height: 100%;
+            background: {bg};
+        }}
+        #tree-panel {{
+            height: 100%;
+            border-right: {border_style} {fg};
+            background: {bg};
+        }}
+        #viewer-panel {{
+            height: 100%;
+            background: {bg};
+        }}
+        DirectoryTree {{
+            width: 100%;
+            height: 100%;
+            background: {bg};
+            color: {fg};
+            scrollbar-background: {bg};
+            scrollbar-color: {fg};
+        }}
+        DirectoryTree > .tree--guides {{
+            color: {fg};
+        }}
+        DirectoryTree > .tree--cursor {{
+            background: {fg};
+            color: {bg};
+        }}
+        Tree {{
+            background: {bg};
+            color: {fg};
+        }}
+        FileViewer {{
+            width: 100%;
+            height: 100%;
+            background: {bg};
+            color: {fg};
+            padding: 0 1;
+        }}
+        #file-content {{
+            width: 100%;
+            background: {bg};
+            color: {fg};
+        }}
+        #md-content {{
+            width: 100%;
+            padding: 1 2;
+            background: {bg};
+            color: {fg};
+        }}
+        ListView {{
+            background: {bg};
+            color: {fg};
+        }}
+        ListItem {{
+            background: {bg};
+            color: {fg};
+        }}
+        ListItem.-highlight {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        ListItem.-highlight > Static {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+        Input {{
+            background: {bg};
+            color: {fg};
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        Container {{
+            background: {bg};
+            color: {fg};
+        }}
+        Vertical {{
+            background: {bg};
+        }}
+        Horizontal {{
+            background: {bg};
+        }}
+        """
+        super().__init__()
+        self.theme = get_textual_theme()
+        self.start_path = start_path or Path.cwd()
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)

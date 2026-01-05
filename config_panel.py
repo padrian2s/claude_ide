@@ -27,14 +27,20 @@ from upgrader import get_current_version
 CONFIG_FILE = Path(__file__).parent / ".tui_config.json"
 
 THEMES = {
-    "Catppuccin Mocha": {"bg": "#1e1e2e", "fg": "#cdd6f4"},
-    "Tokyo Night": {"bg": "#24283b", "fg": "#c0caf5"},
-    "Gruvbox Dark": {"bg": "#1d2021", "fg": "#ebdbb2"},
-    "Dracula": {"bg": "#282a36", "fg": "#f8f8f2"},
-    "Nord": {"bg": "#2e3440", "fg": "#eceff4"},
-    "One Dark": {"bg": "#282c34", "fg": "#abb2bf"},
-    "Solarized Dark": {"bg": "#002b36", "fg": "#839496"},
-    "Monokai": {"bg": "#272822", "fg": "#f8f8f2"},
+    # Dark themes
+    "Catppuccin Mocha": {"bg": "#1e1e2e", "fg": "#cdd6f4", "dark": True, "textual": "catppuccin-mocha"},
+    "Tokyo Night": {"bg": "#24283b", "fg": "#c0caf5", "dark": True, "textual": "tokyo-night"},
+    "Gruvbox Dark": {"bg": "#1d2021", "fg": "#ebdbb2", "dark": True, "textual": "gruvbox"},
+    "Dracula": {"bg": "#282a36", "fg": "#f8f8f2", "dark": True, "textual": "dracula"},
+    "Nord": {"bg": "#2e3440", "fg": "#eceff4", "dark": True, "textual": "nord"},
+    "One Dark": {"bg": "#282c34", "fg": "#abb2bf", "dark": True, "textual": "monokai"},
+    "Solarized Dark": {"bg": "#002b36", "fg": "#839496", "dark": True, "textual": "solarized-light"},
+    "Monokai": {"bg": "#272822", "fg": "#f8f8f2", "dark": True, "textual": "monokai"},
+    # Light themes
+    "Solarized Light": {"bg": "#fdf6e3", "fg": "#657b83", "dark": False, "textual": "solarized-light"},
+    "Gruvbox Light": {"bg": "#fbf1c7", "fg": "#3c3836", "dark": False, "textual": "gruvbox"},
+    "GitHub Light": {"bg": "#ffffff", "fg": "#24292e", "dark": False, "textual": "textual-light"},
+    "Catppuccin Latte": {"bg": "#eff1f5", "fg": "#4c4f69", "dark": False, "textual": "catppuccin-latte"},
 }
 
 # Available Textual border styles
@@ -77,10 +83,49 @@ def apply_theme_to_tmux(theme_name: str):
     )
     session = result.stdout.strip()
     if session:
+        # Apply status bar colors
         subprocess.run([
             "tmux", "set-option", "-t", session,
             "status-style", f"bg={colors['bg']},fg={colors['fg']}"
         ])
+        # Update theme variables for new terminals (Ctrl+T)
+        subprocess.run([
+            "tmux", "set-option", "-t", session,
+            "@theme_bg", colors['bg']
+        ])
+        subprocess.run([
+            "tmux", "set-option", "-t", session,
+            "@theme_fg", colors['fg']
+        ])
+        # Apply background and foreground to F1 terminal window (window 1)
+        subprocess.run([
+            "tmux", "set-option", "-t", f"{session}:1",
+            "window-style", f"bg={colors['bg']},fg={colors['fg']}"
+        ])
+        subprocess.run([
+            "tmux", "set-option", "-t", f"{session}:1",
+            "window-active-style", f"bg={colors['bg']},fg={colors['fg']}"
+        ])
+        # Apply to all dynamic terminal windows (2-19)
+        for win_idx in range(2, 20):
+            subprocess.run([
+                "tmux", "set-option", "-t", f"{session}:{win_idx}",
+                "window-style", f"bg={colors['bg']},fg={colors['fg']}"
+            ], stderr=subprocess.DEVNULL)
+            subprocess.run([
+                "tmux", "set-option", "-t", f"{session}:{win_idx}",
+                "window-active-style", f"bg={colors['bg']},fg={colors['fg']}"
+            ], stderr=subprocess.DEVNULL)
+        # Apply to F4 (Glow), F6 (Prompt), F7 (Git) windows
+        for win_idx in [22, 24, 25]:
+            subprocess.run([
+                "tmux", "set-option", "-t", f"{session}:{win_idx}",
+                "window-style", f"bg={colors['bg']},fg={colors['fg']}"
+            ], stderr=subprocess.DEVNULL)
+            subprocess.run([
+                "tmux", "set-option", "-t", f"{session}:{win_idx}",
+                "window-active-style", f"bg={colors['bg']},fg={colors['fg']}"
+            ], stderr=subprocess.DEVNULL)
 
 
 def apply_status_position(position: str):
@@ -109,6 +154,14 @@ def get_border_style() -> str:
     return config.get("border_style", "solid")
 
 
+def get_textual_theme() -> str:
+    """Get Textual theme name based on saved config."""
+    config = load_config()
+    theme_name = config.get("theme", "Gruvbox Dark")
+    theme_config = THEMES.get(theme_name, THEMES["Gruvbox Dark"])
+    return theme_config.get("textual", "gruvbox")
+
+
 import re
 from collections import Counter
 
@@ -132,13 +185,30 @@ STOP_WORDS = {
 
 
 def import_claude_prompts() -> tuple[int, int, list[str]]:
-    """Import prompts from Claude Code history and extract learned words.
+    """Import prompts from Claude Code history and extract NEW learned words.
+    
+    Only saves words that are not already in the learned words file.
+    Words are shuffled randomly to prevent reverse engineering of prompts.
     
     Returns:
-        Tuple of (prompts_count, words_count, sample_words)
+        Tuple of (prompts_count, new_words_count, sample_words)
     """
+    import random
+    
     if not CLAUDE_HISTORY_FILE.exists():
         return 0, 0, []
+    
+    # Load existing words first
+    existing_words = set()
+    if LEARNED_WORDS_FILE.exists():
+        try:
+            with open(LEARNED_WORDS_FILE, 'r', encoding='utf-8') as f:
+                for line in f:
+                    word = line.strip()
+                    if word:
+                        existing_words.add(word.lower())
+        except Exception:
+            pass
     
     prompts = []
     try:
@@ -159,34 +229,36 @@ def import_claude_prompts() -> tuple[int, int, list[str]]:
     if not prompts:
         return 0, 0, []
     
-    # Extract words from all prompts
-    all_words = []
+    # Extract ALL unique words from all prompts (min 3 chars, not stop words)
+    all_words = set()
     for prompt in prompts:
-        # Extract words (alphanumeric, underscores, hyphens)
-        words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9_-]*\b', prompt.lower())
-        all_words.extend(words)
+        # Extract words (alphanumeric, underscores, hyphens, Unicode support)
+        words = re.findall(r'\b\w{3,}\b', prompt.lower(), re.UNICODE)
+        for word in words:
+            if word not in STOP_WORDS and not word.isdigit():
+                all_words.add(word)
     
-    # Count word frequencies and filter
-    word_counts = Counter(all_words)
+    # Filter to only NEW words (not in existing file)
+    new_words = all_words - existing_words
     
-    # Filter: min length 3, not stop words, appears at least 2 times
-    learned_words = [
-        word for word, count in word_counts.most_common()
-        if len(word) >= 3 and word not in STOP_WORDS and count >= 2
-    ]
+    if not new_words:
+        return len(prompts), 0, []
     
-    # Save to file
-    if learned_words:
-        try:
-            with open(LEARNED_WORDS_FILE, 'w', encoding='utf-8') as f:
-                for word in learned_words:
-                    f.write(f"{word}\n")
-        except Exception:
-            pass
+    # Shuffle new words randomly (prevent reverse engineering)
+    new_words_list = list(new_words)
+    random.shuffle(new_words_list)
     
-    # Return stats
-    sample = learned_words[:10]  # Top 10 words as sample
-    return len(prompts), len(learned_words), sample
+    # Append new words to existing file
+    try:
+        with open(LEARNED_WORDS_FILE, 'a', encoding='utf-8') as f:
+            for word in new_words_list:
+                f.write(f"{word}\n")
+    except Exception:
+        pass
+    
+    # Return stats with random sample
+    sample = new_words_list[:10]
+    return len(prompts), len(new_words_list), sample
 
 
 class ConfirmDialog(ModalScreen):
@@ -194,7 +266,7 @@ class ConfirmDialog(ModalScreen):
 
     CSS = """
     ConfirmDialog { align: center middle; }
-    #confirm-dialog { width: 40; height: 7; border: solid red; background: $surface; padding: 1; }
+    #confirm-dialog { width: 40; height: 7; border: solid $error; background: $surface; padding: 1; }
     #confirm-title { text-align: center; text-style: bold; }
     #confirm-help { text-align: center; color: $text-muted; }
     """
@@ -642,10 +714,12 @@ class ConfigPanel(App):
         Binding("b", "toggle_border", "Toggle Border"),
         Binding("c", "customize", "Customize Screen"),
         Binding("i", "import_prompts", "Import Words"),
+        Binding("t", "command_palette", "Theme Palette"),
     ]
 
     def __init__(self):
         super().__init__()
+        self.theme = get_textual_theme()
         self.config = load_config()
         self.selected_theme = self.config.get("theme", "Catppuccin Mocha")
         self.status_position = self.config.get("status_position", "bottom")
@@ -672,11 +746,11 @@ class ConfigPanel(App):
             yield Static("", id="border-info")
             version = get_current_version() or "dev"
             yield Static(f"Version: {version}", id="version-info")
-            yield Static("Enter: Apply | p: Position | b: Border | c: Customize | i: Import | q: Quit", id="help")
+            yield Static("Enter: Apply | p: Position | b: Border | t: Palette | c: Customize | i: Import | q: Quit", id="help")
 
     def on_mount(self):
         self.title = "Config"
-        self.sub_title = "Enter:apply  p:position  b:border  q:quit"
+        self.sub_title = "Enter:apply  p:position  b:border  t:palette  q:quit"
         # Focus the list and highlight current theme
         list_view = self.query_one("#theme-list", ListView)
         list_view.focus()
@@ -708,6 +782,10 @@ class ConfigPanel(App):
             self.config["theme"] = self.selected_theme
             save_config(self.config)
             apply_theme_to_tmux(self.selected_theme)
+            # Apply Textual theme
+            theme_config = THEMES.get(self.selected_theme, {})
+            textual_theme = theme_config.get("textual", "gruvbox")
+            self.app.theme = textual_theme
             self.notify(f"Applied: {self.selected_theme}", timeout=2)
             # Refresh list to update selection marker
             self.refresh_list()
@@ -762,7 +840,7 @@ class ConfigPanel(App):
 
 
     def action_import_prompts(self):
-        """Import prompts from Claude Code and extract learned words."""
+        """Import prompts from Claude Code and extract NEW learned words."""
         if not CLAUDE_HISTORY_FILE.exists():
             self.notify(
                 f"Claude history not found: {CLAUDE_HISTORY_FILE}",
@@ -771,20 +849,20 @@ class ConfigPanel(App):
             )
             return
         
-        prompts_count, words_count, sample_words = import_claude_prompts()
+        prompts_count, new_words_count, sample_words = import_claude_prompts()
         
         if prompts_count == 0:
             self.notify("No prompts found in Claude history", severity="warning", timeout=3)
             return
         
-        if words_count == 0:
-            self.notify(f"Imported {prompts_count} prompts but no words extracted", severity="warning", timeout=3)
+        if new_words_count == 0:
+            self.notify(f"Scanned {prompts_count} prompts - no new words to add", severity="information", timeout=3)
             return
         
-        # Show success with sample words
+        # Show success with sample of new words
         sample_str = ", ".join(sample_words[:5])
         self.notify(
-            f"Imported {prompts_count} prompts -> {words_count} words saved to .prompt_learned_words.txt\nTop: {sample_str}...",
+            f"Added {new_words_count} new words from {prompts_count} prompts\nSample: {sample_str}...",
             severity="information",
             timeout=5,
         )

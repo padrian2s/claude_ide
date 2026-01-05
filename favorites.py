@@ -11,6 +11,8 @@ from textual.widgets import Header, Footer, ListView, ListItem, Static, Label, I
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 
+from config_panel import get_textual_theme
+
 CONFIG_FILE = Path(__file__).parent / ".tui_favorites.json"
 DEPS_FILE = Path(__file__).parent / ".tui_dependencies.json"
 DEFAULT_ROOTS = [str(Path.home() / "work"), str(Path.home() / "personal")]
@@ -146,7 +148,7 @@ class ConfirmDialog(ModalScreen):
 
     CSS = """
     ConfirmDialog { align: center middle; }
-    #confirm-dialog { width: 40; height: 7; border: solid red; background: $surface; padding: 1; }
+    #confirm-dialog { width: 40; height: 7; border: solid $error; background: $surface; padding: 1; }
     #confirm-title { text-align: center; text-style: bold; }
     #confirm-help { text-align: center; color: $text-muted; }
     """
@@ -180,7 +182,7 @@ class AdminScreen(ModalScreen):
     #admin-dialog {
         width: 70;
         height: 20;
-        border: solid green;
+        border: solid $success;
         background: $surface;
         padding: 1;
     }
@@ -192,7 +194,7 @@ class AdminScreen(ModalScreen):
     }
     #roots-list {
         height: 1fr;
-        border: solid gray;
+        border: solid $secondary;
     }
     #admin-input {
         margin-top: 1;
@@ -278,7 +280,7 @@ class DependencyScreen(ModalScreen):
     #dep-dialog {
         width: 90%;
         height: 90%;
-        border: solid cyan;
+        border: solid $primary;
         background: $surface;
         padding: 1;
     }
@@ -300,18 +302,18 @@ class DependencyScreen(ModalScreen):
     #available-list {
         width: 50%;
         height: 100%;
-        border: solid gray;
+        border: solid $secondary;
     }
     #available-list:focus {
-        border: solid green;
+        border: solid $success;
     }
     #chain-list {
         width: 50%;
         height: 100%;
-        border: solid gray;
+        border: solid $secondary;
     }
     #chain-list:focus {
-        border: solid yellow;
+        border: solid $warning;
     }
     .list-title {
         height: 1;
@@ -325,7 +327,7 @@ class DependencyScreen(ModalScreen):
     }
     #instructions {
         height: 1fr;
-        border: solid gray;
+        border: solid $secondary;
     }
     #instructions:focus {
         border: solid magenta;
@@ -511,17 +513,17 @@ class FavoritesPanel(App):
     }
     #folder-list {
         height: 1fr;
-        border: solid gray;
+        border: solid $secondary;
     }
     #folder-list:focus {
-        border: solid green;
+        border: solid $success;
     }
     #fav-list {
         height: 1fr;
-        border: solid gray;
+        border: solid $secondary;
     }
     #fav-list:focus {
-        border: solid yellow;
+        border: solid $warning;
     }
     #search-box {
         height: 1;
@@ -567,6 +569,7 @@ class FavoritesPanel(App):
 
     def __init__(self):
         super().__init__()
+        self.theme = get_textual_theme()
         self.favorites = load_favorites()
         self.roots = load_roots()
         self.all_folders: list[Path] = []

@@ -150,6 +150,10 @@ def main():
     theme = get_theme_colors()
     status_position = get_status_position()
 
+    # Store theme colors for new terminals (Ctrl+T)
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "@theme_bg", theme['bg']])
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "@theme_fg", theme['fg']])
+
     # Enable focus events for focus tracking
     subprocess.run(["tmux", "set-option", "-t", SESSION, "focus-events", "on"])
 
@@ -167,6 +171,15 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-position", status_position])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-interval", "1"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", f"bg={theme['bg']},fg={theme['fg']}"])
+
+    # Apply theme colors to F1 terminal window
+    subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
+    subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
+
+    # Apply theme colors to F4 (Glow), F6 (Prompt), F7 (Git) windows
+    for win_idx in [22, 24, 25]:  # F4=Glow, F6=Prompt, F7=Git
+        subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
+        subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
 
     # Custom status format:
     # - F1 (window 1): show as "F1:Term1"
@@ -233,12 +246,14 @@ def main():
 
     # Ctrl+T = Create new terminal with auto-name T2, T3, etc.
     # Increments @term_count and creates window after the last terminal (before apps at 20+)
-    # Also cd to start directory after creating the window
+    # Also cd to start directory and apply theme colors
     subprocess.run([
         "tmux", "bind-key", "-n", "C-t",
         "run-shell",
         f"tmux set-option -t {SESSION} @term_count $(($(tmux show-option -t {SESSION} -v @term_count) + 1)) && "
         f"tmux new-window -t {SESSION} -n T$(tmux show-option -t {SESSION} -v @term_count) && "
+        f"tmux set-option -w window-style \"bg=$(tmux show-option -t {SESSION} -v @theme_bg),fg=$(tmux show-option -t {SESSION} -v @theme_fg)\" && "
+        f"tmux set-option -w window-active-style \"bg=$(tmux show-option -t {SESSION} -v @theme_bg),fg=$(tmux show-option -t {SESSION} -v @theme_fg)\" && "
         f"tmux send-keys -t {SESSION} \" cd '$(tmux show-option -t {SESSION} -v @start_dir)' && clear\" Enter"
     ])
 
@@ -251,9 +266,11 @@ def main():
     ])
 
     # Ctrl+P = Quick input popup (sends to F1) with autocomplete and AI enhancement
+    popup_style = f"bg={theme['bg']},fg={theme['fg']}"
     subprocess.run([
         "tmux", "bind-key", "-n", "C-p",
         "display-popup", "-E", "-w", "80%", "-h", "30%",
+        "-s", popup_style, "-S", popup_style,
         f"uv run python3 '{QUICK_INPUT_SCRIPT}'"
     ])
 

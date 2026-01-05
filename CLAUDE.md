@@ -50,7 +50,7 @@ Textual app with multiple screens:
 - Left panel (20-50%): `DirectoryTree` widget
 - Right panel: `FileViewer` (scrollable Static with syntax highlighting)
 - Binary file detection (PDF, images, etc.)
-- Fuzzy file search (Ctrl+P via fzf)
+- Fuzzy file search (Ctrl+F via fzf)
 - Grep search (/ via rg + fzf)
 
 **DualPanelScreen** - Dual-panel file manager (Norton Commander style):

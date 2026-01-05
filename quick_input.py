@@ -13,6 +13,8 @@ from textual.screen import ModalScreen
 from textual.binding import Binding
 from textual import work
 
+from config_panel import get_textual_theme, get_theme_colors
+
 # Optional: Anthropic API for AI enhancement
 try:
     import anthropic
@@ -58,8 +60,8 @@ def save_learned_words(new_words: set[str], corpus_words: set[str]) -> int:
 
 
 def extract_new_words(text: str) -> set[str]:
-    """Extract words (4+ letters) from text."""
-    return set(re.findall(r'\b[a-zA-Z]{4,}\b', text))
+    """Extract words (3+ letters, including Unicode)."""
+    return set(re.findall(r'\b\w{3,}\b', text, re.UNICODE))
 
 
 # AI Enhancement prompts by level
@@ -112,41 +114,6 @@ Return ONLY the improved prompt, nothing else.""",
 class EnhanceDialog(ModalScreen[str | None]):
     """Dialog to select enhancement level."""
 
-    CSS = """
-    EnhanceDialog {
-        align: center middle;
-        background: rgba(255, 255, 255, 0.9);
-    }
-    #enhance-dialog {
-        width: 50;
-        height: auto;
-        border: solid #ccc;
-        background: white;
-        padding: 1 2;
-    }
-    #enhance-title {
-        text-align: center;
-        text-style: bold;
-        padding: 1;
-        color: #333;
-    }
-    RadioSet {
-        width: 100%;
-        padding: 1;
-        background: white;
-    }
-    RadioButton {
-        background: white;
-    }
-    #enhance-buttons {
-        align: center middle;
-        padding-top: 1;
-    }
-    #enhance-buttons Button {
-        margin: 0 1;
-    }
-    """
-
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
         Binding("1", "select_1", "Little", show=False),
@@ -154,6 +121,61 @@ class EnhanceDialog(ModalScreen[str | None]):
         Binding("3", "select_3", "Deep", show=False),
         Binding("4", "select_4", "Aggressive", show=False),
     ]
+
+    def __init__(self):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        EnhanceDialog {{
+            align: center middle;
+        }}
+        #enhance-dialog {{
+            width: 50;
+            height: auto;
+            border: solid {fg};
+            background: {bg};
+            color: {fg};
+            padding: 1 2;
+        }}
+        #enhance-title {{
+            text-align: center;
+            text-style: bold;
+            padding: 1;
+            background: {bg};
+            color: {fg};
+        }}
+        RadioSet {{
+            width: 100%;
+            padding: 1;
+            background: {bg};
+            color: {fg};
+        }}
+        RadioButton {{
+            background: {bg};
+            color: {fg};
+        }}
+        #enhance-buttons {{
+            align: center middle;
+            padding-top: 1;
+            background: {bg};
+        }}
+        #enhance-buttons Button {{
+            margin: 0 1;
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        Vertical {{
+            background: {bg};
+        }}
+        Horizontal {{
+            background: {bg};
+        }}
+        """
+        super().__init__()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="enhance-dialog"):
@@ -199,51 +221,6 @@ class EnhanceDialog(ModalScreen[str | None]):
 class PreviewDialog(ModalScreen[bool]):
     """Dialog to preview and accept/reject enhanced text."""
 
-    CSS = """
-    PreviewDialog {
-        align: center middle;
-        background: rgba(255, 255, 255, 0.9);
-    }
-    #preview-dialog {
-        width: 90%;
-        height: 90%;
-        border: solid #ccc;
-        background: white;
-    }
-    #preview-title {
-        text-align: center;
-        text-style: bold;
-        padding: 1;
-        background: #f0f0f0;
-        color: #333;
-    }
-    #preview-scroll {
-        height: 1fr;
-        border: none;
-        margin: 1;
-        background: white;
-    }
-    #preview-area {
-        width: 100%;
-        padding: 1;
-        background: white;
-        color: #333;
-    }
-    #preview-status {
-        text-align: center;
-        padding: 1;
-        color: #666;
-    }
-    #preview-buttons {
-        align: center middle;
-        padding: 1;
-        height: auto;
-    }
-    #preview-buttons Button {
-        margin: 0 2;
-    }
-    """
-
     BINDINGS = [
         Binding("y", "accept", "Accept"),
         Binding("n", "reject", "Reject"),
@@ -251,6 +228,77 @@ class PreviewDialog(ModalScreen[bool]):
     ]
 
     def __init__(self, text: str = "", streaming: bool = False):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        PreviewDialog {{
+            align: center middle;
+        }}
+        #preview-dialog {{
+            width: 90%;
+            height: 90%;
+            border: solid {fg};
+            background: {bg};
+            color: {fg};
+        }}
+        #preview-title {{
+            text-align: center;
+            text-style: bold;
+            padding: 1;
+            background: {fg};
+            color: {bg};
+        }}
+        #preview-scroll {{
+            height: 1fr;
+            border: none;
+            margin: 1;
+            background: {bg};
+        }}
+        #preview-area {{
+            width: 100%;
+            padding: 1;
+            background: {bg};
+            color: {fg};
+        }}
+        #preview-status {{
+            text-align: center;
+            padding: 1;
+            color: {fg};
+            background: {bg};
+        }}
+        #preview-buttons {{
+            align: center middle;
+            padding: 1;
+            height: auto;
+            background: {bg};
+        }}
+        #preview-buttons Button {{
+            margin: 0 2;
+        }}
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+        Label {{
+            background: {bg};
+            color: {fg};
+        }}
+        TextArea {{
+            background: {bg};
+            color: {fg};
+        }}
+        Vertical {{
+            background: {bg};
+        }}
+        Horizontal {{
+            background: {bg};
+        }}
+        VerticalScroll {{
+            background: {bg};
+        }}
+        """
         super().__init__()
         self.preview_text = text
         self.streaming = streaming
@@ -350,26 +398,11 @@ def get_current_project() -> str | None:
 
 
 class QuickInputApp(App):
-    """Simple quick input - white theme."""
-
-    CSS = """
-    Screen { background: white; layers: base overlay; }
-    #input { background: white; color: black; border: none; height: 1fr; layer: base; }
-    #input.history { color: #777; }
-    #autocomplete {
-        layer: overlay;
-        background: transparent;
-        color: #0066cc;
-        height: 1;
-        width: 100%;
-        offset: 0 1;
-    }
-    #status { dock: bottom; background: #eee; color: #555; height: 1; layer: base; }
-    """
+    """Simple quick input - uses terminal theme colors."""
 
     BINDINGS = [
-        Binding("up", "hist_prev", "↑", priority=True),
-        Binding("down", "hist_next", "↓", priority=True),
+        Binding("ctrl+o", "hist_prev", "^O", priority=True),
+        Binding("ctrl+l", "hist_next", "^L", priority=True),
         Binding("tab", "complete", "Tab", priority=True),
         Binding("ctrl+s", "send", "Send", priority=True),
         Binding("ctrl+g", "enhance", "AI", priority=True),
@@ -377,7 +410,57 @@ class QuickInputApp(App):
     ]
 
     def __init__(self):
+        # Build CSS with theme colors before super().__init__()
+        theme_colors = get_theme_colors()
+        bg = theme_colors['bg']
+        fg = theme_colors['fg']
+        self.CSS = f"""
+        Screen {{ 
+            layers: base overlay; 
+            background: {bg}; 
+            color: {fg}; 
+        }}
+        TextArea {{ 
+            background: {bg}; 
+            color: {fg}; 
+        }}
+        TextArea > .text-area--cursor {{
+            background: {fg};
+            color: {bg};
+        }}
+        #input {{ 
+            border: none; 
+            height: 1fr; 
+            layer: base; 
+            background: {bg}; 
+            color: {fg}; 
+        }}
+        #input.history {{ 
+            text-opacity: 60%; 
+        }}
+        #autocomplete {{
+            layer: overlay;
+            background: transparent;
+            text-opacity: 70%;
+            height: 1;
+            width: 100%;
+            color: {fg};
+        }}
+        #status {{ 
+            dock: bottom; 
+            height: 1; 
+            layer: base; 
+            text-opacity: 70%; 
+            background: {bg}; 
+            color: {fg}; 
+        }}
+        Static {{
+            background: {bg};
+            color: {fg};
+        }}
+        """
         super().__init__()
+        self.theme = get_textual_theme()
         self.words = sorted(load_words())
         self.history = []
         self.hist_idx = -1
@@ -385,52 +468,86 @@ class QuickInputApp(App):
         self.suggestion = ""
 
     def compose(self) -> ComposeResult:
-        yield TextArea(id="input")
+        yield TextArea(id="input", soft_wrap=True)
         yield Static("", id="autocomplete")
-        yield Static("↑↓:Hist  Tab:Complete  ^S:Send  ^G:AI  Esc:Quit", id="status")
+        yield Static("^O/^L:Hist  Tab:Complete  ^S:Send  ^G:AI  Esc:Quit", id="status")
 
     def on_mount(self):
         self.history = load_claude_history(get_current_project())
         self.query_one("#input").focus()
 
+    def action_hist_prev(self):
+        self._hist_prev()
+
+    def action_hist_next(self):
+        self._hist_next()
+
     def on_text_area_changed(self, event: TextArea.Changed):
         if self.loading:
             return
-        # Exit history mode
+        # Exit history mode only if user is typing (not navigating history)
         if self.hist_idx >= 0:
-            self.hist_idx = -1
-            self.query_one("#input", TextArea).remove_class("history")
+            # Check if text differs from current history item
+            current_hist = self.history[-(self.hist_idx + 1)] if self.history else ""
+            if event.text_area.text != current_hist:
+                self.hist_idx = -1
+                self.query_one("#input", TextArea).remove_class("history")
+        # Save complete words (not the word currently being typed)
+        text = event.text_area.text
+        # Extract words except the last one (which may be incomplete)
+        if ' ' in text or '\n' in text:
+            # Get all text except last word
+            last_space = max(text.rfind(' '), text.rfind('\n'))
+            complete_text = text[:last_space] if last_space > 0 else ""
+            if complete_text:
+                new_words = extract_new_words(complete_text)
+                if new_words:
+                    saved = save_learned_words(new_words, set(self.words))
+                    if saved > 0:
+                        self.words = sorted(load_words())
         # Autocomplete
         self._update_suggestion()
 
     def _update_suggestion(self):
-        auto = self.query_one("#autocomplete", Static)
         ta = self.query_one("#input", TextArea)
+        auto = self.query_one("#autocomplete", Static)
         # Get current line text up to cursor
         row, col = ta.cursor_location
         lines = ta.text.split("\n")
         if row >= len(lines):
             self.suggestion = ""
             auto.update("")
+            auto.styles.display = "none"
             return
         line = lines[row][:col]
         match = re.search(r'(\w{2,})$', line)
         if not match:
             self.suggestion = ""
             auto.update("")
+            auto.styles.display = "none"
             return
         word = match.group(1).lower()
         matches = [w for w in self.words if w.startswith(word) and w != word]
         if matches:
             self.suggestion = matches[0]
-            # Position one space after cursor
-            padding = " " * (col + 1)
+            # Calculate visual row (account for wrapped lines)
+            width = ta.size.width - 1  # TextArea width
+            visual_row = 0
+            for i in range(row):
+                line_len = len(lines[i]) if i < len(lines) else 0
+                visual_row += max(1, (line_len + width - 1) // width) if width > 0 else 1
+            # Add current line's visual rows up to cursor
+            visual_row += col // width if width > 0 else 0
+            visual_col = col % width if width > 0 else col
+
+            padding = " " * (visual_col + 1)
             auto.update(f"{padding}{self.suggestion}")
-            # Position overlay at cursor row + 1
-            auto.styles.offset = (0, row + 1)
+            auto.styles.offset = (0, visual_row + 1)
+            auto.styles.display = "block"
         else:
             self.suggestion = ""
             auto.update("")
+            auto.styles.display = "none"
 
     def action_complete(self):
         if not self.suggestion:
@@ -455,15 +572,17 @@ class QuickInputApp(App):
         ta.cursor_location = (row, new_col)
         self.loading = False
         self.suggestion = ""
-        self.query_one("#autocomplete", Static).update("")
+        auto = self.query_one("#autocomplete", Static)
+        auto.update("")
+        auto.styles.display = "none"
 
-    def action_hist_prev(self):
+    def _hist_prev(self):
         if not self.history or self.hist_idx >= len(self.history) - 1:
             return
         self.hist_idx += 1
         self._load_history()
 
-    def action_hist_next(self):
+    def _hist_next(self):
         if self.hist_idx < 0:
             return
         if self.hist_idx == 0:
@@ -485,15 +604,17 @@ class QuickInputApp(App):
         ta.add_class("history")
         self.loading = False
         self.suggestion = ""
-        self.query_one("#autocomplete", Static).update("")
+        auto = self.query_one("#autocomplete", Static)
+        auto.update("")
+        auto.styles.display = "none"
         self._update_status()
 
     def _update_status(self):
         s = self.query_one("#status", Static)
         if self.hist_idx >= 0:
-            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ↑↓:History  ^S:Send  ^G:AI")
+            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ^O/^L:Hist  ^S:Send  ^G:AI")
         else:
-            s.update("↑↓:History  ^S:Send  ^G:AI  Esc:Quit")
+            s.update("^O/^L:Hist  Tab:Complete  ^S:Send  ^G:AI  Esc:Quit")
 
     def action_quit(self):
         self.exit()

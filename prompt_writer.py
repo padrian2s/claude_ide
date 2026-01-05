@@ -19,6 +19,8 @@ from textual import work, on
 from textual.worker import Worker, WorkerState
 from textual.message import Message
 
+from config_panel import get_textual_theme
+
 # Optional: Anthropic API for AI enhancement
 try:
     import anthropic
@@ -977,6 +979,7 @@ class PromptWriter(App):
 
     def __init__(self):
         super().__init__()
+        self.theme = get_textual_theme()
         self.filename: str | None = None
         self.saved = True
         self.learned_words: set[str] = set()
