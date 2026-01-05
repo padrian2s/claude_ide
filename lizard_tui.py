@@ -84,6 +84,22 @@ class ThresholdLevel(Enum):
     CRITICAL = "critical"
 
 
+DEFAULT_EXCLUDE_PATTERNS = [
+    "*/.venv/*",
+    "*/venv/*",
+    "*/.git/*",
+    "*/__pycache__/*",
+    "*/node_modules/*",
+    "*/.tox/*",
+    "*/.mypy_cache/*",
+    "*/.pytest_cache/*",
+    "*/dist/*",
+    "*/build/*",
+    "*/.eggs/*",
+    "*.egg-info/*",
+]
+
+
 @dataclass
 class AnalysisConfig:
     """User-configurable analysis settings."""
@@ -92,7 +108,7 @@ class AnalysisConfig:
     params_threshold: int = 5
     ns_threshold: int = 4
     languages: list[str] = field(default_factory=list)
-    exclude_patterns: list[str] = field(default_factory=list)
+    exclude_patterns: list[str] = field(default_factory=lambda: DEFAULT_EXCLUDE_PATTERNS.copy())
     enable_duplicates: bool = False
     enable_wordcount: bool = False
     enable_ns: bool = True
@@ -126,7 +142,7 @@ class AnalysisConfig:
                     params_threshold=data.get("params_threshold", 5),
                     ns_threshold=data.get("ns_threshold", 4),
                     languages=data.get("languages", []),
-                    exclude_patterns=data.get("exclude_patterns", []),
+                    exclude_patterns=data.get("exclude_patterns") or DEFAULT_EXCLUDE_PATTERNS.copy(),
                     enable_duplicates=data.get("enable_duplicates", False),
                     enable_wordcount=data.get("enable_wordcount", False),
                     enable_ns=data.get("enable_ns", True),
@@ -1477,8 +1493,8 @@ class LizardTUI(App):
         warn_table = self.query_one("#warnings-table", DataTable)
         warn_table.add_columns("CCN", "NLOC", "Par", "NS", "Function", "File", "Violation")
 
-        # Auto-analyze if path provided
-        if self.initial_path and self.initial_path != ".":
+        # Auto-analyze on startup
+        if self.initial_path:
             self.run_analysis(self.initial_path)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
