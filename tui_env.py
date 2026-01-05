@@ -153,14 +153,14 @@ def main():
     # Enable focus events for focus tracking
     subprocess.run(["tmux", "set-option", "-t", SESSION, "focus-events", "on"])
 
-    # Set up focus indicator variable (global so hooks can modify it)
-    subprocess.run(["tmux", "set-option", "-g", "@focus", ""])
+    # Set up focus indicator variable (session-specific)
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "@focus", ""])
 
-    # Hooks to update focus indicator
-    subprocess.run(["tmux", "set-hook", "-g", "client-focus-in",
-        "set-option -g @focus ''"])
-    subprocess.run(["tmux", "set-hook", "-g", "client-focus-out",
-        "set-option -g @focus 'UNFOCUSED '"])
+    # Hooks to update focus indicator (session-specific)
+    subprocess.run(["tmux", "set-hook", "-t", SESSION, "client-focus-in",
+        f"set-option -t {SESSION} @focus ''"])
+    subprocess.run(["tmux", "set-hook", "-t", SESSION, "client-focus-out",
+        f"set-option -t {SESSION} @focus 'UNFOCUSED '"])
 
     # Status bar - custom format to show F-keys properly (apps show as F2-F7 even though windows are 20-25)
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "on"])
