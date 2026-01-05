@@ -162,6 +162,7 @@ class StatusViewer(App):
 
     BINDINGS = [
         ("r", "refresh", "Refresh"),
+        ("s", "serena", "Serena"),
         ("q", "quit", "Quit"),
         ("escape", "quit", "Quit"),
     ]
@@ -474,6 +475,35 @@ class StatusViewer(App):
         # Update timestamp
         now = datetime.now().strftime("%H:%M:%S")
         self.query_one("#last-update", Static).update(f"Last update: {now}")
+
+    def action_serena(self) -> None:
+        """Open Serena dashboard in browser for current project."""
+        import webbrowser
+        import urllib.request
+        import json
+
+        # Scan ports 24282-24290 and find the one with matching project path
+        for port in range(24282, 24291):
+            try:
+                resp = urllib.request.urlopen(f"http://localhost:{port}/get_config_overview", timeout=0.5)
+                data = json.loads(resp.read().decode())
+                active_path = data.get("active_project", {}).get("path", "")
+                if active_path == self.project_path:
+                    webbrowser.open(f"http://localhost:{port}/dashboard/")
+                    return
+            except Exception:
+                continue
+
+        # Fallback: open first available dashboard
+        for port in range(24282, 24291):
+            try:
+                urllib.request.urlopen(f"http://localhost:{port}/dashboard/", timeout=0.5)
+                webbrowser.open(f"http://localhost:{port}/dashboard/")
+                return
+            except Exception:
+                continue
+
+        self.notify("Serena not running", severity="warning")
 
 
 def main():

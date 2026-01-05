@@ -253,7 +253,7 @@ def main():
     # Ctrl+P = Quick input popup (sends to F1) with autocomplete and AI enhancement
     subprocess.run([
         "tmux", "bind-key", "-n", "C-p",
-        "display-popup", "-E", "-w", "80%", "-h", "70%",
+        "display-popup", "-E", "-w", "80%", "-h", "30%",
         f"uv run python3 '{QUICK_INPUT_SCRIPT}'"
     ])
 

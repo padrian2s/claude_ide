@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.widgets import Static, TextArea, Label, Button, RadioButton, RadioSet
+from textual.widgets import Static, TextArea, Label, Button, RadioButton, RadioSet, Input, ListView, ListItem
 from textual.containers import Vertical, Horizontal
 from textual.screen import ModalScreen
 from textual.binding import Binding
@@ -115,22 +115,28 @@ class EnhanceDialog(ModalScreen[str | None]):
     CSS = """
     EnhanceDialog {
         align: center middle;
+        background: rgba(255, 255, 255, 0.9);
     }
     #enhance-dialog {
         width: 50;
         height: auto;
-        border: thick $primary;
-        background: $surface;
+        border: solid #ccc;
+        background: white;
         padding: 1 2;
     }
     #enhance-title {
         text-align: center;
         text-style: bold;
         padding: 1;
+        color: #333;
     }
     RadioSet {
         width: 100%;
         padding: 1;
+        background: white;
+    }
+    RadioButton {
+        background: white;
     }
     #enhance-buttons {
         align: center middle;
@@ -196,32 +202,37 @@ class PreviewDialog(ModalScreen[bool]):
     CSS = """
     PreviewDialog {
         align: center middle;
+        background: rgba(255, 255, 255, 0.9);
     }
     #preview-dialog {
         width: 90%;
         height: 90%;
-        border: thick $success;
-        background: $surface;
+        border: solid #ccc;
+        background: white;
     }
     #preview-title {
         text-align: center;
         text-style: bold;
         padding: 1;
-        background: $primary;
+        background: #f0f0f0;
+        color: #333;
     }
     #preview-scroll {
         height: 1fr;
-        border: solid $primary;
+        border: none;
         margin: 1;
+        background: white;
     }
     #preview-area {
         width: 100%;
         padding: 1;
+        background: white;
+        color: #333;
     }
     #preview-status {
         text-align: center;
         padding: 1;
-        color: $text-muted;
+        color: #666;
     }
     #preview-buttons {
         align: center middle;
@@ -300,161 +311,237 @@ class PreviewDialog(ModalScreen[bool]):
         self.dismiss(False)
 
 
+def load_claude_history(project_path: str | None = None) -> list[str]:
+    """Load prompts from Claude Code history, optionally filtered by project."""
+    history_file = Path.home() / ".claude" / "history.jsonl"
+    if not history_file.exists():
+        return []
+    try:
+        import json
+        prompts = []
+        for line in history_file.read_text().strip().split("\n"):
+            if line.strip():
+                entry = json.loads(line)
+                # Filter by project if specified
+                if project_path:
+                    entry_project = entry.get("project", "")
+                    if entry_project != project_path:
+                        continue
+                display = entry.get("display", "").strip()
+                if display:
+                    prompts.append(display)
+        return prompts
+    except Exception:
+        return []
+
+
+def get_current_project() -> str | None:
+    """Get current project path from tmux or cwd."""
+    try:
+        result = subprocess.run(
+            ["tmux", "show-option", "-v", "@start_dir"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return str(Path.cwd())
+
+
 class QuickInputApp(App):
-    """Quick input popup with multiline support and AI enhancement."""
+    """Simple quick input - white theme."""
 
     CSS = """
-    Screen {
-        background: $surface;
-    }
-    #container {
-        height: 100%;
-        padding: 1;
-    }
-    #title {
-        text-align: center;
-        text-style: bold;
-        padding: 1;
-        background: $primary;
-        margin-bottom: 1;
-    }
-    #editor {
-        height: 1fr;
-        border: solid $primary;
-    }
-    #status {
+    Screen { background: white; layers: base overlay; }
+    #input { background: white; color: black; border: none; height: 1fr; layer: base; }
+    #input.history { color: #777; }
+    #autocomplete {
+        layer: overlay;
+        background: transparent;
+        color: #0066cc;
         height: 1;
-        padding: 0 1;
-        color: $text-muted;
+        width: 100%;
+        offset: 0 1;
     }
-    #buttons {
-        height: 3;
-        align: center middle;
-        padding-top: 1;
-    }
-    #buttons Button {
-        margin: 0 1;
-    }
+    #status { dock: bottom; background: #eee; color: #555; height: 1; layer: base; }
     """
 
     BINDINGS = [
-        Binding("ctrl+g", "enhance", "AI Enhance", priority=True),
-        Binding("ctrl+s", "send", "Send to F1", priority=True),
-        Binding("escape", "quit_app", "Cancel", priority=True),
+        Binding("up", "hist_prev", "↑", priority=True),
+        Binding("down", "hist_next", "↓", priority=True),
+        Binding("tab", "complete", "Tab", priority=True),
+        Binding("ctrl+s", "send", "Send", priority=True),
+        Binding("ctrl+g", "enhance", "AI", priority=True),
+        Binding("escape", "quit", "Quit", priority=True),
     ]
 
     def __init__(self):
         super().__init__()
-        self.corpus_words = load_words()
-        self.enhanced_text = ""
-        self.preview_dialog: PreviewDialog | None = None
+        self.words = sorted(load_words())
+        self.history = []
+        self.hist_idx = -1
+        self.loading = False
+        self.suggestion = ""
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="container"):
-            yield Label("Quick Input -> F1", id="title")
-            yield TextArea(id="editor", language="markdown")
-            yield Label("Ctrl+G: AI Enhance | Ctrl+S: Send | Esc: Cancel", id="status")
-            with Horizontal(id="buttons"):
-                yield Button("AI Enhance (^G)", variant="warning", id="btn-enhance")
-                yield Button("Send to F1 (^S)", variant="primary", id="btn-send")
-                yield Button("Cancel (Esc)", variant="default", id="btn-cancel")
+        yield TextArea(id="input")
+        yield Static("", id="autocomplete")
+        yield Static("↑↓:Hist  Tab:Complete  ^S:Send  ^G:AI  Esc:Quit", id="status")
 
-    def on_mount(self) -> None:
-        editor = self.query_one("#editor", TextArea)
-        editor.focus()
+    def on_mount(self):
+        self.history = load_claude_history(get_current_project())
+        self.query_one("#input").focus()
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-enhance":
-            self.action_enhance()
-        elif event.button.id == "btn-send":
-            self.action_send()
-        elif event.button.id == "btn-cancel":
-            self.action_quit_app()
+    def on_text_area_changed(self, event: TextArea.Changed):
+        if self.loading:
+            return
+        # Exit history mode
+        if self.hist_idx >= 0:
+            self.hist_idx = -1
+            self.query_one("#input", TextArea).remove_class("history")
+        # Autocomplete
+        self._update_suggestion()
 
-    def action_quit_app(self) -> None:
+    def _update_suggestion(self):
+        auto = self.query_one("#autocomplete", Static)
+        ta = self.query_one("#input", TextArea)
+        # Get current line text up to cursor
+        row, col = ta.cursor_location
+        lines = ta.text.split("\n")
+        if row >= len(lines):
+            self.suggestion = ""
+            auto.update("")
+            return
+        line = lines[row][:col]
+        match = re.search(r'(\w{2,})$', line)
+        if not match:
+            self.suggestion = ""
+            auto.update("")
+            return
+        word = match.group(1).lower()
+        matches = [w for w in self.words if w.startswith(word) and w != word]
+        if matches:
+            self.suggestion = matches[0]
+            # Position one space after cursor
+            padding = " " * (col + 1)
+            auto.update(f"{padding}{self.suggestion}")
+            # Position overlay at cursor row + 1
+            auto.styles.offset = (0, row + 1)
+        else:
+            self.suggestion = ""
+            auto.update("")
+
+    def action_complete(self):
+        if not self.suggestion:
+            return
+        ta = self.query_one("#input", TextArea)
+        row, col = ta.cursor_location
+        lines = ta.text.split("\n")
+        if row >= len(lines):
+            return
+        line = lines[row]
+        # Find word before cursor
+        before = line[:col]
+        after = line[col:]
+        match = re.search(r'(\w+)$', before)
+        if match:
+            before = before[:-len(match.group(1))]
+        new_line = before + self.suggestion + " " + after
+        lines[row] = new_line
+        new_col = len(before) + len(self.suggestion) + 1
+        self.loading = True
+        ta.text = "\n".join(lines)
+        ta.cursor_location = (row, new_col)
+        self.loading = False
+        self.suggestion = ""
+        self.query_one("#autocomplete", Static).update("")
+
+    def action_hist_prev(self):
+        ta = self.query_one("#input", TextArea)
+        row, _ = ta.cursor_location
+        # Only navigate history if on first line
+        if row > 0:
+            ta.action_cursor_up()
+            return
+        if not self.history or self.hist_idx >= len(self.history) - 1:
+            return
+        self.hist_idx += 1
+        self._load_history()
+
+    def action_hist_next(self):
+        ta = self.query_one("#input", TextArea)
+        row, _ = ta.cursor_location
+        lines = ta.text.split("\n")
+        # Only navigate history if on last line
+        if row < len(lines) - 1:
+            ta.action_cursor_down()
+            return
+        if self.hist_idx <= 0:
+            if self.hist_idx == 0:
+                self.hist_idx = -1
+                self.loading = True
+                ta.text = ""
+                ta.remove_class("history")
+                self.loading = False
+                self._update_status()
+            return
+        self.hist_idx -= 1
+        self._load_history()
+
+    def _load_history(self):
+        self.loading = True
+        ta = self.query_one("#input", TextArea)
+        ta.text = self.history[-(self.hist_idx + 1)]
+        ta.add_class("history")
+        self.loading = False
+        self.suggestion = ""
+        self.query_one("#autocomplete", Static).update("")
+        self._update_status()
+
+    def _update_status(self):
+        s = self.query_one("#status", Static)
+        if self.hist_idx >= 0:
+            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ↑↓:History  ^S:Send  ^G:AI")
+        else:
+            s.update("↑↓:History  ^S:Send  ^G:AI  Esc:Quit")
+
+    def action_quit(self):
         self.exit()
 
-    def action_send(self) -> None:
-        editor = self.query_one("#editor", TextArea)
-        text = editor.text.strip()
+    def action_send(self):
+        text = self.query_one("#input", TextArea).text.strip()
         if not text:
-            self.notify("Nothing to send", severity="warning", timeout=2)
             return
+        save_learned_words(extract_new_words(text), set(self.words))
+        subprocess.run(["tmux", "send-keys", "-t", ":1", "-l", text], capture_output=True)
+        subprocess.run(["tmux", "send-keys", "-t", ":1", "Enter"], capture_output=True)
+        self.exit()
 
-        # Save learned words
-        new_words = extract_new_words(text)
-        save_learned_words(new_words, self.corpus_words)
-
-        try:
-            # Send to F1 (window 1)
-            subprocess.run(
-                ["tmux", "send-keys", "-t", ":1", "-l", text],
-                capture_output=True, check=True
-            )
-            subprocess.run(
-                ["tmux", "send-keys", "-t", ":1", "Enter"],
-                capture_output=True
-            )
-            self.exit()
-        except Exception as e:
-            self.notify(f"Error: {e}", severity="error", timeout=3)
-
-    def action_enhance(self) -> None:
-        if not HAS_ANTHROPIC:
-            self.notify("Install anthropic: pip install anthropic", severity="error", timeout=5)
+    def action_enhance(self):
+        if not HAS_ANTHROPIC or not os.environ.get("ANTHROPIC_API_KEY"):
+            self.notify("Need ANTHROPIC_API_KEY")
             return
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            self.notify("Set ANTHROPIC_API_KEY environment variable", severity="error", timeout=5)
+        text = self.query_one("#input", TextArea).text.strip()
+        if not text:
             return
-
-        editor = self.query_one("#editor", TextArea)
-        if not editor.text.strip():
-            self.notify("No text to enhance", severity="warning", timeout=3)
-            return
-
-        self.push_screen(EnhanceDialog(), self._handle_enhance_level)
-
-    def _handle_enhance_level(self, level: str | None) -> None:
-        if level:
-            self.enhanced_text = ""
-            self.preview_dialog = PreviewDialog("", streaming=True)
-            self.push_screen(self.preview_dialog, self._handle_preview)
-            self._run_enhancement(level)
+        self.notify("Enhancing...")
+        self._do_enhance(text)
 
     @work(thread=True)
-    def _run_enhancement(self, level: str) -> None:
+    def _do_enhance(self, text: str):
         try:
             client = anthropic.Anthropic()
-            editor = self.query_one("#editor", TextArea)
-            prompt = ENHANCE_PROMPTS[level].format(text=editor.text)
-
-            with client.messages.stream(
-                model="claude-sonnet-4-20250514",
-                max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}]
-            ) as stream:
-                for text in stream.text_stream:
-                    self.enhanced_text += text
-                    if self.preview_dialog:
-                        self.call_from_thread(self.preview_dialog.update_text, self.enhanced_text)
-
-            if self.preview_dialog:
-                self.call_from_thread(self.preview_dialog.set_done)
-
+            r = client.messages.create(
+                model="claude-sonnet-4-20250514", max_tokens=1024,
+                messages=[{"role": "user", "content": ENHANCE_PROMPTS["medium"].format(text=text)}]
+            )
+            self.call_from_thread(self._set_text, r.content[0].text.strip())
         except Exception as e:
-            self.call_from_thread(self.notify, f"Error: {str(e)[:50]}", severity="error", timeout=5)
-            if self.preview_dialog:
-                self.call_from_thread(self.preview_dialog.dismiss, False)
+            self.call_from_thread(self.notify, str(e)[:40])
 
-    def _handle_preview(self, accepted: bool) -> None:
-        if accepted and self.preview_dialog:
-            final_text = self.preview_dialog.get_final_text()
-            if final_text:
-                editor = self.query_one("#editor", TextArea)
-                editor.load_text(final_text)
-                self.notify("Enhancement applied!", timeout=2)
-        self.preview_dialog = None
-        self.enhanced_text = ""
+    def _set_text(self, text: str):
+        self.query_one("#input", TextArea).text = text
 
 
 def main():
