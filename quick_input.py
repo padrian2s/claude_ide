@@ -458,35 +458,22 @@ class QuickInputApp(App):
         self.query_one("#autocomplete", Static).update("")
 
     def action_hist_prev(self):
-        ta = self.query_one("#input", TextArea)
-        row, _ = ta.cursor_location
-        # If in history mode, always navigate history
-        # If typing new text and not on first line, move cursor
-        if self.hist_idx < 0 and row > 0:
-            ta.action_cursor_up()
-            return
         if not self.history or self.hist_idx >= len(self.history) - 1:
             return
         self.hist_idx += 1
         self._load_history()
 
     def action_hist_next(self):
-        ta = self.query_one("#input", TextArea)
-        row, _ = ta.cursor_location
-        lines = ta.text.split("\n")
-        # If in history mode, always navigate history
-        # If typing new text and not on last line, move cursor
-        if self.hist_idx < 0 and row < len(lines) - 1:
-            ta.action_cursor_down()
+        if self.hist_idx < 0:
             return
-        if self.hist_idx <= 0:
-            if self.hist_idx == 0:
-                self.hist_idx = -1
-                self.loading = True
-                ta.text = ""
-                ta.remove_class("history")
-                self.loading = False
-                self._update_status()
+        if self.hist_idx == 0:
+            self.hist_idx = -1
+            self.loading = True
+            ta = self.query_one("#input", TextArea)
+            ta.text = ""
+            ta.remove_class("history")
+            self.loading = False
+            self._update_status()
             return
         self.hist_idx -= 1
         self._load_history()
