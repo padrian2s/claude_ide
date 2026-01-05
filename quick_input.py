@@ -460,8 +460,9 @@ class QuickInputApp(App):
     def action_hist_prev(self):
         ta = self.query_one("#input", TextArea)
         row, _ = ta.cursor_location
-        # Only navigate history if on first line
-        if row > 0:
+        # If in history mode, always navigate history
+        # If typing new text and not on first line, move cursor
+        if self.hist_idx < 0 and row > 0:
             ta.action_cursor_up()
             return
         if not self.history or self.hist_idx >= len(self.history) - 1:
@@ -473,8 +474,9 @@ class QuickInputApp(App):
         ta = self.query_one("#input", TextArea)
         row, _ = ta.cursor_location
         lines = ta.text.split("\n")
-        # Only navigate history if on last line
-        if row < len(lines) - 1:
+        # If in history mode, always navigate history
+        # If typing new text and not on last line, move cursor
+        if self.hist_idx < 0 and row < len(lines) - 1:
             ta.action_cursor_down()
             return
         if self.hist_idx <= 0:
