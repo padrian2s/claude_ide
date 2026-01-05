@@ -100,7 +100,7 @@ Folder favorites browser:
 ### Status Bar
 tmux status bar shows all windows:
 ```
- F1:Term1  F2:Term2  F3:Tree  F4:Lizard  F5:Glow  F6:Favs  F9:Config  F10:Exit  F12:Keys
+ F1:Term1  F2:Term2  F3:Tree  F4:Lizard  F5:Glow  F6:Favs  F9:Config  F10:Exit  ^H:Help  F12:Keys
                      ^^^^^^^ (current = cyan highlight)
 ```
 

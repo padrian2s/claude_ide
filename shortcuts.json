@@ -16,7 +16,7 @@
         "F9": { "action": "select-window", "target": "Config", "label": "Config", "description": "Theme settings" },
         "F10": { "action": "kill-session", "label": "Exit", "description": "Kill session", "confirm": true },
         "F12": { "action": "toggle-passthrough", "label": "Keys", "description": "Toggle F-key passthrough" },
-        "?": { "action": "show-help", "label": "Help", "description": "Show keyboard shortcuts" },
+        "Ctrl+H": { "action": "show-help", "label": "Help", "description": "Show keyboard shortcuts" },
         "Shift+Left": { "action": "previous-window", "label": "Prev Window", "description": "Navigate to previous window" },
         "Shift+Right": { "action": "next-window", "label": "Next Window", "description": "Navigate to next window" },
         "Ctrl+T": { "action": "new-terminal", "label": "New Term", "description": "Create new terminal (T2, T3...)" },
@@ -266,7 +266,7 @@
         "title": "SYSTEM",
         "items": [
           { "key": "F10", "description": "Exit - Kill session" },
-          { "key": "?", "description": "Help - This dialog" },
+          { "key": "Ctrl+H", "description": "Help - This dialog" },
           { "key": "F12", "description": "Keys - Toggle F-key passthrough" }
         ]
       }
@@ -276,6 +276,6 @@
     "format": "F{n}:{label}",
     "separator": " ",
     "active_style": { "bg": "cyan", "fg": "black", "bold": true },
-    "suffix": "F10:Exit ?:Help F12:Keys"
+    "suffix": "F10:Exit ^H:Help F12:Keys"
   }
 }

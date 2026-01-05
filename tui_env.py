@@ -45,7 +45,7 @@ def generate_help_text(shortcuts_data):
             lines.append(f"    {key:<16}{desc}")
         lines.append("")
 
-    lines.append("                Press ? or Esc to close")
+    lines.append("              Press Ctrl+H or Esc to close")
     return "\n".join(lines)
 
 
@@ -193,7 +193,7 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@passthrough", ""])
 
     # Clear stale key bindings from previous sessions (tmux bindings are global)
-    for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12", "C-t"]:
+    for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12", "C-t", "C-h"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
 
     # Bind F-keys: F1=Term1, F2-F7=Apps (windows 20-25)
@@ -216,13 +216,13 @@ def main():
         f"kill-session -t {SESSION}"
     ])
 
-    # ? = Show keyboard shortcuts help popup (generated from shortcuts.json)
+    # Ctrl+H = Show keyboard shortcuts help popup (generated from shortcuts.json)
     help_text = generate_help_text(shortcuts_data)
     help_popup = shortcuts_data.get("help_popup", {})
     popup_width = help_popup.get("width", 68)
     popup_height = help_popup.get("height", 27)
     subprocess.run([
-        "tmux", "bind-key", "-n", "?",
+        "tmux", "bind-key", "-n", "C-h",
         "display-popup", "-w", str(popup_width), "-h", str(popup_height),
         f"echo '{help_text}'"
     ])
