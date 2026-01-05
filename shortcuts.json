@@ -217,13 +217,22 @@
       "label": "Quick Input (Ctrl+P)",
       "file": "quick_input.py",
       "shortcuts": {
-        "1": { "action": "select-1", "label": "1st", "description": "Select 1st suggestion" },
-        "2": { "action": "select-2", "label": "2nd", "description": "Select 2nd suggestion" },
-        "3": { "action": "select-3", "label": "3rd", "description": "Select 3rd suggestion" },
-        "4": { "action": "select-4", "label": "4th", "description": "Select 4th suggestion" },
-        "5": { "action": "select-5", "label": "5th", "description": "Select 5th suggestion" },
-        "Enter": { "action": "send", "label": "Send", "description": "Send text to F1 terminal" },
+        "Ctrl+G": { "action": "ai-enhance", "label": "AI Enhance", "description": "AI enhance prompt (4 levels)" },
+        "Ctrl+S": { "action": "send", "label": "Send", "description": "Send text to F1 terminal" },
         "Escape": { "action": "cancel", "label": "Cancel", "description": "Exit without sending" }
+      }
+    },
+    "quick_input_enhance": {
+      "label": "Quick Input Enhancement",
+      "file": "quick_input.py",
+      "shortcuts": {
+        "1": { "action": "enhance-little", "label": "Little", "description": "Fix typos only" },
+        "2": { "action": "enhance-medium", "label": "Medium", "description": "Improve clarity" },
+        "3": { "action": "enhance-deep", "label": "Deep", "description": "Restructure" },
+        "4": { "action": "enhance-aggressive", "label": "Aggressive", "description": "Full rewrite" },
+        "y": { "action": "accept", "label": "Accept", "description": "Accept enhanced text" },
+        "n": { "action": "reject", "label": "Reject", "description": "Reject enhanced text" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel enhancement" }
       }
     },
     "confirmation_dialog": {
