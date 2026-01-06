@@ -172,6 +172,9 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-interval", "1"])
     subprocess.run(["tmux", "set-option", "-t", SESSION, "status-style", f"bg={theme['bg']},fg={theme['fg']}"])
 
+    # Enable mouse support for clicking on status bar windows
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "mouse", "on"])
+
     # Apply theme colors to F1 terminal window
     subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
     subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
@@ -185,17 +188,20 @@ def main():
     # - F1 (window 1): show as "F1:Term1"
     # - Dynamic terminals (2-19): show just name (e.g., "T2")
     # - Apps (20-25): show as "F2:Tree", "F3:Lizard", etc.
+    # - #[range=window|X] makes each window clickable
     status_suffix = get_status_suffix(shortcuts_data)
     subprocess.run([
         "tmux", "set-option", "-t", SESSION, "status-format[0]",
         "#{@focus}#{@passthrough}#[align=centre]"
         "#{W:"
+        "#[range=window|#{window_index}]"
         "#{?#{==:#{window_index},1},"
         "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
         "#{?#{e|<:#{window_index},20},"
         "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
         "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
         "}}"
+        "#[norange]"
         f"}} {status_suffix}"
     ])
 
