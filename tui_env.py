@@ -109,7 +109,7 @@ def main():
 
     # Create Window 22 = Glow
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:22", "-n", "Glow"])
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:22", " glow", "Enter"])
+    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:22", f" glow '{START_DIR}'", "Enter"])
 
     # Create Window 23 = Favorites
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:23", "-n", "Favs"])
