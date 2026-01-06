@@ -5,7 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 from textual.app import App, ComposeResult
-from textual.widgets import Static, Header, ListView, ListItem, Label, TextArea
+from textual.widgets import Static, Header, Footer, ListView, ListItem, Label, TextArea
 from textual.containers import Vertical, Horizontal, VerticalScroll
 from textual.binding import Binding
 from textual.screen import ModalScreen
@@ -58,7 +58,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid"}
+    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True}
 
 
 def save_config(config: dict):
@@ -146,6 +146,18 @@ def get_status_position() -> str:
     """Get current status position from config."""
     config = load_config()
     return config.get("status_position", "bottom")
+
+
+def get_footer_position() -> str:
+    """Get current footer position from config (for Textual apps)."""
+    config = load_config()
+    return config.get("footer_position", "bottom")
+
+
+def get_show_header() -> bool:
+    """Get whether to show header in Textual apps."""
+    config = load_config()
+    return config.get("show_header", True)
 
 
 def get_border_style() -> str:
@@ -669,61 +681,70 @@ class ThemeItem(ListItem):
 class ConfigPanel(App):
     """Configuration panel app."""
 
-    CSS = """
-    #main {
-        width: 100%;
-        height: 100%;
-        padding: 1 2;
-    }
-    #title {
-        text-align: center;
-        text-style: bold;
-        padding: 1;
-    }
-    #help {
-        text-align: center;
-        color: $text-muted;
-        padding: 1;
-    }
-    ListView {
-        height: auto;
-        max-height: 80%;
-        border: solid $primary;
-        padding: 1;
-    }
-    ListItem {
-        padding: 0 1;
-    }
-    ListItem:hover {
-        background: $surface-lighten-1;
-    }
-    ListView:focus > ListItem.--highlight {
-        background: $primary;
-    }
-    #version-info {
-        text-align: center;
-        color: $text-muted;
-        padding: 0 1;
-    }
-    """
-
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("escape", "quit", "Quit"),
-        Binding("p", "toggle_position", "Toggle Position"),
-        Binding("b", "toggle_border", "Toggle Border"),
-        Binding("c", "customize", "Customize Screen"),
-        Binding("i", "import_prompts", "Import Words"),
-        Binding("t", "command_palette", "Theme Palette"),
+        Binding("p", "toggle_position", "Position"),
+        Binding("b", "toggle_border", "Border"),
+        Binding("f", "toggle_footer", "Footer"),
+        Binding("h", "toggle_header", "Header"),
+        Binding("c", "customize", "Customize"),
+        Binding("i", "import_prompts", "Import"),
+        Binding("t", "command_palette", "Palette"),
     ]
 
     def __init__(self):
-        super().__init__()
-        self.theme = get_textual_theme()
+        # Load config BEFORE super().__init__() since compose() is called during init
         self.config = load_config()
         self.selected_theme = self.config.get("theme", "Catppuccin Mocha")
         self.status_position = self.config.get("status_position", "bottom")
         self.border_style = self.config.get("border_style", "solid")
+        self.footer_position = self.config.get("footer_position", "bottom")
+        self.show_header = self.config.get("show_header", True)
+
+        # Build CSS with footer position before super().__init__()
+        footer_pos = self.footer_position
+        self.CSS = f"""
+        #main {{
+            width: 100%;
+            height: 100%;
+            padding: 1 2;
+        }}
+        #title {{
+            text-align: center;
+            text-style: bold;
+            padding: 1;
+        }}
+        ListView {{
+            height: auto;
+            max-height: 80%;
+            border: solid $primary;
+            padding: 1;
+        }}
+        ListItem {{
+            padding: 0 1;
+        }}
+        ListItem:hover {{
+            background: $surface-lighten-1;
+        }}
+        ListView:focus > ListItem.--highlight {{
+            background: $primary;
+        }}
+        #version-info {{
+            text-align: center;
+            color: $text-muted;
+            padding: 0 1;
+        }}
+        #position-info, #border-info, #footer-info, #header-info {{
+            height: 1;
+            padding: 0 1;
+        }}
+        Footer {{
+            dock: {footer_pos};
+        }}
+        """
+        super().__init__()
+        self.theme = get_textual_theme()
         # Customization state
         self._current_screen: str | None = None
         self._current_prompt: str | None = None
@@ -732,7 +753,8 @@ class ConfigPanel(App):
         self._loading_screen: LoadingDialog | None = None
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=False)
+        if get_show_header():
+            yield Header(show_clock=False)
         with Vertical(id="main"):
             yield Static("Status Bar Theme", id="title")
             yield ListView(
@@ -742,15 +764,21 @@ class ConfigPanel(App):
                 ],
                 id="theme-list"
             )
-            yield Static("", id="position-info")
-            yield Static("", id="border-info")
+            # Set content directly since config is already loaded in __init__
+            pos_label = "TOP" if self.status_position == "top" else "BOTTOM"
+            yield Static(f"Status Bar Position: [{pos_label}]", id="position-info", markup=False)
+            yield Static(f"Border Style: [{self.border_style.upper()}]", id="border-info", markup=False)
+            footer_label = "TOP" if self.footer_position == "top" else "BOTTOM"
+            yield Static(f"App Footer Position: [{footer_label}]", id="footer-info", markup=False)
+            header_state = "ON" if self.show_header else "OFF"
+            yield Static(f"App Header: [{header_state}]", id="header-info", markup=False)
             version = get_current_version() or "dev"
             yield Static(f"Version: {version}", id="version-info")
-            yield Static("Enter: Apply | p: Position | b: Border | t: Palette | c: Customize | i: Import | q: Quit", id="help")
+        yield Footer()
 
     def on_mount(self):
         self.title = "Config"
-        self.sub_title = "Enter:apply  p:position  b:border  t:palette  q:quit"
+        self.sub_title = ""
         # Focus the list and highlight current theme
         list_view = self.query_one("#theme-list", ListView)
         list_view.focus()
@@ -761,6 +789,8 @@ class ConfigPanel(App):
                 break
         self.update_position_info()
         self.update_border_info()
+        self.update_footer_info()
+        self.update_header_info()
 
         # Cache the tmux session name for later use
         ScreenReloader.get_session_name()
@@ -773,6 +803,16 @@ class ConfigPanel(App):
     def update_border_info(self):
         """Update border info display."""
         self.query_one("#border-info", Static).update(f"Border Style: [{self.border_style.upper()}]")
+
+    def update_footer_info(self):
+        """Update footer info display."""
+        pos_label = "TOP" if self.footer_position == "top" else "BOTTOM"
+        self.query_one("#footer-info", Static).update(f"App Footer Position: [{pos_label}]")
+
+    def update_header_info(self):
+        """Update header info display."""
+        state = "ON" if self.show_header else "OFF"
+        self.query_one("#header-info", Static).update(f"App Header: [{state}]")
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Handle theme selection on Enter."""
@@ -817,6 +857,23 @@ class ConfigPanel(App):
         save_config(self.config)
         self.update_border_info()
         self.notify(f"Border: {self.border_style.upper()} (restart apps to apply)", timeout=2)
+
+    def action_toggle_footer(self):
+        """Toggle footer position between top and bottom."""
+        self.footer_position = "top" if self.footer_position == "bottom" else "bottom"
+        self.config["footer_position"] = self.footer_position
+        save_config(self.config)
+        self.update_footer_info()
+        self.notify(f"App Footer: {self.footer_position.upper()} (restart apps to apply)", timeout=2)
+
+    def action_toggle_header(self):
+        """Toggle header visibility on/off."""
+        self.show_header = not self.show_header
+        self.config["show_header"] = self.show_header
+        save_config(self.config)
+        self.update_header_info()
+        state = "ON" if self.show_header else "OFF"
+        self.notify(f"App Header: {state} (restart apps to apply)", timeout=2)
 
     def action_quit(self):
         """Quit with confirmation."""

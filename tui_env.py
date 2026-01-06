@@ -273,11 +273,12 @@ def main():
     ])
 
     # Ctrl+W = Close current terminal (only dynamic ones, windows 2-19)
+    # On window 1 (F1), pass Ctrl+W through to terminal (e.g., for vim, bash word-delete)
     subprocess.run([
         "tmux", "bind-key", "-n", "C-w",
-        "if-shell", "-F", "#{&&:#{e|>:#{window_index},1},#{e|<:#{window_index},20}}",
-        "kill-window",
-        "display-message 'Cannot close this window'"
+        "if-shell", "-F", "#{==:#{window_index},1}",
+        "send-keys C-w",  # Pass through to terminal on window 1
+        "if-shell -F '#{&&:#{e|>:#{window_index},1},#{e|<:#{window_index},20}}' kill-window \"display-message 'Cannot close this window'\""
     ])
 
     # Ctrl+P = Quick input popup (sends to F1) with autocomplete and AI enhancement
