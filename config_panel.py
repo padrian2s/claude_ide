@@ -678,6 +678,33 @@ class ThemeItem(ListItem):
         yield Label(f"{marker} {self.theme_name:20} {preview}")
 
 
+class ToggleOption(Static):
+    """A clickable toggle option that shows label, value, and shortcut key."""
+
+    def __init__(self, label: str, value: str, shortcut: str, action: str, id: str | None = None):
+        super().__init__(id=id)
+        self.label = label
+        self.value = value
+        self.shortcut = shortcut
+        self.action = action
+        self.can_focus = True
+        self._update_display()
+
+    def _update_display(self):
+        # Escape brackets to prevent Rich markup interpretation
+        self.update(f"\\[{self.shortcut}] {self.label}: \\[{self.value}]")
+
+    def set_value(self, value: str):
+        self.value = value
+        self._update_display()
+
+    def on_click(self):
+        self.app.run_action(self.action)
+
+    def key_enter(self):
+        self.app.run_action(self.action)
+
+
 class ConfigPanel(App):
     """Configuration panel app."""
 
@@ -717,7 +744,7 @@ class ConfigPanel(App):
         }}
         ListView {{
             height: auto;
-            max-height: 80%;
+            max-height: 50%;
             border: solid $primary;
             padding: 1;
         }}
@@ -735,9 +762,13 @@ class ConfigPanel(App):
             color: $text-muted;
             padding: 0 1;
         }}
-        #position-info, #border-info, #footer-info, #header-info {{
+        ToggleOption {{
             height: 1;
             padding: 0 1;
+            margin-top: 1;
+        }}
+        ToggleOption:hover {{
+            background: $surface-lighten-1;
         }}
         Footer {{
             dock: {footer_pos};
@@ -764,14 +795,14 @@ class ConfigPanel(App):
                 ],
                 id="theme-list"
             )
-            # Set content directly since config is already loaded in __init__
+            # Toggle options with shortcut keys
             pos_label = "TOP" if self.status_position == "top" else "BOTTOM"
-            yield Static(f"Status Bar Position: [{pos_label}]", id="position-info", markup=False)
-            yield Static(f"Border Style: [{self.border_style.upper()}]", id="border-info", markup=False)
+            yield ToggleOption("Status Bar Position", pos_label, "p", "toggle_position", id="position-info")
+            yield ToggleOption("Border Style", self.border_style.upper(), "b", "toggle_border", id="border-info")
             footer_label = "TOP" if self.footer_position == "top" else "BOTTOM"
-            yield Static(f"App Footer Position: [{footer_label}]", id="footer-info", markup=False)
+            yield ToggleOption("App Footer Position", footer_label, "f", "toggle_footer", id="footer-info")
             header_state = "ON" if self.show_header else "OFF"
-            yield Static(f"App Header: [{header_state}]", id="header-info", markup=False)
+            yield ToggleOption("App Header", header_state, "h", "toggle_header", id="header-info")
             version = get_current_version() or "dev"
             yield Static(f"Version: {version}", id="version-info")
         yield Footer()
@@ -798,21 +829,21 @@ class ConfigPanel(App):
     def update_position_info(self):
         """Update position info display."""
         pos_label = "TOP" if self.status_position == "top" else "BOTTOM"
-        self.query_one("#position-info", Static).update(f"Status Bar Position: [{pos_label}]")
+        self.query_one("#position-info", ToggleOption).set_value(pos_label)
 
     def update_border_info(self):
         """Update border info display."""
-        self.query_one("#border-info", Static).update(f"Border Style: [{self.border_style.upper()}]")
+        self.query_one("#border-info", ToggleOption).set_value(self.border_style.upper())
 
     def update_footer_info(self):
         """Update footer info display."""
         pos_label = "TOP" if self.footer_position == "top" else "BOTTOM"
-        self.query_one("#footer-info", Static).update(f"App Footer Position: [{pos_label}]")
+        self.query_one("#footer-info", ToggleOption).set_value(pos_label)
 
     def update_header_info(self):
         """Update header info display."""
         state = "ON" if self.show_header else "OFF"
-        self.query_one("#header-info", Static).update(f"App Header: [{state}]")
+        self.query_one("#header-info", ToggleOption).set_value(state)
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Handle theme selection on Enter."""
