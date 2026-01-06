@@ -34,27 +34,22 @@ CONTEXT_WINDOW = {
 
 
 class MetricBox(Static):
-    """A styled metric display box."""
+    """A compact metric display - just label: value on one line."""
 
-    def __init__(self, title: str, value: str = "—", style_class: str = "") -> None:
+    def __init__(self, title: str, value: str = "—") -> None:
         super().__init__()
         self.title = title
         self._value = value
-        self._style_class = style_class
-
-    def _make_id(self) -> str:
-        """Create a valid CSS id from the title."""
-        return "val-" + self.title.lower().replace(' ', '-').replace('.', '')
+        self._id = "val-" + title.lower().replace(' ', '-').replace('.', '')
 
     def compose(self) -> ComposeResult:
-        yield Static(self.title, classes="metric-title")
-        yield Static(self._value, classes="metric-value", id=self._make_id())
+        yield Static(f"[dim]{self.title}:[/] [bold]{self._value}[/]", id=self._id)
 
     def update_value(self, value: str) -> None:
         self._value = value
         try:
-            val_widget = self.query_one(f"#{self._make_id()}", Static)
-            val_widget.update(value)
+            val_widget = self.query_one(f"#{self._id}", Static)
+            val_widget.update(f"[dim]{self.title}:[/] [bold]{value}[/]")
         except Exception:
             pass
 
@@ -68,56 +63,35 @@ class StatusViewer(App):
     }
 
     #main-container {
-        padding: 1 2;
+        padding: 0 2;
     }
 
     .section-title {
         text-style: bold;
         color: $primary;
-        padding: 1 0 0 0;
+        height: 1;
+        margin-top: 1;
     }
 
     .metrics-row {
         height: auto;
-        padding: 0 0 1 0;
+        layout: grid;
+        grid-size: 4;
+        grid-columns: 1fr 1fr 1fr 1fr;
     }
 
     MetricBox {
-        width: 1fr;
-        height: 5;
-        border: solid $primary-darken-2;
-        padding: 0 1;
-        margin: 0 1 0 0;
-    }
-
-    .metric-title {
-        color: $text-muted;
-        text-style: italic;
-    }
-
-    .metric-value {
-        color: $text;
-        text-style: bold;
-        text-align: center;
+        height: 1;
+        padding: 0;
     }
 
     #session-info {
         height: auto;
-        padding: 1;
-        border: solid $primary-darken-3;
         margin-top: 1;
     }
 
     #session-info Static {
-        height: auto;
-    }
-
-    .info-label {
-        color: $text-muted;
-    }
-
-    .info-value {
-        color: $text;
+        height: 1;
     }
 
     #last-update {
@@ -130,13 +104,11 @@ class StatusViewer(App):
 
     #context-section {
         height: auto;
-        padding: 1;
         margin-top: 1;
     }
 
     #context-label {
         height: 1;
-        margin-bottom: 1;
     }
 
     #context-bar {
@@ -181,30 +153,30 @@ class StatusViewer(App):
         with Container(id="main-container"):
             yield Static("TOKEN USAGE", classes="section-title")
             with Horizontal(classes="metrics-row"):
-                yield MetricBox("Input Tokens", "—")
-                yield MetricBox("Output Tokens", "—")
+                yield MetricBox("Input", "—")
+                yield MetricBox("Output", "—")
                 yield MetricBox("Cache Read", "—")
                 yield MetricBox("Cache Write", "—")
 
-            yield Static("SESSION METRICS", classes="section-title")
+            yield Static("SESSION", classes="section-title")
             with Horizontal(classes="metrics-row"):
-                yield MetricBox("Total Tokens", "—")
-                yield MetricBox("Est. Cost", "—")
+                yield MetricBox("Total", "—")
+                yield MetricBox("Cost", "—")
                 yield MetricBox("Messages", "—")
                 yield MetricBox("Duration", "—")
 
-            yield Static("CONTEXT WINDOW", classes="section-title")
+            yield Static("CONTEXT", classes="section-title")
             with Vertical(id="context-section"):
-                yield Static("Context: —% used (0K / 200K)", id="context-label")
+                yield Static("—% (0K / 200K)", id="context-label")
                 yield ProgressBar(total=100, show_eta=False, show_percentage=False, id="context-bar")
 
             with Vertical(id="session-info"):
-                yield Static("Model: —", id="model-info")
-                yield Static("Project: —", id="project-info")
-                yield Static("Git Branch: —", id="git-info")
-                yield Static("Session ID: —", id="session-id")
+                yield Static("[dim]Model:[/] —", id="model-info")
+                yield Static("[dim]Project:[/] —", id="project-info")
+                yield Static("[dim]Branch:[/] —", id="git-info")
+                yield Static("[dim]Session:[/] —", id="session-id")
 
-            yield Static("Last update: —", id="last-update")
+            yield Static("Updated: —", id="last-update")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -437,7 +409,6 @@ class StatusViewer(App):
         # Update context progress bar (current context from last message)
         model = data.get("model", "default")
         context_size = CONTEXT_WINDOW.get(model, CONTEXT_WINDOW["default"])
-        # Current context = input + cache_read + cache_write + pending from last message
         context_used = (
             data["input_tokens"] +
             data["cache_read_tokens"] +
@@ -446,14 +417,13 @@ class StatusViewer(App):
         )
         context_pct = min(100, (context_used / context_size) * 100)
 
-        # Show pending indicator if there's a pending user message
         pending_str = ""
         if data["pending_tokens"] > 0:
-            pending_str = f" +~{self.format_tokens(data['pending_tokens'])} pending"
+            pending_str = f" +~{self.format_tokens(data['pending_tokens'])}"
 
         context_label = self.query_one("#context-label", Static)
         context_label.update(
-            f"Context: {context_pct:.1f}% used ({self.format_tokens(context_used)} / {self.format_tokens(context_size)}){pending_str}"
+            f"{context_pct:.1f}% ({self.format_tokens(context_used)} / {self.format_tokens(context_size)}){pending_str}"
         )
 
         context_bar = self.query_one("#context-bar", ProgressBar)
@@ -467,16 +437,17 @@ class StatusViewer(App):
         elif context_pct >= 70:
             context_section.add_class("context-warning")
 
-        # Update session info
+        # Update session info with Rich markup
         model_name = data["model"].replace("claude-", "").replace("-20251101", "").replace("-20250514", "")
-        self.query_one("#model-info", Static).update(f"Model: {model_name}")
-        self.query_one("#project-info", Static).update(f"Project: {Path(self.project_path).name}")
-        self.query_one("#git-info", Static).update(f"Git Branch: {data.get('git_branch') or self.get_git_branch()}")
-        self.query_one("#session-id", Static).update(f"Session ID: {data['session_id'][:8]}..." if data["session_id"] else "Session ID: —")
+        self.query_one("#model-info", Static).update(f"[dim]Model:[/] {model_name}")
+        self.query_one("#project-info", Static).update(f"[dim]Project:[/] {Path(self.project_path).name}")
+        self.query_one("#git-info", Static).update(f"[dim]Branch:[/] {data.get('git_branch') or self.get_git_branch()}")
+        session_id = data['session_id'][:8] + "..." if data["session_id"] else "—"
+        self.query_one("#session-id", Static).update(f"[dim]Session:[/] {session_id}")
 
         # Update timestamp
         now = datetime.now().strftime("%H:%M:%S")
-        self.query_one("#last-update", Static).update(f"Last update: {now}")
+        self.query_one("#last-update", Static).update(f"[dim]Updated:[/] {now}")
 
     def action_serena(self) -> None:
         """Open Serena dashboard in browser for current project."""

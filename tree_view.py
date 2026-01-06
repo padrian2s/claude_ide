@@ -1476,6 +1476,9 @@ class TreeViewApp(App):
         Screen {{
             background: {bg};
             color: {fg};
+            scrollbar-size-vertical: 1;
+            scrollbar-color: {fg} 30%;
+            scrollbar-background: {bg};
         }}
         #main {{
             width: 100%;
@@ -1497,7 +1500,8 @@ class TreeViewApp(App):
             background: {bg};
             color: {fg};
             scrollbar-background: {bg};
-            scrollbar-color: {fg};
+            scrollbar-color: {fg} 30%;
+            scrollbar-size-vertical: 1;
         }}
         DirectoryTree > .tree--guides {{
             color: {fg};
@@ -1516,6 +1520,9 @@ class TreeViewApp(App):
             background: {bg};
             color: {fg};
             padding: 0 1;
+            scrollbar-background: {bg};
+            scrollbar-color: {fg} 30%;
+            scrollbar-size-vertical: 1;
         }}
         #file-content {{
             width: 100%;

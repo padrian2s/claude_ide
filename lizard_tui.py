@@ -809,11 +809,11 @@ class LegendScreen(ModalScreen):
 
         for acronym, full_name, desc in entries:
             text.append(f"{acronym}", style="bold cyan")
-            text.append(f" - {full_name}\n", style="bold white")
+            text.append(f" - {full_name}\n", style="bold")
             text.append(f"  {desc}\n\n", style="dim")
 
         text.append("─" * 51 + "\n", style="dim")
-        text.append("COMPLEXITY LEVELS\n", style="bold white")
+        text.append("COMPLEXITY LEVELS\n", style="bold")
         text.append("Low    ", style="dim")
         text.append("█ 1-5   ", style="green")
         text.append("Simple, easy to test\n", style="dim")
@@ -828,7 +828,7 @@ class LegendScreen(ModalScreen):
         text.append("Hard to test/maintain\n", style="dim")
 
         text.append("\n─" * 51 + "\n", style="dim")
-        text.append("KEY BINDINGS\n", style="bold white")
+        text.append("KEY BINDINGS\n", style="bold")
         text.append("1-5  ", style="cyan")
         text.append("Switch tabs  ", style="dim")
         text.append("s    ", style="cyan")
@@ -1175,11 +1175,11 @@ class SummaryWidget(Widget):
         text.append("─" * 26 + "\n", style="dim")
 
         text.append("NLOC ", style="dim")
-        text.append(f"{r.total_nloc:,}\n", style="bold white")
+        text.append(f"{r.total_nloc:,}\n", style="bold")
         text.append("Funcs ", style="dim")
-        text.append(f"{r.function_count}\n", style="bold white")
+        text.append(f"{r.function_count}\n", style="bold")
         text.append("Files ", style="dim")
-        text.append(f"{len(r.files)}\n", style="bold white")
+        text.append(f"{len(r.files)}\n", style="bold")
 
         text.append("─" * 26 + "\n", style="dim")
 
@@ -1188,7 +1188,7 @@ class SummaryWidget(Widget):
         text.append(f"{r.avg_ccn:.1f}\n", style=f"bold {ccn_color}")
 
         text.append("Avg NLOC ", style="dim")
-        text.append(f"{r.avg_nloc:.0f}\n", style="white")
+        text.append(f"{r.avg_nloc:.0f}\n", style="bold")
 
         if r.warning_count > 0:
             text.append("─" * 26 + "\n", style="dim")
@@ -1285,26 +1285,22 @@ class LizardTUI(App):
         }}
 
         #toolbar {{
-            height: 3;
+            height: 1;
             padding: 0 1;
             background: {bg};
         }}
 
         #path-input {{
             width: 1fr;
+            height: 1;
+            border: none;
         }}
 
-        #analyze-btn {{
-            width: 12;
-        }}
-
-        #settings-btn {{
-            width: 4;
-            min-width: 4;
-        }}
-
-        #export-btn {{
-            width: 10;
+        #shortcuts-bar {{
+            width: auto;
+            padding: 0 1;
+            text-opacity: 70%;
+            color: {fg};
         }}
 
         #content-area {{
@@ -1328,18 +1324,21 @@ class LizardTUI(App):
         }}
 
         #filter-bar {{
-            height: 3;
+            height: 1;
             padding: 0 1;
             background: {bg};
         }}
 
         #filter-input {{
             width: 1fr;
+            border: none;
+            height: 1;
+            padding: 0;
         }}
 
         #sort-label {{
             width: auto;
-            padding: 1 1 0 1;
+            padding: 0 1;
         }}
 
         DataTable {{
@@ -1435,13 +1434,11 @@ class LizardTUI(App):
         with Vertical(id="main-container"):
             with Horizontal(id="toolbar"):
                 yield Input(
-                    placeholder="Enter path to analyze...",
+                    placeholder="Enter path to analyze (Enter=run)...",
                     value=self.initial_path,
                     id="path-input",
                 )
-                yield Button("Analyze", id="analyze-btn", variant="primary")
-                yield Button("⚙", id="settings-btn")
-                yield Button("Export", id="export-btn")
+                yield Label("r:Run  ^S:Settings  e:Export  ^O:Folders  ^F:Files  s:Sort  ?:Help  q:Quit", id="shortcuts-bar")
 
             with Horizontal(id="content-area"):
                 with Vertical(id="sidebar"):
@@ -1498,14 +1495,8 @@ class LizardTUI(App):
             self.run_analysis(self.initial_path)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button press."""
-        if event.button.id == "analyze-btn":
-            path = self.query_one("#path-input", Input).value
-            self.run_analysis(path)
-        elif event.button.id == "settings-btn":
-            self.action_open_settings()
-        elif event.button.id == "export-btn":
-            self.action_export()
+        """Handle button press (legacy - buttons removed)."""
+        pass
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in input."""
@@ -1554,13 +1545,13 @@ class LizardTUI(App):
 
             text = Text()
             text.append(f"{Path(func.file_path).name}\n", style="bold cyan")
-            text.append(f"{func.full_signature}\n", style="bold white")
+            text.append(f"{func.full_signature}\n", style="bold")
             text.append(f"CCN: {func.ccn}  NLOC: {func.nloc}  Params: {func.param_count}  NS: {func.nested_structures}\n", style="dim")
             text.append("─" * 60 + "\n", style="dim")
 
             for i, line in enumerate(lines[start:end], start=func.start_line):
                 text.append(f"{i:4} ", style="dim")
-                text.append(f"{line.rstrip()}\n", style="white")
+                text.append(f"{line.rstrip()}\n")
 
             preview.update(text)
         except Exception as e:
@@ -1596,7 +1587,7 @@ class LizardTUI(App):
             dup_text = Text()
             dup_text.append(f"Found {len(result.duplicates)} duplicate blocks ({result.duplicate_rate:.1f}%)\n\n", style="bold yellow")
             for i, dup in enumerate(result.duplicates[:20], 1):
-                dup_text.append(f"Block {i}: {len(dup.locations)} locations\n", style="bold white")
+                dup_text.append(f"Block {i}: {len(dup.locations)} locations\n", style="bold")
                 for loc in dup.locations[:5]:
                     dup_text.append(f"  {Path(loc[0]).name}:{loc[1]}-{loc[2]}\n", style="dim")
                 if len(dup.locations) > 5:
