@@ -50,13 +50,22 @@ def generate_help_text(shortcuts_data):
 
 
 def get_status_suffix(shortcuts_data):
-    """Get status bar suffix from shortcuts JSON."""
+    """Get status bar suffix from shortcuts JSON.
+
+    Each shortcut is wrapped in #[range=user|key] to make it clickable.
+    Click handlers are bound in main() to send the corresponding key.
+    """
     global_shortcuts = shortcuts_data.get("contexts", {}).get("global", {}).get("shortcuts", {})
 
     f10_label = global_shortcuts.get("F10", {}).get("label", "Exit")
     f12_label = global_shortcuts.get("F12", {}).get("label", "Keys")
 
-    return f"F10:{f10_label} ?:Help F12:{f12_label}"
+    # Wrap each shortcut in a clickable range
+    return (
+        f"#[range=user|f10]F10:{f10_label}#[norange] "
+        f"#[range=user|help]^H:Help#[norange] "
+        f"#[range=user|f12]F12:{f12_label}#[norange]"
+    )
 
 
 # Import config to get saved theme and position
@@ -302,6 +311,21 @@ def main():
         f"unbind-key -n F7 ; unbind-key -n F8 ; unbind-key -n F9 ; unbind-key -n F10'"
     )
     subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
+
+    # Mouse click handlers for status bar shortcuts
+    # When clicking on #[range=user|X], #{mouse_status_range} contains X
+    # Clicking on window names (range=window|X) automatically selects the window
+    # For user-defined ranges, we dispatch to the appropriate action
+    subprocess.run([
+        "tmux", "bind-key", "-T", "root", "MouseUp1Status",
+        "run-shell",
+        "case '#{mouse_status_range}' in "
+        f"f10) tmux confirm-before -p 'Exit session? (y/n)' 'kill-session -t {SESSION}' ;; "
+        f"help) tmux send-keys -t {SESSION} C-h ;; "
+        f"f12) tmux send-keys -t {SESSION} F12 ;; "
+        "*) tmux select-window -t '#{mouse_window}' 2>/dev/null || true ;; "
+        "esac"
+    ])
 
     # Select terminal window (1)
     subprocess.run(["tmux", "select-window", "-t", f"{SESSION}:1"])
