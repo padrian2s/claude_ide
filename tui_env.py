@@ -184,6 +184,13 @@ def main():
     # Enable mouse support for clicking on status bar windows
     subprocess.run(["tmux", "set-option", "-t", SESSION, "mouse", "on"])
 
+    # Copy-on-select: auto copy to clipboard when mouse selection ends (macOS)
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "mode-keys", "vi"])
+    subprocess.run([
+        "tmux", "bind-key", "-T", "copy-mode-vi", "MouseDragEnd1Pane",
+        "send-keys", "-X", "copy-pipe-and-cancel", "pbcopy"
+    ])
+
     # Apply theme colors to F1 terminal window
     subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
     subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
