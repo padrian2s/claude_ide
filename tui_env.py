@@ -232,7 +232,7 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@passthrough", ""])
 
     # Clear stale key bindings from previous sessions (tmux bindings are global)
-    for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12", "C-t", "C-h"]:
+    for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12", "C-t", "C-h", "C-w"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
 
     # Bind F-keys: F1=Term1, F2-F9=Apps (windows 20-27)
