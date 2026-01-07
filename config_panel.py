@@ -58,7 +58,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True}
+    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True, "status_line": "off"}
 
 
 def save_config(config: dict):
@@ -158,6 +158,59 @@ def get_show_header() -> bool:
     """Get whether to show header in Textual apps."""
     config = load_config()
     return config.get("show_header", True)
+
+
+def get_status_line() -> str:
+    """Get status line position: 'off', 'before', or 'after'."""
+    config = load_config()
+    value = config.get("status_line", "off")
+    # Handle legacy boolean values
+    if value is True:
+        return "after"
+    if value is False:
+        return "off"
+    return value
+
+
+def apply_status_line(position: str, status_content: str = None):
+    """Apply status line (horizontal separator) to current tmux session.
+
+    Args:
+        position: 'off', 'before', or 'after'
+        status_content: The main status bar content (if None, preserves existing)
+    """
+    result = subprocess.run(
+        ["tmux", "display-message", "-p", "#{session_name}"],
+        capture_output=True, text=True
+    )
+    session = result.stdout.strip()
+    if not session:
+        return
+
+    theme = get_theme_colors()
+    line_format = f"#[fg={theme['fg']},dim]#{{=|-:─}}"
+
+    if position == "off":
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "on"])
+    elif position == "before":
+        # Line first, then content
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "2"])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", line_format])
+        if status_content:
+            subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", status_content])
+    elif position == "after":
+        # Content first, then line
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "2"])
+        if status_content:
+            subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", status_content])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", line_format])
+    elif position == "both":
+        # Line, content, line
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "3"])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", line_format])
+        if status_content:
+            subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", status_content])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[2]", line_format])
 
 
 def get_border_style() -> str:
@@ -715,6 +768,7 @@ class ConfigPanel(App):
         Binding("b", "toggle_border", "Border"),
         Binding("f", "toggle_footer", "Footer"),
         Binding("h", "toggle_header", "Header"),
+        Binding("l", "toggle_status_line", "Line"),
         Binding("c", "customize", "Customize"),
         Binding("i", "import_prompts", "Import"),
         Binding("t", "command_palette", "Palette"),
@@ -728,6 +782,12 @@ class ConfigPanel(App):
         self.border_style = self.config.get("border_style", "solid")
         self.footer_position = self.config.get("footer_position", "bottom")
         self.show_header = self.config.get("show_header", True)
+        self.status_line = self.config.get("status_line", "off")
+        # Handle legacy boolean values
+        if self.status_line is True:
+            self.status_line = "after"
+        elif self.status_line is False:
+            self.status_line = "off"
 
         # Build CSS with footer position before super().__init__()
         footer_pos = self.footer_position
@@ -803,6 +863,7 @@ class ConfigPanel(App):
             yield ToggleOption("App Footer Position", footer_label, "f", "toggle_footer", id="footer-info")
             header_state = "ON" if self.show_header else "OFF"
             yield ToggleOption("App Header", header_state, "h", "toggle_header", id="header-info")
+            yield ToggleOption("Status Bar Line", self.status_line.upper(), "l", "toggle_status_line", id="status-line-info")
             version = get_current_version() or "dev"
             yield Static(f"Version: {version}", id="version-info")
         yield Footer()
@@ -844,6 +905,10 @@ class ConfigPanel(App):
         """Update header info display."""
         state = "ON" if self.show_header else "OFF"
         self.query_one("#header-info", ToggleOption).set_value(state)
+
+    def update_status_line_info(self):
+        """Update status line info display."""
+        self.query_one("#status-line-info", ToggleOption).set_value(self.status_line.upper())
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Handle theme selection on Enter."""
@@ -905,6 +970,17 @@ class ConfigPanel(App):
         self.update_header_info()
         state = "ON" if self.show_header else "OFF"
         self.notify(f"App Header: {state} (restart apps to apply)", timeout=2)
+
+    def action_toggle_status_line(self):
+        """Cycle status bar line position: off -> before -> after -> both -> off."""
+        cycle = ["off", "before", "after", "both"]
+        current_idx = cycle.index(self.status_line) if self.status_line in cycle else 0
+        self.status_line = cycle[(current_idx + 1) % len(cycle)]
+        self.config["status_line"] = self.status_line
+        save_config(self.config)
+        apply_status_line(self.status_line)
+        self.update_status_line_info()
+        self.notify(f"Status Bar Line: {self.status_line.upper()}", timeout=1)
 
     def action_quit(self):
         """Quit with confirmation."""

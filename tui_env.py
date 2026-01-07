@@ -20,6 +20,7 @@ FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
 PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
+PATH_SEGMENTS_SCRIPT = SCRIPT_DIR / "path_segments.py"
 SHORTCUTS_FILE = SCRIPT_DIR / "shortcuts.json"
 
 
@@ -69,7 +70,7 @@ def get_status_suffix(shortcuts_data):
 
 
 # Import config to get saved theme and position
-from config_panel import get_theme_colors, get_status_position
+from config_panel import get_theme_colors, get_status_position, get_status_line
 from upgrader import auto_upgrade
 
 
@@ -205,13 +206,15 @@ def main():
         subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
 
     # Custom status format:
-    # - F1 (window 1): show as "F1:Term1"
-    # - Dynamic terminals (2-19): show just name (e.g., "T2")
-    # - Apps (20-25): show as "F2:Tree", "F3:Lizard", etc.
+    # - Left: clickable path segments (current pane's directory)
+    # - Center: window list with F-keys
+    # - Right: help and exit shortcuts
     # - #[range=window|X] makes each window clickable
+    # - #[range=user|path:X] makes each path segment clickable
     status_suffix = get_status_suffix(shortcuts_data)
     subprocess.run([
         "tmux", "set-option", "-t", SESSION, "status-format[0]",
+        f"#(uv run python3 '{PATH_SEGMENTS_SCRIPT}') "
         "#{@focus}#{@passthrough}#[align=centre]"
         "#{W:"
         "#[range=window|#{window_index}]"
@@ -224,6 +227,37 @@ def main():
         "#[norange]"
         f"}} {status_suffix}"
     ])
+
+    # Add horizontal line to status bar if configured
+    status_line_pos = get_status_line()
+    if status_line_pos in ("before", "after", "both"):
+        line_format = f"#[fg={theme['fg']},dim]#{{=|-:─}}"
+        status_content = (
+            f"#(uv run python3 '{PATH_SEGMENTS_SCRIPT}') "
+            "#{@focus}#{@passthrough}#[align=centre]"
+            "#{W:"
+            "#[range=window|#{window_index}]"
+            "#{?#{==:#{window_index},1},"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
+            "#{?#{e|<:#{window_index},20},"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
+            "}}"
+            "#[norange]"
+            f"}} {status_suffix}"
+        )
+        if status_line_pos == "before":
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "2"])
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[0]", line_format])
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[1]", status_content])
+        elif status_line_pos == "after":
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "2"])
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[1]", line_format])
+        else:  # both
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "3"])
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[0]", line_format])
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[1]", status_content])
+            subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[2]", line_format])
 
     # Track terminal counter for auto-naming
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@term_count", "1"])
@@ -342,6 +376,7 @@ def main():
     # When clicking on #[range=user|X], #{mouse_status_range} contains X
     # Clicking on window names (range=window|X) automatically selects the window
     # For user-defined ranges, we dispatch to the appropriate action
+    # pathpopup opens a popup menu to select parent directory
     subprocess.run([
         "tmux", "bind-key", "-T", "root", "MouseUp1Status",
         "run-shell",
@@ -349,6 +384,8 @@ def main():
         f"f10) tmux confirm-before -p 'Exit session? (y/n)' 'kill-session -t {SESSION}' ;; "
         f"help) tmux send-keys -t {SESSION} C-h ;; "
         f"f12) tmux send-keys -t {SESSION} F12 ;; "
+        f"pathpopup) tmux display-popup -E -w 60% -h 50% \"uv run python3 '{PATH_SEGMENTS_SCRIPT}' menu\" ;; "
+        f"gitwindow) tmux select-window -t {SESSION}:25 ;; "
         "*) tmux select-window -t '#{mouse_window}' 2>/dev/null || true ;; "
         "esac"
     ])
