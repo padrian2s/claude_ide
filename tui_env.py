@@ -224,8 +224,21 @@ def main():
     for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12", "C-t", "C-h"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
 
-    # Bind F-keys: F1=Term1, F2-F7=Apps (windows 20-25)
+    # Bind F-keys: F1=Term1, F2-F9=Apps (windows 20-27)
     subprocess.run(["tmux", "bind-key", "-n", "F1", "select-window", "-t", f"{SESSION}:1"])
+
+    # Shift+F1-F9 to access terminal windows directly (F1=window 1, T2=window 2, etc.)
+    # Try to select window; if it doesn't exist, create it
+    subprocess.run(["tmux", "bind-key", "-n", "S-F1", "select-window", "-t", f"{SESSION}:1"])
+    for i in range(2, 10):
+        # if-shell runs shell command: check if window i exists, then select or create
+        subprocess.run([
+            "tmux", "bind-key", "-n", f"S-F{i}",
+            "if-shell",
+            f"tmux list-windows -t {SESSION} | grep -q '^{i}:'",
+            f"select-window -t {SESSION}:{i}",
+            f"new-window -t {SESSION}:{i} -n T{i}"
+        ])
     subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", f"{SESSION}:20"])
     subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:21"])
     subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:22"])
@@ -255,9 +268,10 @@ def main():
         f"echo '{help_text}'"
     ])
 
-    # Shift+Arrow keys to navigate windows (always active, even in passthrough mode)
+    # Shift+Arrow keys to navigate all windows (always active, even in passthrough mode)
     subprocess.run(["tmux", "bind-key", "-n", "S-Left", "previous-window"])
     subprocess.run(["tmux", "bind-key", "-n", "S-Right", "next-window"])
+
 
     # Ctrl+T = Create new terminal with auto-name T2, T3, etc.
     # Increments @term_count and creates window after the last terminal (before apps at 20+)
