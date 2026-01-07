@@ -185,9 +185,13 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "mouse", "on"])
 
     # Copy-on-select: auto copy to clipboard when mouse selection ends (macOS)
-    subprocess.run(["tmux", "set-option", "-t", SESSION, "mode-keys", "vi"])
+    # Add binding for both vi and emacs copy modes
     subprocess.run([
         "tmux", "bind-key", "-T", "copy-mode-vi", "MouseDragEnd1Pane",
+        "send-keys", "-X", "copy-pipe-and-cancel", "pbcopy"
+    ])
+    subprocess.run([
+        "tmux", "bind-key", "-T", "copy-mode", "MouseDragEnd1Pane",
         "send-keys", "-X", "copy-pipe-and-cancel", "pbcopy"
     ])
 
