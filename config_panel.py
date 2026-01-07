@@ -58,7 +58,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True, "status_line": "off"}
+    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True, "status_line": "off", "icon_mode": False}
 
 
 def save_config(config: dict):
@@ -210,6 +210,159 @@ def apply_status_line(position: str, status_content: str = None):
         subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", line_format])
         if status_content:
             subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", status_content])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[2]", line_format])
+
+
+# Icon mappings for status bar (window index -> icon)
+# Window 1 is Term1, Windows 20-27 are apps
+WINDOW_ICONS = {
+    1: "⌨",      # Terminal
+    20: "📂",    # Tree (file manager)
+    21: "🦎",    # Lizard
+    22: "📖",    # Glow (markdown)
+    23: "🔖",    # Favorites
+    24: "💬",    # Prompt
+    25: "⚡",    # Git (lazygit)
+    26: "📈",    # Status
+    27: "⚙",     # Config
+}
+
+# F-key to window index mapping
+FKEY_TO_WINDOW = {
+    1: 1,    # F1 -> window 1
+    2: 20,   # F2 -> window 20
+    3: 21,   # F3 -> window 21
+    4: 22,   # F4 -> window 22
+    5: 23,   # F5 -> window 23
+    6: 24,   # F6 -> window 24
+    7: 25,   # F7 -> window 25
+    8: 26,   # F8 -> window 26
+    9: 27,   # F9 -> window 27
+}
+
+
+def get_icon_mode() -> bool:
+    """Get icon mode setting from config."""
+    config = load_config()
+    return config.get("icon_mode", False)
+
+
+def get_status_bar_format(icon_mode: bool, path_script: str, status_suffix: str) -> str:
+    """Generate the tmux status bar format string.
+
+    Args:
+        icon_mode: If True, use icons instead of window names
+        path_script: Path to the path_segments.py script
+        status_suffix: The suffix containing F10/Help/F12 shortcuts
+
+    Returns:
+        The complete status format string for tmux
+    """
+    # Build the window format based on icon mode
+    if icon_mode:
+        # In icon mode, show F-key + icon for known windows, name for dynamic terminals
+        window_format = (
+            "#{W:"
+            "#[range=window|#{window_index}]"
+            # Window 1 (F1:Term1 or F1:⌨)
+            "#{?#{==:#{window_index},1},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F1:{WINDOW_ICONS[1]} #[default], F1:{WINDOW_ICONS[1]} }},"
+            # Windows 2-19 (dynamic terminals - show name)
+            "#{?#{e|<:#{window_index},20},"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
+            # Windows 20+ (apps - show F-key + icon)
+            "#{?#{==:#{window_index},20},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F2:{WINDOW_ICONS[20]} #[default], F2:{WINDOW_ICONS[20]} }},"
+            "#{?#{==:#{window_index},21},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F3:{WINDOW_ICONS[21]} #[default], F3:{WINDOW_ICONS[21]} }},"
+            "#{?#{==:#{window_index},22},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F4:{WINDOW_ICONS[22]} #[default], F4:{WINDOW_ICONS[22]} }},"
+            "#{?#{==:#{window_index},23},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F5:{WINDOW_ICONS[23]} #[default], F5:{WINDOW_ICONS[23]} }},"
+            "#{?#{==:#{window_index},24},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F6:{WINDOW_ICONS[24]} #[default], F6:{WINDOW_ICONS[24]} }},"
+            "#{?#{==:#{window_index},25},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F7:{WINDOW_ICONS[25]} #[default], F7:{WINDOW_ICONS[25]} }},"
+            "#{?#{==:#{window_index},26},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F8:{WINDOW_ICONS[26]} #[default], F8:{WINDOW_ICONS[26]} }},"
+            "#{?#{==:#{window_index},27},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F9:{WINDOW_ICONS[27]} #[default], F9:{WINDOW_ICONS[27]} }},"
+            # Unknown high windows - show index:name
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_index}:#{window_name} #[default], #{window_index}:#{window_name} }"
+            "}}}}}}}}}}"
+            "#[norange]"
+            "}"
+        )
+    else:
+        # Text mode - original format with window names
+        window_format = (
+            "#{W:"
+            "#[range=window|#{window_index}]"
+            "#{?#{==:#{window_index},1},"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
+            "#{?#{e|<:#{window_index},20},"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
+            "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
+            "}}"
+            "#[norange]"
+            "}"
+        )
+
+    return (
+        f"#(uv run python3 '{path_script}') "
+        "#{@focus}#{@passthrough}#[align=centre]"
+        f"{window_format} {status_suffix}"
+    )
+
+
+def apply_icon_mode(icon_mode: bool):
+    """Apply icon mode to current tmux session status bar.
+
+    Args:
+        icon_mode: If True, use icons; if False, use text labels
+    """
+    result = subprocess.run(
+        ["tmux", "display-message", "-p", "#{session_name}"],
+        capture_output=True, text=True
+    )
+    session = result.stdout.strip()
+    if not session:
+        return
+
+    # Get the path script location (same directory as this file)
+    script_dir = Path(__file__).parent
+    path_script = script_dir / "path_segments.py"
+
+    # Build status suffix (simplified - actual suffix is set in tui_env.py)
+    status_suffix = (
+        "#[range=user|f10]F10:Exit#[norange] "
+        "#[range=user|help]^H:Help#[norange] "
+        "#[range=user|f12]F12:Keys#[norange]"
+    )
+
+    # Generate the format string
+    status_content = get_status_bar_format(icon_mode, str(path_script), status_suffix)
+
+    # Get current status line setting to preserve it
+    status_line = get_status_line()
+    theme = get_theme_colors()
+    line_format = f"#[fg={theme['fg']},dim]#{{=|-:─}}"
+
+    if status_line == "off":
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "on"])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", status_content])
+    elif status_line == "before":
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "2"])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", line_format])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", status_content])
+    elif status_line == "after":
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "2"])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", status_content])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", line_format])
+    elif status_line == "both":
+        subprocess.run(["tmux", "set-option", "-t", session, "status", "3"])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[0]", line_format])
+        subprocess.run(["tmux", "set-option", "-t", session, "status-format[1]", status_content])
         subprocess.run(["tmux", "set-option", "-t", session, "status-format[2]", line_format])
 
 
@@ -769,6 +922,7 @@ class ConfigPanel(App):
         Binding("f", "toggle_footer", "Footer"),
         Binding("h", "toggle_header", "Header"),
         Binding("l", "toggle_status_line", "Line"),
+        Binding("o", "toggle_icon_mode", "Icons"),
         Binding("c", "customize", "Customize"),
         Binding("i", "import_prompts", "Import"),
         Binding("t", "command_palette", "Palette"),
@@ -788,6 +942,7 @@ class ConfigPanel(App):
             self.status_line = "after"
         elif self.status_line is False:
             self.status_line = "off"
+        self.icon_mode = self.config.get("icon_mode", False)
 
         # Build CSS with footer position before super().__init__()
         footer_pos = self.footer_position
@@ -864,6 +1019,8 @@ class ConfigPanel(App):
             header_state = "ON" if self.show_header else "OFF"
             yield ToggleOption("App Header", header_state, "h", "toggle_header", id="header-info")
             yield ToggleOption("Status Bar Line", self.status_line.upper(), "l", "toggle_status_line", id="status-line-info")
+            icon_label = "ICONS" if self.icon_mode else "TEXT"
+            yield ToggleOption("Status Bar Labels", icon_label, "o", "toggle_icon_mode", id="icon-mode-info")
             version = get_current_version() or "dev"
             yield Static(f"Version: {version}", id="version-info")
         yield Footer()
@@ -909,6 +1066,11 @@ class ConfigPanel(App):
     def update_status_line_info(self):
         """Update status line info display."""
         self.query_one("#status-line-info", ToggleOption).set_value(self.status_line.upper())
+
+    def update_icon_mode_info(self):
+        """Update icon mode info display."""
+        label = "ICONS" if self.icon_mode else "TEXT"
+        self.query_one("#icon-mode-info", ToggleOption).set_value(label)
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Handle theme selection on Enter."""
@@ -981,6 +1143,16 @@ class ConfigPanel(App):
         apply_status_line(self.status_line)
         self.update_status_line_info()
         self.notify(f"Status Bar Line: {self.status_line.upper()}", timeout=1)
+
+    def action_toggle_icon_mode(self):
+        """Toggle between icon and text labels in status bar."""
+        self.icon_mode = not self.icon_mode
+        self.config["icon_mode"] = self.icon_mode
+        save_config(self.config)
+        apply_icon_mode(self.icon_mode)
+        self.update_icon_mode_info()
+        label = "ICONS" if self.icon_mode else "TEXT"
+        self.notify(f"Status Bar Labels: {label}", timeout=1)
 
     def action_quit(self):
         """Quit with confirmation."""

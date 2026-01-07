@@ -21,6 +21,7 @@ PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
 PATH_SEGMENTS_SCRIPT = SCRIPT_DIR / "path_segments.py"
+SESSION_MANAGER_SCRIPT = SCRIPT_DIR / "session_manager.py"
 SHORTCUTS_FILE = SCRIPT_DIR / "shortcuts.json"
 
 
@@ -50,7 +51,7 @@ def generate_help_text(shortcuts_data):
     return "\n".join(lines)
 
 
-def get_status_suffix(shortcuts_data):
+def get_status_suffix(shortcuts_data, icon_mode: bool = False):
     """Get status bar suffix from shortcuts JSON.
 
     Each shortcut is wrapped in #[range=user|key] to make it clickable.
@@ -58,19 +59,28 @@ def get_status_suffix(shortcuts_data):
     """
     global_shortcuts = shortcuts_data.get("contexts", {}).get("global", {}).get("shortcuts", {})
 
-    f10_label = global_shortcuts.get("F10", {}).get("label", "Exit")
-    f12_label = global_shortcuts.get("F12", {}).get("label", "Keys")
+    if icon_mode:
+        session_label = "⧉"
+        f10_label = "⏻"
+        help_label = "🔍"
+        f12_label = "🔓"
+    else:
+        session_label = "Sess"
+        f10_label = global_shortcuts.get("F10", {}).get("label", "Exit")
+        help_label = "Help"
+        f12_label = global_shortcuts.get("F12", {}).get("label", "Keys")
 
     # Wrap each shortcut in a clickable range
     return (
+        f"#[range=user|session]^S:{session_label}#[norange] "
         f"#[range=user|f10]F10:{f10_label}#[norange] "
-        f"#[range=user|help]^H:Help#[norange] "
+        f"#[range=user|help]^H:{help_label}#[norange] "
         f"#[range=user|f12]F12:{f12_label}#[norange]"
     )
 
 
 # Import config to get saved theme and position
-from config_panel import get_theme_colors, get_status_position, get_status_line
+from config_panel import get_theme_colors, get_status_position, get_status_line, get_icon_mode, get_status_bar_format
 from upgrader import auto_upgrade
 
 
@@ -207,45 +217,21 @@ def main():
 
     # Custom status format:
     # - Left: clickable path segments (current pane's directory)
-    # - Center: window list with F-keys
+    # - Center: window list with F-keys (text or icons based on config)
     # - Right: help and exit shortcuts
     # - #[range=window|X] makes each window clickable
     # - #[range=user|path:X] makes each path segment clickable
-    status_suffix = get_status_suffix(shortcuts_data)
+    icon_mode = get_icon_mode()
+    status_suffix = get_status_suffix(shortcuts_data, icon_mode)
+    status_content = get_status_bar_format(icon_mode, str(PATH_SEGMENTS_SCRIPT), status_suffix)
     subprocess.run([
-        "tmux", "set-option", "-t", SESSION, "status-format[0]",
-        f"#(uv run python3 '{PATH_SEGMENTS_SCRIPT}') "
-        "#{@focus}#{@passthrough}#[align=centre]"
-        "#{W:"
-        "#[range=window|#{window_index}]"
-        "#{?#{==:#{window_index},1},"
-        "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
-        "#{?#{e|<:#{window_index},20},"
-        "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
-        "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
-        "}}"
-        "#[norange]"
-        f"}} {status_suffix}"
+        "tmux", "set-option", "-t", SESSION, "status-format[0]", status_content
     ])
 
     # Add horizontal line to status bar if configured
     status_line_pos = get_status_line()
     if status_line_pos in ("before", "after", "both"):
         line_format = f"#[fg={theme['fg']},dim]#{{=|-:─}}"
-        status_content = (
-            f"#(uv run python3 '{PATH_SEGMENTS_SCRIPT}') "
-            "#{@focus}#{@passthrough}#[align=centre]"
-            "#{W:"
-            "#[range=window|#{window_index}]"
-            "#{?#{==:#{window_index},1},"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
-            "#{?#{e|<:#{window_index},20},"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
-            "}}"
-            "#[norange]"
-            f"}} {status_suffix}"
-        )
         if status_line_pos == "before":
             subprocess.run(["tmux", "set-option", "-t", SESSION, "status", "2"])
             subprocess.run(["tmux", "set-option", "-t", SESSION, "status-format[0]", line_format])
@@ -266,40 +252,49 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", SESSION, "@passthrough", ""])
 
     # Clear stale key bindings from previous sessions (tmux bindings are global)
-    for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12", "C-t", "C-h", "C-w"]:
+    for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
+                "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
+                "C-t", "C-h", "C-x", "C-p", "C-s", "C-w", "S-Left", "S-Right"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
+    # Also clear mouse binding that might reference dead session
+    subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
 
     # Bind F-keys: F1=Term1, F2-F9=Apps (windows 20-27)
-    subprocess.run(["tmux", "bind-key", "-n", "F1", "select-window", "-t", f"{SESSION}:1"])
+    # Use `:N` syntax for current session (session-agnostic bindings)
+    subprocess.run(["tmux", "bind-key", "-n", "F1", "select-window", "-t", ":1"])
 
     # Shift+F1-F9 to access terminal windows directly (F1=window 1, T2=window 2, etc.)
     # Try to select window; if it doesn't exist, create it
-    subprocess.run(["tmux", "bind-key", "-n", "S-F1", "select-window", "-t", f"{SESSION}:1"])
+    # Use #{session_name} for dynamic session reference in run-shell
+    subprocess.run(["tmux", "bind-key", "-n", "S-F1", "select-window", "-t", ":1"])
     for i in range(2, 10):
-        # if-shell runs shell command: check if window i exists, then select or create
+        # Capture current directory and session, then check if window exists and select or create
         subprocess.run([
             "tmux", "bind-key", "-n", f"S-F{i}",
-            "if-shell",
-            f"tmux list-windows -t {SESSION} | grep -q '^{i}:'",
-            f"select-window -t {SESSION}:{i}",
-            f"new-window -t {SESSION}:{i} -n T{i}"
+            "run-shell",
+            "d=$(tmux display -p '#{pane_current_path}'); "
+            "s=$(tmux display -p '#{session_name}'); "
+            f"tmux list-windows -t \"$s\" | grep -q '^{i}:' && "
+            f"tmux select-window -t \"$s\":{i} || "
+            f"tmux new-window -t \"$s\":{i} -n T{i} -c \"$d\""
         ])
-    subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", f"{SESSION}:20"])
-    subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", f"{SESSION}:21"])
-    subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", f"{SESSION}:22"])
-    subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", f"{SESSION}:23"])
-    subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", f"{SESSION}:24"])
-    subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", f"{SESSION}:25"])
-    subprocess.run(["tmux", "bind-key", "-n", "F8", "select-window", "-t", f"{SESSION}:26"])
+    subprocess.run(["tmux", "bind-key", "-n", "F2", "select-window", "-t", ":20"])
+    subprocess.run(["tmux", "bind-key", "-n", "F3", "select-window", "-t", ":21"])
+    subprocess.run(["tmux", "bind-key", "-n", "F4", "select-window", "-t", ":22"])
+    subprocess.run(["tmux", "bind-key", "-n", "F5", "select-window", "-t", ":23"])
+    subprocess.run(["tmux", "bind-key", "-n", "F6", "select-window", "-t", ":24"])
+    subprocess.run(["tmux", "bind-key", "-n", "F7", "select-window", "-t", ":25"])
+    subprocess.run(["tmux", "bind-key", "-n", "F8", "select-window", "-t", ":26"])
 
     # F9 = Config
-    subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", f"{SESSION}:27"])
+    subprocess.run(["tmux", "bind-key", "-n", "F9", "select-window", "-t", ":27"])
 
     # F10 = Exit (kill session) with confirmation
+    # Use #{client_session} for dynamic session detection (works across multiple sessions)
     subprocess.run([
         "tmux", "bind-key", "-n", "F10",
         "confirm-before", "-p", "Exit session? (y/n)",
-        f"kill-session -t {SESSION}"
+        "kill-session"  # Kills current session without needing -t
     ])
 
     # Ctrl+H = Show keyboard shortcuts help popup (generated from shortcuts.json)
@@ -317,18 +312,28 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "S-Left", "previous-window"])
     subprocess.run(["tmux", "bind-key", "-n", "S-Right", "next-window"])
 
+    # Ctrl+S = Session manager popup (switch or kill sessions)
+    subprocess.run([
+        "tmux", "bind-key", "-n", "C-s",
+        "display-popup", "-E", "-w", "70%", "-h", "50%",
+        f"uv run python3 '{SESSION_MANAGER_SCRIPT}'"
+    ])
+
 
     # Ctrl+T = Create new terminal with auto-name T2, T3, etc.
     # Increments @term_count and creates window after the last terminal (before apps at 20+)
-    # Also cd to start directory and apply theme colors
+    # Starts in current directory (captured before window creation) and applies theme colors
+    # Use #{session_name} for dynamic session reference
     subprocess.run([
         "tmux", "bind-key", "-n", "C-t",
         "run-shell",
-        f"tmux set-option -t {SESSION} @term_count $(($(tmux show-option -t {SESSION} -v @term_count) + 1)) && "
-        f"tmux new-window -t {SESSION} -n T$(tmux show-option -t {SESSION} -v @term_count) && "
-        f"tmux set-option -w window-style \"bg=$(tmux show-option -t {SESSION} -v @theme_bg),fg=$(tmux show-option -t {SESSION} -v @theme_fg)\" && "
-        f"tmux set-option -w window-active-style \"bg=$(tmux show-option -t {SESSION} -v @theme_bg),fg=$(tmux show-option -t {SESSION} -v @theme_fg)\" && "
-        f"tmux send-keys -t {SESSION} \" cd '$(tmux show-option -t {SESSION} -v @start_dir)' && clear\" Enter"
+        "s=$(tmux display -p '#{session_name}') && "
+        "current_dir=$(tmux display -p '#{pane_current_path}') && "
+        "tmux set-option -t \"$s\" @term_count $(($(tmux show-option -t \"$s\" -v @term_count) + 1)) && "
+        "tmux new-window -t \"$s\" -n T$(tmux show-option -t \"$s\" -v @term_count) -c \"$current_dir\" && "
+        "tmux set-option -w window-style \"bg=$(tmux show-option -t \"$s\" -v @theme_bg),fg=$(tmux show-option -t \"$s\" -v @theme_fg)\" && "
+        "tmux set-option -w window-active-style \"bg=$(tmux show-option -t \"$s\" -v @theme_bg),fg=$(tmux show-option -t \"$s\" -v @theme_fg)\" && "
+        "tmux send-keys \" clear\" Enter"
     ])
 
     # Ctrl+X = Close current terminal (only dynamic ones, windows 2-19)
@@ -352,23 +357,24 @@ def main():
     # F12 = Toggle key passthrough mode
     # When passthrough is ON: F-keys go to the app, status shows "PASSTHROUGH"
     # When passthrough is OFF: F-keys switch windows (normal mode)
+    # Use `:N` syntax for current session window selection (session-agnostic)
     toggle_cmd = (
-        f"if-shell -F '#{{@passthrough}}' "
-        f"'set-option -t {SESSION} @passthrough \"\" ; "
-        f"bind-key -n F1 select-window -t {SESSION}:1 ; "
-        f"bind-key -n F2 select-window -t {SESSION}:20 ; "
-        f"bind-key -n F3 select-window -t {SESSION}:21 ; "
-        f"bind-key -n F4 select-window -t {SESSION}:22 ; "
-        f"bind-key -n F5 select-window -t {SESSION}:23 ; "
-        f"bind-key -n F6 select-window -t {SESSION}:24 ; "
-        f"bind-key -n F7 select-window -t {SESSION}:25 ; "
-        f"bind-key -n F8 select-window -t {SESSION}:26 ; "
-        f"bind-key -n F9 select-window -t {SESSION}:27 ; "
-        f"bind-key -n F10 confirm-before -p \"Exit session? (y/n)\" \"kill-session -t {SESSION}\"' "
-        f"'set-option -t {SESSION} @passthrough \"PASSTHROUGH \" ; "
-        f"unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
-        f"unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
-        f"unbind-key -n F7 ; unbind-key -n F8 ; unbind-key -n F9 ; unbind-key -n F10'"
+        "if-shell -F '#{@passthrough}' "
+        "'set-option @passthrough \"\" ; "
+        "bind-key -n F1 select-window -t :1 ; "
+        "bind-key -n F2 select-window -t :20 ; "
+        "bind-key -n F3 select-window -t :21 ; "
+        "bind-key -n F4 select-window -t :22 ; "
+        "bind-key -n F5 select-window -t :23 ; "
+        "bind-key -n F6 select-window -t :24 ; "
+        "bind-key -n F7 select-window -t :25 ; "
+        "bind-key -n F8 select-window -t :26 ; "
+        "bind-key -n F9 select-window -t :27 ; "
+        "bind-key -n F10 confirm-before -p \"Exit session? (y/n)\" \"kill-session\"' "
+        "'set-option @passthrough \"PASSTHROUGH \" ; "
+        "unbind-key -n F1 ; unbind-key -n F2 ; unbind-key -n F3 ; "
+        "unbind-key -n F4 ; unbind-key -n F5 ; unbind-key -n F6 ; "
+        "unbind-key -n F7 ; unbind-key -n F8 ; unbind-key -n F9 ; unbind-key -n F10'"
     )
     subprocess.run(["tmux", "bind-key", "-n", "F12", toggle_cmd])
 
@@ -377,15 +383,17 @@ def main():
     # Clicking on window names (range=window|X) automatically selects the window
     # For user-defined ranges, we dispatch to the appropriate action
     # pathpopup opens a popup menu to select parent directory
+    # Use session-agnostic commands (no hardcoded session name)
     subprocess.run([
         "tmux", "bind-key", "-T", "root", "MouseUp1Status",
         "run-shell",
         "case '#{mouse_status_range}' in "
-        f"f10) tmux confirm-before -p 'Exit session? (y/n)' 'kill-session -t {SESSION}' ;; "
-        f"help) tmux send-keys -t {SESSION} C-h ;; "
-        f"f12) tmux send-keys -t {SESSION} F12 ;; "
+        f"session) tmux display-popup -E -w 70% -h 50% \"uv run python3 '{SESSION_MANAGER_SCRIPT}'\" ;; "
+        "f10) tmux confirm-before -p 'Exit session? (y/n)' 'kill-session' ;; "
+        "help) tmux send-keys C-h ;; "
+        "f12) tmux send-keys F12 ;; "
         f"pathpopup) tmux display-popup -E -w 60% -h 50% \"uv run python3 '{PATH_SEGMENTS_SCRIPT}' menu\" ;; "
-        f"gitwindow) tmux select-window -t {SESSION}:25 ;; "
+        "gitwindow) tmux select-window -t :25 ;; "
         "*) tmux select-window -t '#{mouse_window}' 2>/dev/null || true ;; "
         "esac"
     ])
@@ -394,12 +402,49 @@ def main():
     subprocess.run(["tmux", "select-window", "-t", f"{SESSION}:1"])
 
     # Register cleanup to kill session on exit
+    cleanup_done = False
+
     def cleanup():
+        nonlocal cleanup_done
+        if cleanup_done:
+            return
+        cleanup_done = True
+
+        # Check if session still exists before cleanup
+        result = subprocess.run(
+            ["tmux", "has-session", "-t", SESSION],
+            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL
+        )
+        if result.returncode != 0:
+            # Session already dead (e.g., killed via F10), nothing to do
+            # Key bindings are now session-agnostic, so they remain valid for other sessions
+            return
+
+        # Kill the session (bindings are session-agnostic and remain valid)
         subprocess.run(["tmux", "kill-session", "-t", SESSION], stderr=subprocess.DEVNULL)
 
+        # Only unbind keys if no other claude-ide sessions exist
+        result = subprocess.run(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            capture_output=True, text=True, stderr=subprocess.DEVNULL
+        )
+        remaining_sessions = [s for s in result.stdout.strip().split('\n') if s.startswith('claude-ide-')]
+        if not remaining_sessions:
+            # Last IDE session, unbind global keys
+            for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
+                        "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
+                        "C-t", "C-h", "C-x", "C-p", "C-s", "S-Left", "S-Right"]:
+                subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
+            subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
+
+    def signal_handler(signum, frame):
+        cleanup()
+        sys.exit(0)
+
     atexit.register(cleanup)
-    signal.signal(signal.SIGHUP, lambda *_: cleanup())
-    signal.signal(signal.SIGTERM, lambda *_: cleanup())
+    signal.signal(signal.SIGHUP, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Attach (using subprocess so we regain control after detach/exit)
     subprocess.run(["tmux", "attach-session", "-t", SESSION])
