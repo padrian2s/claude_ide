@@ -49,7 +49,7 @@ from textual.reactive import reactive
 from textual import work
 from rich.text import Text
 
-from config_panel import get_textual_theme, get_theme_colors
+from config_panel import get_textual_theme, get_theme_colors, get_footer_position, get_show_header
 
 # =============================================================================
 # Configuration and Data Structures
@@ -1274,6 +1274,7 @@ class LizardTUI(App):
         theme_colors = get_theme_colors()
         bg = theme_colors['bg']
         fg = theme_colors['fg']
+        footer_pos = get_footer_position()
         self.CSS = f"""
         Screen {{
             background: {bg};
@@ -1296,12 +1297,6 @@ class LizardTUI(App):
             border: none;
         }}
 
-        #shortcuts-bar {{
-            width: auto;
-            padding: 0 1;
-            text-opacity: 70%;
-            color: {fg};
-        }}
 
         #content-area {{
             height: 1fr;
@@ -1422,6 +1417,10 @@ class LizardTUI(App):
             background: {bg};
             color: {fg};
         }}
+
+        Footer {{
+            dock: {footer_pos};
+        }}
         """
         super().__init__()
         self.theme = get_textual_theme()
@@ -1429,7 +1428,8 @@ class LizardTUI(App):
         self._displayed_functions: list[FunctionMetrics] = []
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        if get_show_header():
+            yield Header(show_clock=True)
 
         with Vertical(id="main-container"):
             with Horizontal(id="toolbar"):
@@ -1438,7 +1438,6 @@ class LizardTUI(App):
                     value=self.initial_path,
                     id="path-input",
                 )
-                yield Label("r:Run  ^S:Settings  e:Export  ^O:Folders  ^F:Files  s:Sort  ?:Help  q:Quit", id="shortcuts-bar")
 
             with Horizontal(id="content-area"):
                 with Vertical(id="sidebar"):
@@ -1476,7 +1475,7 @@ class LizardTUI(App):
     def on_mount(self) -> None:
         """Initialize tables on mount."""
         self.title = "Lizard"
-        self.sub_title = "r:refresh ^S:settings e:export s:sort 1-5:tabs ?:help ^Q:quit"
+        self.sub_title = ""
 
         # Setup functions table
         func_table = self.query_one("#functions-table", DataTable)

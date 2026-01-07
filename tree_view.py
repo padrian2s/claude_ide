@@ -42,7 +42,7 @@ def save_session_paths(home_key: str, left_path: Path, right_path: Path):
 
 
 from textual.app import App, ComposeResult
-from textual.widgets import DirectoryTree, Static, Header, Markdown, ListView, ListItem, Label, ProgressBar, Input
+from textual.widgets import DirectoryTree, Static, Header, Footer, Markdown, ListView, ListItem, Label, ProgressBar, Input
 from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
@@ -52,7 +52,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.console import Group
 
-from config_panel import get_border_style, get_textual_theme, get_theme_colors
+from config_panel import get_border_style, get_textual_theme, get_theme_colors, get_footer_position, get_show_header
 
 
 def format_size(size: int) -> str:
@@ -534,15 +534,29 @@ class DualPanelScreen(ModalScreen):
             background: {bg};
             color: {fg};
         }}
+        /* Inactive panel cursor - dim gray highlight */
         ListItem.-highlight {{
-            background: {fg} !important;
-            color: {bg} !important;
+            background: #4a4a4a !important;
+            color: #a0a0a0 !important;
         }}
         ListItem.-highlight > Static {{
+            background: #4a4a4a !important;
+            color: #a0a0a0 !important;
+        }}
+        ListItem.-highlight #item-content {{
+            background: #4a4a4a !important;
+            color: #a0a0a0 !important;
+        }}
+        /* Active panel cursor - bright highlight (overrides above) */
+        ListView:focus ListItem.-highlight {{
             background: {fg} !important;
             color: {bg} !important;
         }}
-        ListItem.-highlight #item-content {{
+        ListView:focus ListItem.-highlight > Static {{
+            background: {fg} !important;
+            color: {bg} !important;
+        }}
+        ListView:focus ListItem.-highlight #item-content {{
             background: {fg} !important;
             color: {bg} !important;
         }}
@@ -1472,6 +1486,7 @@ class TreeViewApp(App):
         bg = theme_colors['bg']
         fg = theme_colors['fg']
         border_style = get_border_style()
+        footer_pos = get_footer_position()
         self.CSS = f"""
         Screen {{
             background: {bg};
@@ -1573,25 +1588,30 @@ class TreeViewApp(App):
         Horizontal {{
             background: {bg};
         }}
+        Footer {{
+            dock: {footer_pos};
+        }}
         """
         super().__init__()
         self.theme = get_textual_theme()
         self.start_path = start_path or Path.cwd()
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=False)
+        if get_show_header():
+            yield Header(show_clock=False)
         with Horizontal(id="main"):
             with Vertical(id="tree-panel"):
                 yield SizedDirectoryTree(self.start_path, id="tree")
             with Vertical(id="viewer-panel"):
                 yield FileViewer()
+        yield Footer()
 
     def on_mount(self):
         tree = self.query_one("#tree", SizedDirectoryTree)
         tree.focus()
         self.query_one(FileViewer).clear()
         self.title = "Tree + Viewer"
-        self.sub_title = "^F:find /:grep m:manager o:open w:wide f:fullscreen []:resize g:jump q:quit"
+        self.sub_title = ""
         # Set initial panel widths
         self._update_panel_widths()
 

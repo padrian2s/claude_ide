@@ -5,7 +5,7 @@
   },
   "/Users/adrian/personal/claude_ide": {
     "left": "/Users/adrian/personal/claude_ide",
-    "right": "/Users/adrian"
+    "right": "/Users/adrian/personal/claude_ide"
   },
   "/Users/adrian/personal/claude_ide/recordings": {
     "left": "/Users/adrian/personal/claude_ide/recordings",
@@ -25,6 +25,10 @@
   },
   "/Users/adrian/personal/beetracker": {
     "left": "/Users/adrian/personal/procese-tehnologice-site/public/img/apicultura",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/personal/claude_ide/.serena": {
+    "left": "/Users/adrian/personal/claude_ide/__pycache__",
     "right": "/Users/adrian"
   }
 }

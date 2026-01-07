@@ -11,7 +11,7 @@ from textual.widgets import Header, Footer, ListView, ListItem, Static, Label, I
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 
-from config_panel import get_textual_theme
+from config_panel import get_textual_theme, get_footer_position, get_show_header
 
 CONFIG_FILE = Path(__file__).parent / ".tui_favorites.json"
 DEPS_FILE = Path(__file__).parent / ".tui_dependencies.json"
@@ -490,68 +490,6 @@ class FolderItem(ListItem):
 class FavoritesPanel(App):
     """Favorites browser with clipboard copy."""
 
-    CSS = """
-    Screen {
-        background: $surface;
-    }
-    #main {
-        height: 1fr;
-    }
-    #left-panel {
-        width: 50%;
-        height: 100%;
-    }
-    #right-panel {
-        width: 50%;
-        height: 100%;
-    }
-    .panel-title {
-        height: 1;
-        background: $primary;
-        text-align: center;
-        text-style: bold;
-    }
-    #folder-list {
-        height: 1fr;
-        border: solid $secondary;
-    }
-    #folder-list:focus {
-        border: solid $success;
-    }
-    #fav-list {
-        height: 1fr;
-        border: solid $secondary;
-    }
-    #fav-list:focus {
-        border: solid $warning;
-    }
-    #search-box {
-        height: 1;
-        display: none;
-        background: $boost;
-    }
-    #search-box.visible {
-        display: block;
-    }
-    #search-input {
-        width: 100%;
-    }
-    #info {
-        height: 3;
-        padding: 1;
-        background: $primary-background;
-    }
-    ListItem {
-        padding: 0 1;
-    }
-    ListItem:hover {
-        background: $accent;
-    }
-    ListView:focus > ListItem.--highlight {
-        background: $accent;
-    }
-    """
-
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("f", "add_favorite", "Add ★"),
@@ -568,6 +506,72 @@ class FavoritesPanel(App):
     ]
 
     def __init__(self):
+        # Build CSS with footer position before super().__init__()
+        footer_pos = get_footer_position()
+        self.CSS = f"""
+        Screen {{
+            background: $surface;
+        }}
+        #main {{
+            height: 1fr;
+        }}
+        #left-panel {{
+            width: 50%;
+            height: 100%;
+        }}
+        #right-panel {{
+            width: 50%;
+            height: 100%;
+        }}
+        .panel-title {{
+            height: 1;
+            background: $primary;
+            text-align: center;
+            text-style: bold;
+        }}
+        #folder-list {{
+            height: 1fr;
+            border: solid $secondary;
+        }}
+        #folder-list:focus {{
+            border: solid $success;
+        }}
+        #fav-list {{
+            height: 1fr;
+            border: solid $secondary;
+        }}
+        #fav-list:focus {{
+            border: solid $warning;
+        }}
+        #search-box {{
+            height: 1;
+            display: none;
+            background: $boost;
+        }}
+        #search-box.visible {{
+            display: block;
+        }}
+        #search-input {{
+            width: 100%;
+        }}
+        #info {{
+            height: 3;
+            padding: 1;
+            background: $primary-background;
+        }}
+        ListItem {{
+            padding: 0 1;
+        }}
+        ListItem:hover {{
+            background: $accent;
+        }}
+        ListView:focus > ListItem.--highlight {{
+            background: $accent;
+        }}
+        Footer {{
+            dock: {footer_pos};
+        }}
+        """
         super().__init__()
         self.theme = get_textual_theme()
         self.favorites = load_favorites()
@@ -576,7 +580,8 @@ class FavoritesPanel(App):
         self.search_active = False
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=False)
+        if get_show_header():
+            yield Header(show_clock=False)
         yield Input(placeholder="Type to filter...", id="search-input")
         with Horizontal(id="main"):
             with Vertical(id="left-panel"):
@@ -590,7 +595,7 @@ class FavoritesPanel(App):
 
     def on_mount(self):
         self.title = "Favorites"
-        self.sub_title = "/:search  f:★  Space:copy  d:deps  c:chain  s:send→F1  a:admin  q:quit"
+        self.sub_title = ""
         self.query_one("#search-input", Input).display = False
         self.refresh_lists()
         self.query_one("#folder-list", ListView).focus()

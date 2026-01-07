@@ -16,7 +16,7 @@ from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static, ProgressBar
 from textual.timer import Timer
 
-from config_panel import get_textual_theme
+from config_panel import get_textual_theme, get_footer_position, get_show_header
 
 # Token pricing (USD per 1M tokens) - Claude Opus 4.5
 PRICING = {
@@ -57,82 +57,6 @@ class MetricBox(Static):
 class StatusViewer(App):
     """Status viewer application."""
 
-    CSS = """
-    Screen {
-        background: $surface;
-    }
-
-    #main-container {
-        padding: 0 2;
-    }
-
-    .section-title {
-        text-style: bold;
-        color: $primary;
-        height: 1;
-        margin-top: 1;
-    }
-
-    .metrics-row {
-        height: auto;
-        layout: grid;
-        grid-size: 4;
-        grid-columns: 1fr 1fr 1fr 1fr;
-    }
-
-    MetricBox {
-        height: 1;
-        padding: 0;
-    }
-
-    #session-info {
-        height: auto;
-        margin-top: 1;
-    }
-
-    #session-info Static {
-        height: 1;
-    }
-
-    #last-update {
-        dock: bottom;
-        height: 1;
-        color: $text-muted;
-        text-align: right;
-        padding-right: 2;
-    }
-
-    #context-section {
-        height: auto;
-        margin-top: 1;
-    }
-
-    #context-label {
-        height: 1;
-    }
-
-    #context-bar {
-        height: 1;
-        width: 100%;
-    }
-
-    #context-bar > .bar--bar {
-        color: $success;
-    }
-
-    #context-bar > .bar--complete {
-        color: $warning;
-    }
-
-    .context-warning #context-bar > .bar--bar {
-        color: $warning;
-    }
-
-    .context-critical #context-bar > .bar--bar {
-        color: $error;
-    }
-    """
-
     BINDINGS = [
         ("r", "refresh", "Refresh"),
         ("s", "serena", "Serena"),
@@ -143,13 +67,95 @@ class StatusViewer(App):
     session_data = reactive({})
 
     def __init__(self, project_path: str = None):
+        # Build CSS with footer position before super().__init__()
+        footer_pos = get_footer_position()
+        self.CSS = f"""
+        Screen {{
+            background: $surface;
+        }}
+
+        #main-container {{
+            padding: 0 2;
+        }}
+
+        .section-title {{
+            text-style: bold;
+            color: $primary;
+            height: 1;
+            margin-top: 1;
+        }}
+
+        .metrics-row {{
+            height: auto;
+            layout: grid;
+            grid-size: 4;
+            grid-columns: 1fr 1fr 1fr 1fr;
+        }}
+
+        MetricBox {{
+            height: 1;
+            padding: 0;
+        }}
+
+        #session-info {{
+            height: auto;
+            margin-top: 1;
+        }}
+
+        #session-info Static {{
+            height: 1;
+        }}
+
+        #last-update {{
+            dock: bottom;
+            height: 1;
+            color: $text-muted;
+            text-align: right;
+            padding-right: 2;
+        }}
+
+        #context-section {{
+            height: auto;
+            margin-top: 1;
+        }}
+
+        #context-label {{
+            height: 1;
+        }}
+
+        #context-bar {{
+            height: 1;
+            width: 100%;
+        }}
+
+        #context-bar > .bar--bar {{
+            color: $success;
+        }}
+
+        #context-bar > .bar--complete {{
+            color: $warning;
+        }}
+
+        .context-warning #context-bar > .bar--bar {{
+            color: $warning;
+        }}
+
+        .context-critical #context-bar > .bar--bar {{
+            color: $error;
+        }}
+
+        Footer {{
+            dock: {footer_pos};
+        }}
+        """
         super().__init__()
         self.theme = get_textual_theme()
         self.project_path = project_path or os.getcwd()
         self._timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        if get_show_header():
+            yield Header(show_clock=True)
         with Container(id="main-container"):
             yield Static("TOKEN USAGE", classes="section-title")
             with Horizontal(classes="metrics-row"):

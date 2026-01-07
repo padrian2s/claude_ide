@@ -19,7 +19,7 @@ from textual import work, on
 from textual.worker import Worker, WorkerState
 from textual.message import Message
 
-from config_panel import get_textual_theme
+from config_panel import get_textual_theme, get_footer_position, get_show_header
 
 # Optional: Anthropic API for AI enhancement
 try:
@@ -930,39 +930,6 @@ class ClaudePromptsDialog(ModalScreen[str | None]):
 class PromptWriter(App):
     """Full-screen prompt writing application."""
 
-    CSS = """
-    Screen {
-        background: $surface;
-        layers: base autocomplete;
-    }
-    #editor-container {
-        height: 1fr;
-        padding: 0 1;
-        layer: base;
-    }
-    #main-editor {
-        height: 100%;
-    }
-    #status-bar {
-        height: 1;
-        background: $primary;
-        color: $text;
-        padding: 0 1;
-    }
-    #status-left {
-        width: 1fr;
-    }
-    #status-right {
-        width: auto;
-    }
-    #autocomplete {
-        layer: autocomplete;
-        width: auto;
-        min-width: 25;
-        max-width: 40;
-    }
-    """
-
     BINDINGS = [
         Binding("ctrl+q", "quit_app", "Quit", priority=True),
         Binding("ctrl+s", "save", "Save", priority=True),
@@ -978,6 +945,43 @@ class PromptWriter(App):
     ]
 
     def __init__(self):
+        # Build CSS with footer position before super().__init__()
+        footer_pos = get_footer_position()
+        self.CSS = f"""
+        Screen {{
+            background: $surface;
+            layers: base autocomplete;
+        }}
+        #editor-container {{
+            height: 1fr;
+            padding: 0 1;
+            layer: base;
+        }}
+        #main-editor {{
+            height: 100%;
+        }}
+        #status-bar {{
+            height: 1;
+            background: $primary;
+            color: $text;
+            padding: 0 1;
+        }}
+        #status-left {{
+            width: 1fr;
+        }}
+        #status-right {{
+            width: auto;
+        }}
+        #autocomplete {{
+            layer: autocomplete;
+            width: auto;
+            min-width: 25;
+            max-width: 40;
+        }}
+        Footer {{
+            dock: {footer_pos};
+        }}
+        """
         super().__init__()
         self.theme = get_textual_theme()
         self.filename: str | None = None
@@ -988,7 +992,8 @@ class PromptWriter(App):
         self.all_words: set[str] = set(CORPUS_WORDS)
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        if get_show_header():
+            yield Header(show_clock=True)
         with Container(id="editor-container"):
             yield AutocompleteTextArea(id="main-editor", language="markdown", show_line_numbers=True)
             yield AutocompleteDropdown(id="autocomplete")
