@@ -30,5 +30,13 @@
   "/Users/adrian/personal/claude_ide/.serena": {
     "left": "/Users/adrian/personal/claude_ide/__pycache__",
     "right": "/Users/adrian"
+  },
+  "/Users/adrian/personal/claude-ide-site": {
+    "left": "/Users/adrian/personal/claude-ide-site",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/work/sujay_sale": {
+    "left": "/Users/adrian/work/sujay_sale",
+    "right": "/Users/adrian"
   }
 }

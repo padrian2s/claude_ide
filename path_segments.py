@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -106,23 +107,59 @@ def get_dirs_sorted(path: str, sort_by: str = "name") -> list[tuple[str, str]]:
 
     return [(d['name'], d['path']) for d in dirs]
 
-def show_path_menu():
-    """Show popup menu with directory browser."""
-    current = get_pane_path()
-    if not current:
-        return
 
-    # Start from parent of current directory
-    browse_path = str(Path(current).parent)
+def _change_dir_and_reload(path: str):
+    """Change the IDE's working directory without restarting.
+    
+    This will:
+    1. Update @start_dir tmux variable
+    2. Exit Claude with /exit
+    3. cd to new directory and restart Claude
+    """
+    # Get current session name
+    result = subprocess.run(
+        ["tmux", "display-message", "-p", "#{session_name}"],
+        capture_output=True, text=True
+    )
+    session = result.stdout.strip()
+    
+    # Update @start_dir for the session
+    subprocess.run(["tmux", "set-option", "-t", session, "@start_dir", path])
+    
+    # Send /exit to Claude
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{session}:1",
+        "/exit", "Enter"
+    ])
+    
+    # After delay (3s for Claude to exit), cd to new path and restart Claude
+    subprocess.run([
+        "tmux", "run-shell", "-b",
+        f"sleep 3 && tmux send-keys -t {session}:1 \" cd '{path}' && clear && claude\" Enter"
+    ])
+
+def show_path_menu():
+    """Show popup menu with directory browser.
+    
+    Modes:
+    - send: Send the full path to the terminal (default)
+    - cd: Change directory and reload Claude
+    """
+    # Start from parent of tmux home directory (@start_dir) to show sibling dirs
+    project_path = get_project_path()
+    if not project_path:
+        project_path = os.path.expanduser("~")
+    browse_path = str(Path(project_path).parent)
+
     home = os.path.expanduser("~")
 
-    # Create a temp script for fzf to call for reloading with different sorts
-    # We'll use fzf's preview and reload capabilities
-    script_path = Path(__file__).resolve()
-
-    sort_mode = "name"
+    sort_modes = ["name", "modified", "created", "accessed"]
+    sort_idx = 0
+    action_mode = "send"  # "send" = send path, "cd" = change directory
 
     while True:
+        sort_mode = sort_modes[sort_idx]
+        
         # Get directories
         dirs = get_dirs_sorted(browse_path, sort_mode)
 
@@ -147,7 +184,10 @@ def show_path_menu():
 
         # Show current path in header, controls at bottom
         display_path = browse_path.replace(home, "~") if browse_path.startswith(home) else browse_path
-        bottom_label = f" [n]ame [m]odified [c]reated [a]ccessed | sort: {sort_mode} "
+        
+        # Mode indicator
+        mode_indicator = "[SEND PATH]" if action_mode == "send" else "[CD+RELOAD]"
+        bottom_label = f" [t]oggle:{mode_indicator} | ^S:sort({sort_mode}) "
 
         fzf_input = "\n".join(lines)
 
@@ -161,7 +201,7 @@ def show_path_menu():
                 "--border-label", bottom_label,
                 "--border-label-pos=bottom",
                 "--prompt=select> ",
-                "--expect=n,m,c,a,left,right,enter",
+                "--expect=t,ctrl-s,left,right,enter",
                 "--no-sort",  # We handle sorting ourselves
             ],
             input=fzf_input,
@@ -180,18 +220,14 @@ def show_path_menu():
         key = output_lines[0]
         selected = output_lines[1] if len(output_lines) > 1 else ""
 
-        # Handle sort key changes
-        if key == "n":
-            sort_mode = "name"
+        # Handle key presses
+        if key == "ctrl-s":
+            # Cycle through sort modes
+            sort_idx = (sort_idx + 1) % len(sort_modes)
             continue
-        elif key == "m":
-            sort_mode = "modified"
-            continue
-        elif key == "c":
-            sort_mode = "created"
-            continue
-        elif key == "a":
-            sort_mode = "accessed"
+        elif key == "t":
+            # Toggle action mode
+            action_mode = "cd" if action_mode == "send" else "send"
             continue
         elif key == "left":
             # Go up one level
@@ -221,8 +257,13 @@ def show_path_menu():
                     browse_path = selected_path
                 continue
             else:
-                # Enter = select and paste path
-                subprocess.run(["tmux", "send-keys", selected_path])
+                # Enter = select and perform action based on mode
+                if action_mode == "send":
+                    # Send path to terminal
+                    subprocess.run(["tmux", "send-keys", "-t", ":1", selected_path])
+                else:
+                    # CD mode: change directory and reload Claude
+                    _change_dir_and_reload(selected_path)
                 return
         elif key == "":
             # Plain enter without expect key
@@ -235,7 +276,10 @@ def show_path_menu():
             dir_name = selected.split()[0] if selected else ""
             if dir_name:
                 selected_path = str(Path(browse_path) / dir_name)
-                subprocess.run(["tmux", "send-keys", selected_path])
+                if action_mode == "send":
+                    subprocess.run(["tmux", "send-keys", "-t", ":1", selected_path])
+                else:
+                    _change_dir_and_reload(selected_path)
             return
 
 def format_status():
