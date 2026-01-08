@@ -405,6 +405,7 @@ class QuickInputApp(App):
         Binding("ctrl+l", "hist_next", "^L", priority=True),
         Binding("tab", "complete", "Tab", priority=True),
         Binding("ctrl+s", "send", "Send", priority=True),
+        Binding("ctrl+y", "copy", "Copy", priority=True),
         Binding("ctrl+g", "enhance", "AI", priority=True),
         Binding("escape", "quit", "Quit", priority=True),
     ]
@@ -470,7 +471,7 @@ class QuickInputApp(App):
     def compose(self) -> ComposeResult:
         yield TextArea(id="input", soft_wrap=True)
         yield Static("", id="autocomplete")
-        yield Static("^O/^L:Hist  Tab:Complete  ^S:Send  ^G:AI  Esc:Quit", id="status")
+        yield Static("^O/^L:Hist  Tab:Complete  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit", id="status")
 
     def on_mount(self):
         self.history = load_claude_history(get_current_project())
@@ -612,9 +613,9 @@ class QuickInputApp(App):
     def _update_status(self):
         s = self.query_one("#status", Static)
         if self.hist_idx >= 0:
-            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ^O/^L:Hist  ^S:Send  ^G:AI")
+            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ^O/^L:Hist  ^S:Send  ^Y:Copy  ^G:AI")
         else:
-            s.update("^O/^L:Hist  Tab:Complete  ^S:Send  ^G:AI  Esc:Quit")
+            s.update("^O/^L:Hist  Tab:Complete  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit")
 
     def action_quit(self):
         self.exit()
@@ -627,6 +628,16 @@ class QuickInputApp(App):
         subprocess.run(["tmux", "send-keys", "-t", ":1", "-l", text], capture_output=True)
         subprocess.run(["tmux", "send-keys", "-t", ":1", "Enter"], capture_output=True)
         self.exit()
+
+    def action_copy(self):
+        text = self.query_one("#input", TextArea).text.strip()
+        if not text:
+            return
+        try:
+            subprocess.run(["pbcopy"], input=text.encode(), check=True)
+            self.notify("Copied to clipboard")
+        except Exception:
+            self.notify("Copy failed")
 
     def action_enhance(self):
         if not HAS_ANTHROPIC or not os.environ.get("ANTHROPIC_API_KEY"):

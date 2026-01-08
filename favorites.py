@@ -144,13 +144,33 @@ class RootItem(ListItem):
 
 
 class ConfirmDialog(ModalScreen):
-    """Simple confirmation dialog."""
+    """Simple confirmation dialog - sqlit style."""
 
     CSS = """
-    ConfirmDialog { align: center middle; }
-    #confirm-dialog { width: 40; height: 7; border: solid $error; background: $surface; padding: 1; }
-    #confirm-title { text-align: center; text-style: bold; }
-    #confirm-help { text-align: center; color: $text-muted; }
+    ConfirmDialog {
+        align: center middle;
+        background: transparent;
+    }
+    #confirm-dialog {
+        width: 50;
+        height: auto;
+        border: round $error;
+        background: $background;
+        padding: 1 2;
+
+        border-title-align: left;
+        border-title-color: $error;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
+    }
+    #confirm-message {
+        text-align: center;
+        margin: 1 0;
+    }
     """
 
     BINDINGS = [("escape", "cancel", "No"), ("y", "confirm", "Yes"), ("n", "cancel", "No")]
@@ -161,9 +181,11 @@ class ConfirmDialog(ModalScreen):
         self.message = message
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="confirm-dialog"):
-            yield Label(f"{self.title_text}: {self.message}", id="confirm-title")
-            yield Label("y:Yes  n:No", id="confirm-help")
+        dialog = Vertical(id="confirm-dialog")
+        dialog.border_title = self.title_text
+        dialog.border_subtitle = "y:Yes · n:No · Esc:Cancel"
+        with dialog:
+            yield Label(self.message, id="confirm-message")
 
     def action_confirm(self):
         self.dismiss(True)
@@ -173,37 +195,46 @@ class ConfirmDialog(ModalScreen):
 
 
 class AdminScreen(ModalScreen):
-    """Admin screen to manage root folders."""
+    """Admin screen to manage root folders - sqlit style."""
 
     CSS = """
+    * {
+        scrollbar-size: 1 1;
+    }
     AdminScreen {
         align: center middle;
+        background: transparent;
     }
     #admin-dialog {
         width: 70;
-        height: 20;
-        border: solid $success;
-        background: $surface;
+        height: 22;
+        border: round $primary;
+        background: $background;
         padding: 1;
-    }
-    #admin-title {
-        text-align: center;
-        text-style: bold;
-        height: 1;
-        margin-bottom: 1;
+
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
     }
     #roots-list {
         height: 1fr;
-        border: solid $secondary;
+        border: round $border;
+        background: $background;
+    }
+    #roots-list:focus {
+        border: round $primary;
     }
     #admin-input {
         margin-top: 1;
+        border: round $border;
     }
-    #admin-help {
-        height: 1;
-        margin-top: 1;
-        text-align: center;
-        color: $text-muted;
+    #admin-input:focus {
+        border: round $primary;
     }
     """
 
@@ -218,11 +249,12 @@ class AdminScreen(ModalScreen):
         self.roots = roots
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="admin-dialog"):
-            yield Label("⚙ Root Folders", id="admin-title")
+        dialog = Vertical(id="admin-dialog")
+        dialog.border_title = "Root Folders"
+        dialog.border_subtitle = "Enter:Add · d:Delete · Esc:Close"
+        with dialog:
             yield ListView(id="roots-list")
             yield Input(placeholder="Add folder path (e.g. ~/projects)", id="admin-input")
-            yield Label("Enter:add  d:delete  Esc:close", id="admin-help")
 
     def on_mount(self):
         self.refresh_roots()
@@ -271,24 +303,31 @@ class DepItem(ListItem):
 
 
 class DependencyScreen(ModalScreen):
-    """Screen to manage dependency chain for a project."""
+    """Screen to manage dependency chain for a project - sqlit style."""
 
     CSS = """
+    * {
+        scrollbar-size: 1 1;
+    }
     DependencyScreen {
         align: center middle;
+        background: transparent;
     }
     #dep-dialog {
         width: 90%;
         height: 90%;
-        border: solid $primary;
-        background: $surface;
+        border: round $primary;
+        background: $background;
         padding: 1;
-    }
-    #dep-title {
-        text-align: center;
-        text-style: bold;
-        height: 1;
-        margin-bottom: 1;
+
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
     }
     #dep-project {
         text-align: center;
@@ -299,26 +338,28 @@ class DependencyScreen(ModalScreen):
     #dep-container {
         height: 10;
     }
-    #available-list {
+    .list-panel {
         width: 50%;
         height: 100%;
-        border: solid $secondary;
+        border: round $border;
+        background: $background;
+        margin: 0 1;
+
+        border-title-align: left;
+        border-title-color: $text-muted;
+        border-title-background: $background;
     }
-    #available-list:focus {
-        border: solid $success;
+    .list-panel:focus-within {
+        border: round $primary;
+        border-title-color: $primary;
+    }
+    #available-list {
+        height: 1fr;
+        background: $background;
     }
     #chain-list {
-        width: 50%;
-        height: 100%;
-        border: solid $secondary;
-    }
-    #chain-list:focus {
-        border: solid $warning;
-    }
-    .list-title {
-        height: 1;
-        text-align: center;
-        background: $primary;
+        height: 1fr;
+        background: $background;
     }
     #instructions-label {
         height: 1;
@@ -327,16 +368,25 @@ class DependencyScreen(ModalScreen):
     }
     #instructions {
         height: 1fr;
-        border: solid $secondary;
+        border: round $border;
+        background: $background;
     }
     #instructions:focus {
-        border: solid magenta;
+        border: round $primary;
     }
     #dep-help {
         height: 1;
         margin-top: 1;
-        text-align: center;
+        background: $surface;
         color: $text-muted;
+        text-align: center;
+        padding: 0 1;
+    }
+    ListView {
+        background: $background;
+    }
+    ListItem.-highlight {
+        background: $primary 30%;
     }
     """
 
@@ -357,19 +407,22 @@ class DependencyScreen(ModalScreen):
         self.chain, self.instructions = get_project_deps(project_path)
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="dep-dialog"):
-            yield Label("🔗 Dependency Chain", id="dep-title")
+        dialog = Vertical(id="dep-dialog")
+        dialog.border_title = "Dependency Chain"
+        dialog.border_subtitle = "a:Add · x:Remove · ↑↓:Reorder · c:Copy · Esc:Save"
+        with dialog:
             yield Label(f"Project: {Path(self.project_path).name}", id="dep-project")
             with Horizontal(id="dep-container"):
-                with Vertical():
-                    yield Label(" ★ Favorites ", classes="list-title")
+                fav_panel = Vertical(classes="list-panel")
+                fav_panel.border_title = "★ Favorites"
+                with fav_panel:
                     yield ListView(id="available-list")
-                with Vertical():
-                    yield Label(" → Chain ", classes="list-title")
+                chain_panel = Vertical(classes="list-panel")
+                chain_panel.border_title = "→ Chain"
+                with chain_panel:
                     yield ListView(id="chain-list")
             yield Label("📝 Instructions (copied with chain):", id="instructions-label")
             yield TextArea(self.instructions, id="instructions")
-            yield Label("a:add  x:remove  ↑↓:reorder  c:copy all  Tab:switch  Esc:save & close", id="dep-help")
 
     def on_mount(self):
         self.refresh_lists()
@@ -510,63 +563,64 @@ class FavoritesPanel(App):
         footer_pos = get_footer_position()
         self.CSS = f"""
         Screen {{
-            background: $surface;
+            background: $background;
+        }}
+        * {{
+            scrollbar-size: 1 1;
         }}
         #main {{
             height: 1fr;
+            padding: 1;
         }}
-        #left-panel {{
+        .panel {{
             width: 50%;
             height: 100%;
+            border: round $border;
+            background: $background;
+            margin: 0 1;
+
+            border-title-align: left;
+            border-title-color: $text-muted;
+            border-title-background: $background;
         }}
-        #right-panel {{
-            width: 50%;
-            height: 100%;
-        }}
-        .panel-title {{
-            height: 1;
-            background: $primary;
-            text-align: center;
-            text-style: bold;
+        .panel:focus-within {{
+            border: round $primary;
+            border-title-color: $primary;
         }}
         #folder-list {{
             height: 1fr;
-            border: solid $secondary;
-        }}
-        #folder-list:focus {{
-            border: solid $success;
+            background: $background;
         }}
         #fav-list {{
             height: 1fr;
-            border: solid $secondary;
-        }}
-        #fav-list:focus {{
-            border: solid $warning;
-        }}
-        #search-box {{
-            height: 1;
-            display: none;
-            background: $boost;
-        }}
-        #search-box.visible {{
-            display: block;
+            background: $background;
         }}
         #search-input {{
-            width: 100%;
+            display: none;
+            border: round $border;
+            margin: 1;
+        }}
+        #search-input.visible {{
+            display: block;
+        }}
+        #search-input:focus {{
+            border: round $primary;
         }}
         #info {{
-            height: 3;
-            padding: 1;
-            background: $primary-background;
+            height: 1;
+            padding: 0 2;
+            background: $surface;
+            color: $text-muted;
         }}
         ListItem {{
             padding: 0 1;
+            background: $background;
         }}
-        ListItem:hover {{
-            background: $accent;
+        ListItem.-highlight {{
+            background: $primary 30%;
         }}
-        ListView:focus > ListItem.--highlight {{
-            background: $accent;
+        ListView {{
+            background: $background;
         }}
         Footer {{
             dock: {footer_pos};
@@ -584,11 +638,13 @@ class FavoritesPanel(App):
             yield Header(show_clock=False)
         yield Input(placeholder="Type to filter...", id="search-input")
         with Horizontal(id="main"):
-            with Vertical(id="left-panel"):
-                yield Label(" All Folders ", classes="panel-title")
+            left_panel = Vertical(id="left-panel", classes="panel")
+            left_panel.border_title = "All Folders"
+            with left_panel:
                 yield ListView(id="folder-list")
-            with Vertical(id="right-panel"):
-                yield Label(" ★ Favorites ", classes="panel-title")
+            right_panel = Vertical(id="right-panel", classes="panel")
+            right_panel.border_title = "★ Favorites"
+            with right_panel:
                 yield ListView(id="fav-list")
         yield Static("", id="info")
         yield Footer()
@@ -596,7 +652,6 @@ class FavoritesPanel(App):
     def on_mount(self):
         self.title = "Favorites"
         self.sub_title = ""
-        self.query_one("#search-input", Input).display = False
         self.refresh_lists()
         self.query_one("#folder-list", ListView).focus()
 
@@ -732,7 +787,7 @@ class FavoritesPanel(App):
         """Start search mode."""
         self.search_active = True
         search_input = self.query_one("#search-input", Input)
-        search_input.display = True
+        search_input.add_class("visible")
         search_input.value = ""
         search_input.focus()
 
@@ -741,7 +796,7 @@ class FavoritesPanel(App):
         if self.search_active:
             self.search_active = False
             search_input = self.query_one("#search-input", Input)
-            search_input.display = False
+            search_input.remove_class("visible")
             search_input.value = ""
             self.refresh_lists()
             self.query_one("#folder-list", ListView).focus()
@@ -755,7 +810,7 @@ class FavoritesPanel(App):
         """Select first match and close search."""
         self.search_active = False
         search_input = self.query_one("#search-input", Input)
-        search_input.display = False
+        search_input.remove_class("visible")
         folder_list = self.query_one("#folder-list", ListView)
         folder_list.focus()
 
