@@ -642,16 +642,29 @@ class QuickInputApp(App):
     def _do_enhance(self, text: str):
         try:
             client = anthropic.Anthropic()
-            r = client.messages.create(
-                model="claude-sonnet-4-20250514", max_tokens=1024,
+            accumulated = ""
+            with client.messages.stream(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
                 messages=[{"role": "user", "content": ENHANCE_PROMPTS["medium"].format(text=text)}]
-            )
-            self.call_from_thread(self._set_text, r.content[0].text.strip())
+            ) as stream:
+                for chunk in stream.text_stream:
+                    accumulated += chunk
+                    self.call_from_thread(self._set_text, accumulated)
+            # Move cursor to end when done
+            self.call_from_thread(self._move_cursor_end)
         except Exception as e:
             self.call_from_thread(self.notify, str(e)[:40])
 
     def _set_text(self, text: str):
         self.query_one("#input", TextArea).text = text
+
+    def _move_cursor_end(self):
+        ta = self.query_one("#input", TextArea)
+        lines = ta.text.split("\n")
+        last_line = len(lines) - 1
+        last_col = len(lines[-1]) if lines else 0
+        ta.cursor_location = (last_line, last_col)
 
 
 def main():
