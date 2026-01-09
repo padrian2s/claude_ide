@@ -312,10 +312,10 @@ def main():
     subprocess.run(["tmux", "bind-key", "-n", "S-Left", "previous-window"])
     subprocess.run(["tmux", "bind-key", "-n", "S-Right", "next-window"])
 
-    # Ctrl+S = Session manager popup (switch or kill sessions)
+    # Ctrl+S = Session manager popup (switch or kill sessions) - fullscreen
     subprocess.run([
         "tmux", "bind-key", "-n", "C-s",
-        "display-popup", "-E", "-w", "70%", "-h", "50%",
+        "display-popup", "-E", "-w", "100%", "-h", "100%",
         f"uv run python3 '{SESSION_MANAGER_SCRIPT}'"
     ])
 
@@ -388,7 +388,7 @@ def main():
         "tmux", "bind-key", "-T", "root", "MouseUp1Status",
         "run-shell",
         "case '#{mouse_status_range}' in "
-        f"session) tmux display-popup -E -w 70% -h 50% \"uv run python3 '{SESSION_MANAGER_SCRIPT}'\" ;; "
+        f"session) tmux display-popup -E -w 100% -h 100% \"uv run python3 '{SESSION_MANAGER_SCRIPT}'\" ;; "
         "f10) tmux confirm-before -p 'Exit session? (y/n)' 'kill-session' ;; "
         "help) tmux send-keys C-h ;; "
         "f12) tmux send-keys F12 ;; "

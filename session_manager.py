@@ -82,7 +82,11 @@ def main():
     # Header with instructions
     header = "Enter=Switch | Ctrl-D=Kill | Esc=Cancel"
 
-    # Run fzf with kill binding
+    # Preview command: capture active pane content from session
+    preview_cmd = """sess=$(echo {} | grep -o 'claude-ide-[0-9]*'); \
+tmux capture-pane -t "$sess" -p 2>/dev/null"""
+
+    # Run fzf with kill binding and preview (fullscreen)
     fzf_input = '\n'.join(lines)
     result = subprocess.run(
         [
@@ -92,9 +96,11 @@ def main():
             "--expect", "ctrl-d",
             "--no-multi",
             "--reverse",
-            "--height", "50%",
+            "--height", "100%",
             "--border",
             "--prompt", "Session> ",
+            "--preview", preview_cmd,
+            "--preview-window", "right:70%",
         ],
         input=fzf_input,
         capture_output=True,

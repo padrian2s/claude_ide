@@ -1634,8 +1634,17 @@ class TreeViewApp(App):
     def action_fzf_files(self):
         """Fuzzy find files with fzf."""
         with self.suspend():
+            # Use fd if available (faster), strip "./" prefix, pass to fzf
+            # Use --hidden to include hidden files, exclude common dirs
+            # Fall back to find if fd not available
+            fd_check = subprocess.run(["which", "fd"], capture_output=True)
+            if fd_check.returncode == 0:
+                cmd = "fd --type f --hidden -E .git -E .venv -E .env -E .serena -E node_modules -E __pycache__ -E .mypy_cache . 2>/dev/null | sed 's|^\\./||' | fzf --preview 'head -100 {}'"
+            else:
+                cmd = "find . -type f 2>/dev/null | sed 's|^\\./||' | fzf --preview 'head -100 {}'"
             result = subprocess.run(
-                ["fzf", "--preview", "head -100 {}"],
+                cmd,
+                shell=True,
                 capture_output=True,
                 text=True
             )
@@ -1688,8 +1697,9 @@ class TreeViewApp(App):
         with self.suspend():
             # rg outputs: file:line:content
             # fzf preview shows context around the match
+            # Use sed to strip "./" prefix from file paths
             result = subprocess.run(
-                'rg -n --color=always "" . 2>/dev/null | fzf --ansi --preview "echo {} | cut -d: -f1 | xargs head -100"',
+                'rg -n --color=always "" . 2>/dev/null | sed "s|^\\./||" | fzf --ansi --preview "echo {} | cut -d: -f1 | xargs head -100"',
                 shell=True,
                 capture_output=True,
                 text=True
