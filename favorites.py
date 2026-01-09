@@ -183,7 +183,7 @@ class ConfirmDialog(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="confirm-dialog")
         dialog.border_title = self.title_text
-        dialog.border_subtitle = "y:Yes · n:No · Esc:Cancel"
+        dialog.border_subtitle = ""
         with dialog:
             yield Label(self.message, id="confirm-message")
 
@@ -203,6 +203,7 @@ class AdminScreen(ModalScreen):
     }
     AdminScreen {
         align: center middle;
+        background: transparent;
     }
     #admin-dialog {
         width: 60;
@@ -248,7 +249,7 @@ class AdminScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="admin-dialog")
         dialog.border_title = "Root Folders"
-        dialog.border_subtitle = "Esc:Close"
+        dialog.border_subtitle = ""
         with dialog:
             yield ListView(id="roots-list")
             yield Input(placeholder="Enter path, press Enter to add", id="admin-input")
@@ -309,6 +310,7 @@ class DependencyScreen(ModalScreen):
     }
     DependencyScreen {
         align: center middle;
+        background: transparent;
     }
     #dep-dialog {
         width: 70;
@@ -392,7 +394,7 @@ class DependencyScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="dep-dialog")
         dialog.border_title = "Dependency Chain"
-        dialog.border_subtitle = "Tab:Switch · Esc:Save"
+        dialog.border_subtitle = ""
         with dialog:
             yield Label(f"Project: {Path(self.project_path).name}", id="dep-project")
             with Horizontal(id="dep-container"):

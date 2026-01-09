@@ -130,6 +130,7 @@ class EnhanceDialog(ModalScreen[str | None]):
         self.CSS = f"""
         EnhanceDialog {{
             align: center middle;
+            background: transparent;
         }}
         #enhance-dialog {{
             width: 42;
@@ -149,15 +150,18 @@ class EnhanceDialog(ModalScreen[str | None]):
         RadioSet {{
             width: 100%;
             padding: 0;
+            height: auto;
             background: {bg};
             color: {fg};
         }}
         RadioButton {{
+            height: 1;
             background: {bg};
             color: {fg};
         }}
         #enhance-buttons {{
             align: center middle;
+            height: auto;
             padding-top: 1;
             background: {bg};
         }}
@@ -311,8 +315,8 @@ class PreviewDialog(ModalScreen[bool]):
                 yield Static(self.preview_text, id="preview-area")
             yield Label("Streaming..." if self.streaming else "Review the enhanced prompt", id="preview-status")
             with Horizontal(id="preview-buttons"):
-                yield Button("Accept (Y)", variant="success", id="btn-accept")
-                yield Button("Reject (N)", variant="error", id="btn-reject")
+                yield Button("Accept", variant="success", id="btn-accept")
+                yield Button("Reject", variant="error", id="btn-reject")
 
     def update_text(self, text: str) -> None:
         self.preview_text = text
