@@ -651,9 +651,9 @@ class QuickInputApp(App):
             try:
                 fd_proc = subprocess.run(["which", "fd"], capture_output=True)
                 if fd_proc.returncode == 0:
-                    cmd = "fd --type f --type d . 2>/dev/null | fzf"
+                    cmd = "fd --type f --type d -E .git -E .venv -E .env -E .serena -E node_modules -E __pycache__ -E .mypy_cache . 2>/dev/null | sort | fzf"
                 else:
-                    cmd = "find . \\( -type f -o -type d \\) 2>/dev/null | fzf"
+                    cmd = "find . \\( -name .git -o -name .venv -o -name .env -o -name .serena -o -name node_modules -o -name __pycache__ -o -name .mypy_cache \\) -prune -o \\( -type f -o -type d \\) -print 2>/dev/null | sort | fzf"
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
                 selected = result.stdout.strip()
             except Exception:
