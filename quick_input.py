@@ -130,34 +130,38 @@ class EnhanceDialog(ModalScreen[str | None]):
         self.CSS = f"""
         EnhanceDialog {{
             align: center middle;
+            background: transparent;
         }}
         #enhance-dialog {{
-            width: 50;
+            width: 42;
             height: auto;
             border: solid {fg};
             background: {bg};
             color: {fg};
-            padding: 1 2;
+            padding: 1;
         }}
         #enhance-title {{
             text-align: center;
             text-style: bold;
-            padding: 1;
+            padding: 0 0 1 0;
             background: {bg};
             color: {fg};
         }}
         RadioSet {{
             width: 100%;
-            padding: 1;
+            padding: 0;
+            height: auto;
             background: {bg};
             color: {fg};
         }}
         RadioButton {{
+            height: 1;
             background: {bg};
             color: {fg};
         }}
         #enhance-buttons {{
             align: center middle;
+            height: auto;
             padding-top: 1;
             background: {bg};
         }}
@@ -181,13 +185,13 @@ class EnhanceDialog(ModalScreen[str | None]):
         with Vertical(id="enhance-dialog"):
             yield Label("AI Enhancement Level", id="enhance-title")
             with RadioSet(id="level-select"):
-                yield RadioButton("1: Little - Fix typos only", id="little", value=True)
-                yield RadioButton("2: Medium - Improve clarity", id="medium")
+                yield RadioButton("1: Little - Fix typos", id="little", value=True)
+                yield RadioButton("2: Medium - Clarity", id="medium")
                 yield RadioButton("3: Deep - Restructure", id="deep")
-                yield RadioButton("4: Aggressive - Full rewrite", id="aggressive")
+                yield RadioButton("4: Aggressive - Rewrite", id="aggressive")
             with Horizontal(id="enhance-buttons"):
-                yield Button("Enhance", variant="primary", id="btn-enhance")
-                yield Button("Cancel", variant="default", id="btn-cancel")
+                yield Button("OK", variant="primary", id="btn-enhance")
+                yield Button("Cancel", id="btn-cancel")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-enhance":
@@ -311,8 +315,8 @@ class PreviewDialog(ModalScreen[bool]):
                 yield Static(self.preview_text, id="preview-area")
             yield Label("Streaming..." if self.streaming else "Review the enhanced prompt", id="preview-status")
             with Horizontal(id="preview-buttons"):
-                yield Button("Accept (Y)", variant="success", id="btn-accept")
-                yield Button("Reject (N)", variant="error", id="btn-reject")
+                yield Button("Accept", variant="success", id="btn-accept")
+                yield Button("Reject", variant="error", id="btn-reject")
 
     def update_text(self, text: str) -> None:
         self.preview_text = text

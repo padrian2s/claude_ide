@@ -183,7 +183,7 @@ class ConfirmDialog(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="confirm-dialog")
         dialog.border_title = self.title_text
-        dialog.border_subtitle = "y:Yes · n:No · Esc:Cancel"
+        dialog.border_subtitle = ""
         with dialog:
             yield Label(self.message, id="confirm-message")
 
@@ -206,8 +206,8 @@ class AdminScreen(ModalScreen):
         background: transparent;
     }
     #admin-dialog {
-        width: 70;
-        height: 22;
+        width: 60;
+        height: 16;
         border: round $primary;
         background: $background;
         padding: 1;
@@ -240,8 +240,6 @@ class AdminScreen(ModalScreen):
 
     BINDINGS = [
         ("escape", "close", "Close"),
-        ("d", "delete_root", "Delete"),
-        ("enter", "add_root", "Add"),
     ]
 
     def __init__(self, roots: list[Path]):
@@ -251,13 +249,14 @@ class AdminScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="admin-dialog")
         dialog.border_title = "Root Folders"
-        dialog.border_subtitle = "Enter:Add · d:Delete · Esc:Close"
+        dialog.border_subtitle = ""
         with dialog:
             yield ListView(id="roots-list")
-            yield Input(placeholder="Add folder path (e.g. ~/projects)", id="admin-input")
+            yield Input(placeholder="Enter path, press Enter to add", id="admin-input")
 
     def on_mount(self):
         self.refresh_roots()
+        self.query_one("#admin-input", Input).focus()
 
     def refresh_roots(self):
         roots_list = self.query_one("#roots-list", ListView)
@@ -268,23 +267,23 @@ class AdminScreen(ModalScreen):
     def action_close(self):
         self.dismiss(self.roots)
 
-    def action_delete_root(self):
-        roots_list = self.query_one("#roots-list", ListView)
-        if roots_list.highlighted_child and isinstance(roots_list.highlighted_child, RootItem):
-            path = roots_list.highlighted_child.path
-            if path in self.roots:
-                self.roots.remove(path)
-                self.refresh_roots()
-
-    def action_add_root(self):
-        input_widget = self.query_one("#admin-input", Input)
-        path_str = input_widget.value.strip()
+    def on_input_submitted(self, event: Input.Submitted):
+        """Handle Enter key in input to add root."""
+        path_str = event.value.strip()
         if path_str:
             path = Path(path_str).expanduser()
             if path not in self.roots:
                 self.roots.append(path)
                 self.refresh_roots()
-            input_widget.value = ""
+            event.input.value = ""
+
+    def on_list_view_selected(self, event: ListView.Selected):
+        """Handle Enter on list item to delete."""
+        if isinstance(event.item, RootItem):
+            path = event.item.path
+            if path in self.roots:
+                self.roots.remove(path)
+                self.refresh_roots()
 
 
 class DepItem(ListItem):
@@ -314,8 +313,8 @@ class DependencyScreen(ModalScreen):
         background: transparent;
     }
     #dep-dialog {
-        width: 90%;
-        height: 90%;
+        width: 70;
+        height: 20;
         border: round $primary;
         background: $background;
         padding: 1;
@@ -333,10 +332,9 @@ class DependencyScreen(ModalScreen):
         text-align: center;
         color: $text-muted;
         height: 1;
-        margin-bottom: 1;
     }
     #dep-container {
-        height: 10;
+        height: 1fr;
     }
     .list-panel {
         width: 50%;
@@ -367,20 +365,12 @@ class DependencyScreen(ModalScreen):
         text-style: bold;
     }
     #instructions {
-        height: 1fr;
+        height: 3;
         border: round $border;
         background: $background;
     }
     #instructions:focus {
         border: round $primary;
-    }
-    #dep-help {
-        height: 1;
-        margin-top: 1;
-        background: $surface;
-        color: $text-muted;
-        text-align: center;
-        padding: 0 1;
     }
     ListView {
         background: $background;
@@ -392,12 +382,7 @@ class DependencyScreen(ModalScreen):
 
     BINDINGS = [
         ("escape", "close", "Close"),
-        ("a", "add_dep", "Add →"),
-        ("x", "remove_dep", "Remove"),
-        ("up", "move_up", "Move ↑"),
-        ("down", "move_down", "Move ↓"),
         ("tab", "toggle_focus", "Switch"),
-        ("c", "copy_chain", "Copy All"),
     ]
 
     def __init__(self, project_path: str, favorites: set):
@@ -409,19 +394,19 @@ class DependencyScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="dep-dialog")
         dialog.border_title = "Dependency Chain"
-        dialog.border_subtitle = "a:Add · x:Remove · ↑↓:Reorder · c:Copy · Esc:Save"
+        dialog.border_subtitle = ""
         with dialog:
             yield Label(f"Project: {Path(self.project_path).name}", id="dep-project")
             with Horizontal(id="dep-container"):
                 fav_panel = Vertical(classes="list-panel")
-                fav_panel.border_title = "★ Favorites"
+                fav_panel.border_title = "★ Favorites (Enter:Add)"
                 with fav_panel:
                     yield ListView(id="available-list")
                 chain_panel = Vertical(classes="list-panel")
-                chain_panel.border_title = "→ Chain"
+                chain_panel.border_title = "→ Chain (Enter:Remove)"
                 with chain_panel:
                     yield ListView(id="chain-list")
-            yield Label("📝 Instructions (copied with chain):", id="instructions-label")
+            yield Label("📝 Instructions:", id="instructions-label")
             yield TextArea(self.instructions, id="instructions")
 
     def on_mount(self):
@@ -457,62 +442,23 @@ class DependencyScreen(ModalScreen):
         else:
             avail.focus()
 
-    def action_add_dep(self):
+    def on_list_view_selected(self, event: ListView.Selected):
+        """Handle Enter key on list items."""
         avail = self.query_one("#available-list", ListView)
-        if avail.has_focus and avail.highlighted_child:
-            item = avail.highlighted_child
+        chain = self.query_one("#chain-list", ListView)
+        
+        if event.list_view == avail:
+            # Add to chain
+            item = event.item
             if hasattr(item, 'fav_path'):
                 self.chain.append(item.fav_path)
                 self.refresh_lists()
-
-    def action_remove_dep(self):
-        chain = self.query_one("#chain-list", ListView)
-        if chain.has_focus and chain.highlighted_child:
-            item = chain.highlighted_child
+        elif event.list_view == chain:
+            # Remove from chain
+            item = event.item
             if isinstance(item, DepItem) and item.dep_path in self.chain:
                 self.chain.remove(item.dep_path)
                 self.refresh_lists()
-
-    def action_move_up(self):
-        chain = self.query_one("#chain-list", ListView)
-        if chain.has_focus and chain.highlighted_child:
-            item = chain.highlighted_child
-            if isinstance(item, DepItem) and item.index > 0:
-                idx = item.index
-                self.chain[idx], self.chain[idx - 1] = self.chain[idx - 1], self.chain[idx]
-                self.refresh_lists()
-                chain.index = idx - 1
-
-    def action_move_down(self):
-        chain = self.query_one("#chain-list", ListView)
-        if chain.has_focus and chain.highlighted_child:
-            item = chain.highlighted_child
-            if isinstance(item, DepItem) and item.index < len(self.chain) - 1:
-                idx = item.index
-                self.chain[idx], self.chain[idx + 1] = self.chain[idx + 1], self.chain[idx]
-                self.refresh_lists()
-                chain.index = idx + 1
-
-    def action_copy_chain(self):
-        """Copy instructions + paths to clipboard."""
-        instructions_text = self.query_one("#instructions", TextArea).text.strip()
-        parts = []
-
-        # Add custom instructions first
-        if instructions_text:
-            parts.append(instructions_text)
-
-        # Add paths
-        if self.chain:
-            paths_section = "\n".join(f"- {dep}" for dep in self.chain)
-            parts.append(paths_section)
-
-        if parts:
-            full_text = "\n\n".join(parts)
-            copy_to_clipboard(full_text)
-            self.notify(f"Copied: instructions + {len(self.chain)} paths")
-        else:
-            self.notify("Nothing to copy", severity="warning")
 
     def action_close(self):
         instructions_text = self.query_one("#instructions", TextArea).text

@@ -51,14 +51,33 @@ BORDER_STYLES = [
 ]
 
 
+# Default icon mappings for status bar (window index -> icon)
+# Window 1 is Term1, Windows 20-27 are apps
+DEFAULT_WINDOW_ICONS = {
+    "1": "❯",      # Terminal
+    "20": "📂",    # Tree (file manager)
+    "21": "🦎",    # Lizard
+    "22": "📖",    # Glow (markdown)
+    "23": "🔖",    # Favorites
+    "24": "💬",    # Prompt
+    "25": "⚡",    # Git (lazygit)
+    "26": "📈",    # Status
+    "27": "⚙",     # Config
+}
+
+
 def load_config() -> dict:
     """Load config from file."""
     if CONFIG_FILE.exists():
         try:
-            return json.loads(CONFIG_FILE.read_text())
+            config = json.loads(CONFIG_FILE.read_text())
+            # Ensure window_icons exists with defaults
+            if "window_icons" not in config:
+                config["window_icons"] = DEFAULT_WINDOW_ICONS.copy()
+            return config
         except Exception:
             pass
-    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True, "status_line": "off", "icon_mode": False}
+    return {"theme": "Gruvbox Dark", "status_position": "top", "border_style": "solid", "footer_position": "bottom", "show_header": True, "status_line": "off", "icon_mode": False, "window_icons": DEFAULT_WINDOW_ICONS.copy()}
 
 
 def save_config(config: dict):
@@ -213,19 +232,12 @@ def apply_status_line(position: str, status_content: str = None):
         subprocess.run(["tmux", "set-option", "-t", session, "status-format[2]", line_format])
 
 
-# Icon mappings for status bar (window index -> icon)
-# Window 1 is Term1, Windows 20-27 are apps
-WINDOW_ICONS = {
-    1: "⌨",      # Terminal
-    20: "📂",    # Tree (file manager)
-    21: "🦎",    # Lizard
-    22: "📖",    # Glow (markdown)
-    23: "🔖",    # Favorites
-    24: "💬",    # Prompt
-    25: "⚡",    # Git (lazygit)
-    26: "📈",    # Status
-    27: "⚙",     # Config
-}
+def get_window_icons() -> dict[int, str]:
+    """Get window icons from config file."""
+    config = load_config()
+    icons_str = config.get("window_icons", DEFAULT_WINDOW_ICONS)
+    # Convert string keys to int keys
+    return {int(k): v for k, v in icons_str.items()}
 
 # F-key to window index mapping
 FKEY_TO_WINDOW = {
@@ -258,6 +270,9 @@ def get_status_bar_format(icon_mode: bool, path_script: str, status_suffix: str)
     Returns:
         The complete status format string for tmux
     """
+    # Load icons from config
+    icons = get_window_icons()
+
     # Build the window format based on icon mode
     if icon_mode:
         # In icon mode, show F-key + icon for known windows, name for dynamic terminals
@@ -266,27 +281,27 @@ def get_status_bar_format(icon_mode: bool, path_script: str, status_suffix: str)
             "#[range=window|#{window_index}]"
             # Window 1 (F1:Term1 or F1:⌨)
             "#{?#{==:#{window_index},1},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F1:{WINDOW_ICONS[1]} #[default], F1:{WINDOW_ICONS[1]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F1:{icons.get(1, '❯')} #[default], F1:{icons.get(1, '❯')} }},"
             # Windows 2-19 (dynamic terminals - show name)
             "#{?#{e|<:#{window_index},20},"
             "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
             # Windows 20+ (apps - show F-key + icon)
             "#{?#{==:#{window_index},20},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F2:{WINDOW_ICONS[20]} #[default], F2:{WINDOW_ICONS[20]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F2:{icons.get(20, '📂')} #[default], F2:{icons.get(20, '📂')} }},"
             "#{?#{==:#{window_index},21},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F3:{WINDOW_ICONS[21]} #[default], F3:{WINDOW_ICONS[21]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F3:{icons.get(21, '🦎')} #[default], F3:{icons.get(21, '🦎')} }},"
             "#{?#{==:#{window_index},22},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F4:{WINDOW_ICONS[22]} #[default], F4:{WINDOW_ICONS[22]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F4:{icons.get(22, '📖')} #[default], F4:{icons.get(22, '📖')} }},"
             "#{?#{==:#{window_index},23},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F5:{WINDOW_ICONS[23]} #[default], F5:{WINDOW_ICONS[23]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F5:{icons.get(23, '🔖')} #[default], F5:{icons.get(23, '🔖')} }},"
             "#{?#{==:#{window_index},24},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F6:{WINDOW_ICONS[24]} #[default], F6:{WINDOW_ICONS[24]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F6:{icons.get(24, '💬')} #[default], F6:{icons.get(24, '💬')} }},"
             "#{?#{==:#{window_index},25},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F7:{WINDOW_ICONS[25]} #[default], F7:{WINDOW_ICONS[25]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F7:{icons.get(25, '⚡')} #[default], F7:{icons.get(25, '⚡')} }},"
             "#{?#{==:#{window_index},26},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F8:{WINDOW_ICONS[26]} #[default], F8:{WINDOW_ICONS[26]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F8:{icons.get(26, '📈')} #[default], F8:{icons.get(26, '📈')} }},"
             "#{?#{==:#{window_index},27},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F9:{WINDOW_ICONS[27]} #[default], F9:{WINDOW_ICONS[27]} }},"
+            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F9:{icons.get(27, '⚙')} #[default], F9:{icons.get(27, '⚙')} }},"
             # Unknown high windows - show index:name
             "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_index}:#{window_name} #[default], #{window_index}:#{window_name} }"
             "}}}}}}}}}}"

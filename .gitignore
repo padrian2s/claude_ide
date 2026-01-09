@@ -1,3 +1,9 @@
 .tui_config.json
 __pycache__/
 backups/*.bak
+
+# JetBrains IDEs (PyCharm, WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws

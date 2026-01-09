@@ -98,7 +98,7 @@ def main():
     subprocess.run([
         "tmux", "new-session", "-d", "-s", SESSION,
         "-x", str(size.columns), "-y", str(size.lines),
-        "-n", "Term1"
+        "-n", "❯"
     ])
     # Set base-index to 1 immediately
     subprocess.run(["tmux", "set-option", "-t", SESSION, "base-index", "1"])
