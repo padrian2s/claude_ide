@@ -404,6 +404,7 @@ class QuickInputApp(App):
         Binding("ctrl+o", "hist_prev", "^O", priority=True),
         Binding("ctrl+l", "hist_next", "^L", priority=True),
         Binding("tab", "complete", "Tab", priority=True),
+        Binding("ctrl+f", "fzf_path", "^F", priority=True),
         Binding("ctrl+s", "send", "Send", priority=True),
         Binding("ctrl+y", "copy", "Copy", priority=True),
         Binding("ctrl+g", "enhance", "AI", priority=True),
@@ -471,7 +472,7 @@ class QuickInputApp(App):
     def compose(self) -> ComposeResult:
         yield TextArea(id="input", soft_wrap=True)
         yield Static("", id="autocomplete")
-        yield Static("^O/^L:Hist  Tab:Complete  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit", id="status")
+        yield Static("^O/^L:Hist  Tab:Complete  ^F:Path  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit", id="status")
 
     def on_mount(self):
         self.history = load_claude_history(get_current_project())
@@ -613,9 +614,9 @@ class QuickInputApp(App):
     def _update_status(self):
         s = self.query_one("#status", Static)
         if self.hist_idx >= 0:
-            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ^O/^L:Hist  ^S:Send  ^Y:Copy  ^G:AI")
+            s.update(f"[{len(self.history)-self.hist_idx}/{len(self.history)}] ^O/^L:Hist  ^F:Path  ^S:Send  ^Y:Copy  ^G:AI")
         else:
-            s.update("^O/^L:Hist  Tab:Complete  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit")
+            s.update("^O/^L:Hist  Tab:Complete  ^F:Path  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit")
 
     def action_quit(self):
         self.exit()
@@ -638,6 +639,35 @@ class QuickInputApp(App):
             self.notify("Copied to clipboard")
         except Exception:
             self.notify("Copy failed")
+
+    def action_fzf_path(self):
+        """Fuzzy find files/directories and insert at cursor."""
+        with self.suspend():
+            # Try fd first (faster), fall back to find
+            try:
+                fd_proc = subprocess.run(["which", "fd"], capture_output=True)
+                if fd_proc.returncode == 0:
+                    cmd = "fd --type f --type d . 2>/dev/null | fzf"
+                else:
+                    cmd = "find . \\( -type f -o -type d \\) 2>/dev/null | fzf"
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                selected = result.stdout.strip()
+            except Exception:
+                selected = ""
+        
+        if selected:
+            ta = self.query_one("#input", TextArea)
+            row, col = ta.cursor_location
+            lines = ta.text.split("\n")
+            if row < len(lines):
+                line = lines[row]
+                lines[row] = line[:col] + selected + line[col:]
+            else:
+                lines.append(selected)
+            ta.text = "\n".join(lines)
+            # Move cursor after inserted text
+            new_col = col + len(selected)
+            ta.cursor_location = (row, new_col)
 
     def action_enhance(self):
         if not HAS_ANTHROPIC or not os.environ.get("ANTHROPIC_API_KEY"):
