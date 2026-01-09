@@ -495,13 +495,33 @@ def import_claude_prompts() -> tuple[int, int, list[str]]:
 
 
 class ConfirmDialog(ModalScreen):
-    """Simple confirmation dialog."""
+    """Simple confirmation dialog - sqlit style."""
 
     CSS = """
-    ConfirmDialog { align: center middle; }
-    #confirm-dialog { width: 40; height: 7; border: solid $error; background: $surface; padding: 1; }
-    #confirm-title { text-align: center; text-style: bold; }
-    #confirm-help { text-align: center; color: $text-muted; }
+    ConfirmDialog {
+        align: center middle;
+        background: transparent;
+    }
+    #confirm-dialog {
+        width: 50;
+        height: auto;
+        border: round $error;
+        background: $background;
+        padding: 1 2;
+
+        border-title-align: left;
+        border-title-color: $error;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
+    }
+    #confirm-message {
+        text-align: center;
+        margin: 1 0;
+    }
     """
 
     BINDINGS = [("escape", "cancel", "No"), ("y", "confirm", "Yes"), ("n", "cancel", "No")]
@@ -512,9 +532,11 @@ class ConfirmDialog(ModalScreen):
         self.message = message
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="confirm-dialog"):
-            yield Label(f"{self.title_text}: {self.message}", id="confirm-title")
-            yield Label("y:Yes  n:No", id="confirm-help")
+        dialog = Vertical(id="confirm-dialog")
+        dialog.border_title = self.title_text
+        dialog.border_subtitle = "y:Yes · n:No · Esc:Cancel"
+        with dialog:
+            yield Label(self.message, id="confirm-message")
 
     def action_confirm(self):
         self.dismiss(True)
@@ -538,38 +560,45 @@ class ScreenItem(ListItem):
 
 
 class ScreenSelectorDialog(ModalScreen):
-    """Dialog to select which screen to customize."""
+    """Dialog to select which screen to customize - sqlit style."""
 
     CSS = """
     ScreenSelectorDialog {
         align: center middle;
+        background: transparent;
     }
     #screen-selector-dialog {
         width: 60;
         height: auto;
         max-height: 80%;
-        border: solid $primary;
-        background: $surface;
+        border: round $primary;
+        background: $background;
         padding: 1 2;
-    }
-    #screen-selector-title {
-        text-align: center;
-        text-style: bold;
-        padding-bottom: 1;
+
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
     }
     #screen-list {
         height: auto;
         max-height: 60%;
-        border: solid $primary-darken-2;
+        border: round $border;
+        background: $background;
         padding: 0;
+    }
+    #screen-list:focus {
+        border: round $primary;
     }
     #screen-list > ListItem {
         padding: 0;
     }
-    #screen-help {
-        text-align: center;
-        color: $text-muted;
-        padding-top: 1;
+    ListItem.-highlight {
+        background: $primary 30%;
     }
     """
 
@@ -579,8 +608,10 @@ class ScreenSelectorDialog(ModalScreen):
     ]
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="screen-selector-dialog"):
-            yield Label("Select Screen to Customize", id="screen-selector-title")
+        dialog = Vertical(id="screen-selector-dialog")
+        dialog.border_title = "Select Screen to Customize"
+        dialog.border_subtitle = "Enter:Select · Esc:Cancel"
+        with dialog:
             yield ListView(
                 *[
                     ScreenItem(name, cfg["script"], cfg["description"])
@@ -588,7 +619,6 @@ class ScreenSelectorDialog(ModalScreen):
                 ],
                 id="screen-list",
             )
-            yield Label("Enter: Select  |  Esc: Cancel", id="screen-help")
 
     def on_mount(self):
         self.query_one("#screen-list", ListView).focus()
@@ -610,24 +640,29 @@ class ScreenSelectorDialog(ModalScreen):
 
 
 class PromptInputDialog(ModalScreen):
-    """Dialog to enter customization prompt."""
+    """Dialog to enter customization prompt - sqlit style."""
 
     CSS = """
     PromptInputDialog {
         align: center middle;
+        background: transparent;
     }
     #prompt-dialog {
         width: 80%;
         height: auto;
         max-height: 80%;
-        border: solid $primary;
-        background: $surface;
+        border: round $primary;
+        background: $background;
         padding: 1 2;
-    }
-    #prompt-title {
-        text-align: center;
-        text-style: bold;
-        padding-bottom: 1;
+
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
     }
     #prompt-screen-info {
         color: $text-muted;
@@ -635,14 +670,13 @@ class PromptInputDialog(ModalScreen):
     }
     #prompt-input {
         height: 10;
-        border: solid $primary-darken-2;
+        border: round $border;
+        background: $background;
+    }
+    #prompt-input:focus {
+        border: round $primary;
     }
     #prompt-examples {
-        color: $text-muted;
-        padding-top: 1;
-    }
-    #prompt-help {
-        text-align: center;
         color: $text-muted;
         padding-top: 1;
     }
@@ -659,8 +693,10 @@ class PromptInputDialog(ModalScreen):
         self.screen_config = SCREEN_CONFIGS.get(screen_name, {})
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="prompt-dialog"):
-            yield Label("Describe Your Changes", id="prompt-title")
+        dialog = Vertical(id="prompt-dialog")
+        dialog.border_title = "Describe Your Changes"
+        dialog.border_subtitle = "Ctrl+S:Submit · Esc:Cancel"
+        with dialog:
             yield Label(
                 f"Screen: {self.screen_name} ({self.screen_config.get('script', '')})",
                 id="prompt-screen-info",
@@ -673,7 +709,6 @@ class PromptInputDialog(ModalScreen):
                 "  - Make the font larger and use cyan for highlights[/dim]",
                 id="prompt-examples",
             )
-            yield Label("Ctrl+S: Submit  |  Esc: Cancel", id="prompt-help")
 
     def on_mount(self):
         self.query_one("#prompt-input", TextArea).focus()
@@ -691,41 +726,45 @@ class PromptInputDialog(ModalScreen):
 
 
 class PreviewDiffDialog(ModalScreen):
-    """Dialog to preview diff and approve/reject changes."""
+    """Dialog to preview diff and approve/reject changes - sqlit style."""
 
     CSS = """
     PreviewDiffDialog {
         align: center middle;
+        background: transparent;
     }
     #preview-dialog {
         width: 90%;
         height: 90%;
-        border: solid $primary;
-        background: $surface;
+        border: round $primary;
+        background: $background;
         padding: 1 2;
-    }
-    #preview-title {
-        text-align: center;
-        text-style: bold;
-        padding-bottom: 1;
+
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-background: $background;
+        border-title-style: bold;
+
+        border-subtitle-align: right;
+        border-subtitle-color: $text-muted;
+        border-subtitle-background: $background;
     }
     #preview-status {
         padding-bottom: 1;
     }
     #diff-scroll {
         height: 1fr;
-        border: solid $primary-darken-2;
+        border: round $border;
+        background: $background;
+    }
+    #diff-scroll:focus {
+        border: round $primary;
     }
     #diff-content {
         padding: 1;
     }
     #preview-warnings {
         color: $warning;
-        padding-top: 1;
-    }
-    #preview-help {
-        text-align: center;
-        color: $text-muted;
         padding-top: 1;
     }
     """
@@ -759,8 +798,10 @@ class PreviewDiffDialog(ModalScreen):
         status_color = "green" if self.syntax_ok else "red"
         status_text = f"[{status_color}]{self.syntax_msg}[/{status_color}]"
 
-        with Vertical(id="preview-dialog"):
-            yield Label(f"Preview Changes: {self.screen_name}", id="preview-title")
+        dialog = Vertical(id="preview-dialog")
+        dialog.border_title = f"Preview: {self.screen_name}"
+        dialog.border_subtitle = "a:Apply · e:Edit · Esc:Cancel"
+        with dialog:
             yield Label(f"Status: {status_text}", id="preview-status")
             with VerticalScroll(id="diff-scroll"):
                 # Show diff as plain text (no markup to avoid escape issues)
@@ -770,10 +811,6 @@ class PreviewDiffDialog(ModalScreen):
                     "[bold]Warnings:[/bold]\n" + "\n".join(f"  - {w}" for w in self.warnings),
                     id="preview-warnings",
                 )
-            yield Label(
-                "a: Apply Changes  |  e: Edit Prompt  |  Esc: Cancel",
-                id="preview-help",
-            )
 
     def _format_diff(self, diff_text: str) -> str:
         """Format diff with colors for display."""
@@ -810,23 +847,24 @@ class PreviewDiffDialog(ModalScreen):
 
 
 class LoadingDialog(ModalScreen):
-    """Dialog showing AI generation progress with animated spinner."""
+    """Dialog showing AI generation progress with animated spinner - sqlit style."""
 
     CSS = """
     LoadingDialog {
         align: center middle;
+        background: transparent;
     }
     #loading-dialog {
         width: 60;
-        height: 12;
-        border: solid $primary;
-        background: $surface;
+        height: auto;
+        border: round $primary;
+        background: $background;
         padding: 1 2;
-    }
-    #loading-title {
-        text-align: center;
-        text-style: bold;
-        padding-bottom: 1;
+
+        border-title-align: left;
+        border-title-color: $primary;
+        border-title-background: $background;
+        border-title-style: bold;
     }
     #loading-spinner {
         text-align: center;
@@ -865,8 +903,9 @@ class LoadingDialog(ModalScreen):
         self._timer = None
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="loading-dialog"):
-            yield Label("AI Code Generation", id="loading-title")
+        dialog = Vertical(id="loading-dialog")
+        dialog.border_title = "AI Code Generation"
+        with dialog:
             yield Label(self.SPINNER_FRAMES[0], id="loading-spinner")
             yield Label(f"Customizing: {self.screen_name}", id="loading-status")
             yield Label("[dim]This may take a few seconds...[/dim]", id="loading-hint")
@@ -962,35 +1001,52 @@ class ConfigPanel(App):
         # Build CSS with footer position before super().__init__()
         footer_pos = self.footer_position
         self.CSS = f"""
+        Screen {{
+            background: $background;
+        }}
+        * {{
+            scrollbar-size: 1 1;
+        }}
         #main {{
             width: 100%;
             height: 100%;
             padding: 1 2;
         }}
-        #title {{
-            text-align: center;
-            text-style: bold;
-            padding: 1;
+        #theme-list-panel {{
+            border: round $border;
+            background: $background;
+            margin-bottom: 1;
+            height: 1fr;
+
+            border-title-align: left;
+            border-title-color: $text-muted;
+            border-title-background: $background;
+        }}
+        #theme-list-panel:focus-within {{
+            border: round $primary;
+            border-title-color: $primary;
         }}
         ListView {{
-            height: auto;
-            max-height: 50%;
-            border: solid $primary;
+            width: 100%;
+            height: 100%;
+            background: $background;
             padding: 1;
         }}
         ListItem {{
+            width: 100%;
             padding: 0 1;
+            background: $background;
         }}
-        ListItem:hover {{
-            background: $surface-lighten-1;
+        ListItem Label {{
+            width: 100%;
         }}
-        ListView:focus > ListItem.--highlight {{
-            background: $primary;
+        ListItem.-highlight {{
+            background: $primary 30%;
         }}
         #version-info {{
             text-align: center;
             color: $text-muted;
-            padding: 0 1;
+            padding: 1;
         }}
         ToggleOption {{
             height: 1;
@@ -998,7 +1054,7 @@ class ConfigPanel(App):
             margin-top: 1;
         }}
         ToggleOption:hover {{
-            background: $surface-lighten-1;
+            background: $primary 20%;
         }}
         Footer {{
             dock: {footer_pos};
@@ -1017,14 +1073,16 @@ class ConfigPanel(App):
         if get_show_header():
             yield Header(show_clock=False)
         with Vertical(id="main"):
-            yield Static("Status Bar Theme", id="title")
-            yield ListView(
-                *[
-                    ThemeItem(name, theme_colors, name == self.selected_theme)
-                    for name, theme_colors in THEMES.items()
-                ],
-                id="theme-list"
-            )
+            theme_panel = Vertical(id="theme-list-panel")
+            theme_panel.border_title = "Status Bar Theme"
+            with theme_panel:
+                yield ListView(
+                    *[
+                        ThemeItem(name, theme_colors, name == self.selected_theme)
+                        for name, theme_colors in THEMES.items()
+                    ],
+                    id="theme-list"
+                )
             # Toggle options with shortcut keys
             pos_label = "TOP" if self.status_position == "top" else "BOTTOM"
             yield ToggleOption("Status Bar Position", pos_label, "p", "toggle_position", id="position-info")
