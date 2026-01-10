@@ -527,7 +527,7 @@ class QuickInputApp(App):
         yield TextArea(id="input", soft_wrap=True)
         yield Static("", id="autocomplete")
         lang_indicator = f"[{self.lang.upper()}]" if HAS_WORDFREQ else ""
-        yield Static(f"^O/^L:Hist  Tab:Complete  ^F:Path  ^E:Lang  ^J:AI+  ^S:Send  {lang_indicator}", id="status")
+        yield Static(f"^O/^L:Hist  Tab:Complete  ^F:Path  ^E:Lang  [green]^G:AI[/green]  ^J:AI+  ^S:Send  {lang_indicator}", id="status")
 
     def on_mount(self):
         self.history = load_claude_history(get_current_project())
@@ -671,7 +671,7 @@ class QuickInputApp(App):
         status = self.query_one("#status", Static)
         lang_indicator = f"[{self.lang.upper()}]" if HAS_WORDFREQ else ""
         ai_indicator = "[AI+]" if self.ai_complete_mode else ""
-        status.update(f"^O/^L:Hist  Tab:Complete  ^F:Path  ^E:Lang  ^J:AI+  ^S:Send  {ai_indicator}{lang_indicator}")
+        status.update(f"^O/^L:Hist  Tab:Complete  ^F:Path  ^E:Lang  [green]^G:AI[/green]  ^J:AI+  ^S:Send  {ai_indicator}{lang_indicator}")
 
     @work(exclusive=True, thread=True)
     def _fetch_ai_completion(self, text: str):
