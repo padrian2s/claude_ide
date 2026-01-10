@@ -11,10 +11,10 @@ tmux session "claude-ide-{pid}"
 ├── Window 1 (F1): Term1 - zsh shell
 ├── Window 2 (F2): Term2 - second zsh shell
 ├── Window 3 (F3): Tree + Viewer - Textual app (tree | viewer | file manager)
-├── Window 4 (F4): Lizard TUI - Python TUI app
-├── Window 5 (F5): Glow - Markdown viewer
-├── Window 6 (F6): Favs - Folder favorites browser
-├── Window 7 (F7): Prompt - Prompt writer (prompt-toolkit)
+├── Window 4 (F4): Glow - Markdown viewer
+├── Window 5 (F5): Workflow - Workflow chain orchestrator
+├── Window 6 (F6): Prompt - Prompt writer (prompt-toolkit)
+├── Window 7 (F7): Git - Lazygit interface
 ├── Window 8 (F8): Status - Session metrics viewer
 ├── Window 9 (F9): Config - Theme selector panel
 └── F10: Exit - kills session
@@ -89,8 +89,29 @@ AI-assisted code modification module:
 - `ScreenReloader`: Hot-reload screens via tmux (kills by PID, restarts app)
 - `get_window_index_by_name()`: Dynamic window detection by name (not hardcoded indices)
 
+### workflow_chain.py
+Workflow chain orchestrator for multi-project pipelines:
+- Visual workflow chain definition with node dependencies
+- Real-time execution monitoring with live output
+- tmux pane management for parallel execution
+- Progress tracking and status indicators
+- Favorites integration for project selection
+
+**Screens:**
+- **WorkflowListScreen**: Browse and manage saved workflows
+- **WorkflowEditorScreen**: Create/edit workflow chains with favorites
+- **ExecutionScreen**: Real-time execution monitoring with live output
+
+**Data Models** (`workflow_models.py`):
+- `WorkflowChain`: Complete workflow definition with nodes
+- `WorkflowNode`: Single step with project path, prompt, dependencies
+
+**Execution** (`workflow_executor.py`):
+- `TmuxExecutor`: Creates tmux windows for each node
+- `WorkflowOrchestrator`: Manages sequential/parallel execution
+
 ### favorites.py
-Folder favorites browser:
+Folder favorites browser (accessible from Workflow editor):
 - Two-panel layout (All Folders | Favorites)
 - Configurable root directories (Admin screen)
 - Search/filter with `/`
@@ -100,8 +121,8 @@ Folder favorites browser:
 ### Status Bar
 tmux status bar shows all windows:
 ```
- F1:Term1  F2:Term2  F3:Tree  F4:Lizard  F5:Glow  F6:Favs  F9:Config  F10:Exit  ^H:Help  F12:Keys
-                     ^^^^^^^ (current = cyan highlight)
+ F1:❯  F2:Tree  F3:Lizard  F4:Glow  F5:Workflow  F6:Prompt  F7:Git  F8:Status  F9:Config  F10:Exit
+                                    ^^^^^^^^^^^ (current = cyan highlight)
 ```
 
 ## Key Bindings
@@ -109,13 +130,13 @@ tmux status bar shows all windows:
 ### Global (tmux)
 | Key | Action |
 |-----|--------|
-| F1 | Terminal 1 |
-| F2 | Terminal 2 |
-| F3 | Tree + Viewer |
-| F4 | Lizard TUI |
-| F5 | Glow (Markdown viewer) |
-| F6 | Favorites (folder browser) |
-| F7 | Prompt Writer |
+| F1 | Terminal (Claude) |
+| F2 | Tree + Viewer |
+| F3 | Lizard TUI |
+| F4 | Glow (Markdown viewer) |
+| F5 | Workflow (chain orchestrator) |
+| F6 | Prompt Writer |
+| F7 | Git (lazygit) |
 | F8 | Status (session metrics) |
 | F9 | Config (theme selector) |
 | F10 | Exit (kill session) |
@@ -124,7 +145,7 @@ tmux status bar shows all windows:
 | Shift+Left | Previous window |
 | Shift+Right | Next window |
 
-### Tree View (F3) - MainScreen
+### Tree View (F2) - MainScreen
 | Key | Action |
 |-----|--------|
 | Up/Down | Navigate tree |
@@ -167,19 +188,35 @@ tmux status bar shows all windows:
 | Enter | Select and close |
 | Escape | Cancel |
 
-### Favorites (F6)
+### Workflow Chain (F5)
 | Key | Action |
 |-----|--------|
-| Up/Down | Navigate folders |
-| / | Filter folders (fzf-style) |
-| Escape | Cancel filter |
-| TAB | Switch left <-> right panel |
-| Enter | Add to favorites (left panel) |
-| Space | Copy path to clipboard |
-| x | Remove from favorites |
-| a | Admin (configure root folders) |
-| r | Refresh |
+| n | Create new workflow |
+| Enter | Run selected workflow |
+| e | Edit selected workflow |
+| d | Delete workflow |
+| c | Duplicate workflow |
+| m | Migrate from dependencies |
+| Tab | Switch panels |
+| ↑/↓ | Navigate list |
 | q | Quit |
+
+### Workflow Editor (e key in Workflow)
+| Key | Action |
+|-----|--------|
+| Ctrl+S | Save workflow |
+| Enter | Add favorite to chain / Remove node |
+| Tab | Switch panels (Favorites ↔ Chain) |
+| ↑/↓ | Navigate |
+| Escape | Cancel |
+
+### Workflow Execution Screen
+| Key | Action |
+|-----|--------|
+| s | Stop execution |
+| p | Pause/Resume |
+| f | Focus running node (tmux) |
+| Escape | Back to list |
 
 ### Screen Recorder (F8)
 | Key | Action |
@@ -335,6 +372,10 @@ my_env/
 ├── tree_view.py        # Tree+viewer+file manager app
 ├── config_panel.py     # Theme configuration panel + AI customization
 ├── ai_customizer.py    # AI-assisted code modification module
+├── workflow_chain.py   # Workflow chain orchestrator app
+├── workflow_models.py  # Data models for workflow chains
+├── workflow_storage.py # Persistence for workflow data
+├── workflow_executor.py# tmux execution engine
 ├── favorites.py        # Folder favorites browser
 ├── prompt_writer.py    # Prompt writing tool (prompt-toolkit)
 ├── recorder.py         # Screen recorder (asciinema/ffmpeg)
@@ -347,6 +388,7 @@ my_env/
 ├── install.sh          # installer with dependency checks
 ├── .tui_config.json    # saved theme/position config (auto-generated)
 ├── .tui_favorites.json # saved favorites (auto-generated)
+├── .tui_workflows.json # saved workflows (auto-generated)
 └── CLAUDE.md           # this file
 ```
 

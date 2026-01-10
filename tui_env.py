@@ -17,6 +17,7 @@ TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
 CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
 FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"
+WORKFLOW_SCRIPT = SCRIPT_DIR / "workflow_chain.py"
 PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
@@ -131,11 +132,11 @@ def main():
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:22", "-n", "Glow"])
     subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:22", f" glow '{START_DIR}'", "Enter"])
 
-    # Create Window 23 = Favorites
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:23", "-n", "Favs"])
+    # Create Window 23 = Workflow Chain
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:23", "-n", "Workflow"])
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION}:23",
-        f" uv run --project '{SCRIPT_DIR}' python3 '{FAVORITES_SCRIPT}'", "Enter"
+        f" uv run --project '{SCRIPT_DIR}' python3 '{WORKFLOW_SCRIPT}'", "Enter"
     ])
 
     # Create Window 24 = Prompt Writer

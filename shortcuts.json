@@ -9,7 +9,7 @@
         "F2": { "action": "select-window", "target": "Tree", "label": "Tree", "description": "File browser & viewer" },
         "F3": { "action": "select-window", "target": "Lizard", "label": "Lizard", "description": "Code complexity analyzer" },
         "F4": { "action": "select-window", "target": "Glow", "label": "Glow", "description": "Markdown viewer" },
-        "F5": { "action": "select-window", "target": "Favs", "label": "Favs", "description": "Folder favorites" },
+        "F5": { "action": "select-window", "target": "Workflow", "label": "Workflow", "description": "Workflow chain orchestrator" },
         "F6": { "action": "select-window", "target": "Prompt", "label": "Prompt", "description": "Prompt writer" },
         "F7": { "action": "select-window", "target": "Git", "label": "Git", "description": "Lazygit" },
         "F8": { "action": "select-window", "target": "Status", "label": "Status", "description": "Session metrics" },
@@ -94,8 +94,47 @@
         "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel search" }
       }
     },
+    "workflow": {
+      "label": "Workflow Chain (F5)",
+      "file": "workflow_chain.py",
+      "shortcuts": {
+        "n": { "action": "new-workflow", "label": "New", "description": "Create new workflow" },
+        "Enter": { "action": "run-workflow", "label": "Run", "description": "Run selected workflow" },
+        "e": { "action": "edit-workflow", "label": "Edit", "description": "Edit selected workflow" },
+        "d": { "action": "delete-workflow", "label": "Delete", "description": "Delete workflow" },
+        "c": { "action": "duplicate-workflow", "label": "Duplicate", "description": "Duplicate workflow" },
+        "m": { "action": "migrate", "label": "Migrate", "description": "Migrate from dependencies" },
+        "Tab": { "action": "switch-focus", "label": "Switch", "description": "Switch between panels" },
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate down" },
+        "q": { "action": "quit", "label": "Quit", "description": "Quit" }
+      }
+    },
+    "workflow_editor": {
+      "label": "Workflow Editor",
+      "file": "workflow_chain.py",
+      "shortcuts": {
+        "Ctrl+S": { "action": "save", "label": "Save", "description": "Save workflow" },
+        "Enter": { "action": "add-remove-node", "label": "Add/Remove", "description": "Add favorite to chain or remove node" },
+        "Tab": { "action": "switch-focus", "label": "Switch", "description": "Switch between panels" },
+        "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up" },
+        "Down": { "action": "navigate-down", "label": "Down", "description": "Navigate down" },
+        "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel editing" }
+      }
+    },
+    "workflow_execution": {
+      "label": "Workflow Execution",
+      "file": "workflow_chain.py",
+      "shortcuts": {
+        "s": { "action": "stop", "label": "Stop", "description": "Stop execution" },
+        "p": { "action": "pause-resume", "label": "Pause", "description": "Pause/Resume execution" },
+        "f": { "action": "focus-running", "label": "Focus", "description": "Focus running node in tmux" },
+        "Escape": { "action": "back", "label": "Back", "description": "Back to workflow list" },
+        "q": { "action": "back", "label": "Back", "description": "Back to workflow list" }
+      }
+    },
     "favorites": {
-      "label": "Favorites (F5)",
+      "label": "Favorites",
       "file": "favorites.py",
       "shortcuts": {
         "Up": { "action": "navigate-up", "label": "Up", "description": "Navigate up in panel" },
@@ -274,7 +313,7 @@
           { "key": "F2", "description": "Tree - File browser & viewer" },
           { "key": "F3", "description": "Lizard - Code complexity analyzer" },
           { "key": "F4", "description": "Glow - Markdown viewer" },
-          { "key": "F5", "description": "Favs - Folder favorites" },
+          { "key": "F5", "description": "Workflow - Chain orchestrator" },
           { "key": "F6", "description": "Prompt - Prompt writer" },
           { "key": "F7", "description": "Git - Lazygit" },
           { "key": "F8", "description": "Status - Session metrics" },
