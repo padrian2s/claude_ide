@@ -22,9 +22,50 @@ try:
 except ImportError:
     HAS_ANTHROPIC = False
 
+# Optional: wordfreq for intelligent autocomplete
+try:
+    from wordfreq import top_n_list, word_frequency
+    HAS_WORDFREQ = True
+except ImportError:
+    HAS_WORDFREQ = False
+
 SCRIPT_DIR = Path(__file__).parent
 CORPUS_FILE = SCRIPT_DIR / "prompt_words.txt"
 LEARNED_FILE = SCRIPT_DIR / ".prompt_learned_words.txt"
+LANG_CONFIG_FILE = SCRIPT_DIR / ".prompt_lang.txt"
+
+# Language settings
+SUPPORTED_LANGS = ["en", "ro"]
+DEFAULT_LANG = "en"
+
+
+def load_language() -> str:
+    """Load saved language preference."""
+    if LANG_CONFIG_FILE.exists():
+        lang = LANG_CONFIG_FILE.read_text().strip()
+        if lang in SUPPORTED_LANGS:
+            return lang
+    return DEFAULT_LANG
+
+
+def save_language(lang: str) -> None:
+    """Save language preference."""
+    LANG_CONFIG_FILE.write_text(lang)
+
+
+def get_wordfreq_suggestions(prefix: str, lang: str, limit: int = 10) -> list[str]:
+    """Get word suggestions from wordfreq library."""
+    if not HAS_WORDFREQ or len(prefix) < 2:
+        return []
+
+    # Get top words for the language and filter by prefix
+    try:
+        # Get a larger pool of common words to search through
+        top_words = top_n_list(lang, 50000)
+        matches = [w for w in top_words if w.startswith(prefix) and w != prefix]
+        return matches[:limit]
+    except Exception:
+        return []
 
 
 def load_words() -> set[str]:
@@ -412,6 +453,8 @@ class QuickInputApp(App):
         Binding("ctrl+s", "send", "Send", priority=True),
         Binding("ctrl+y", "copy", "Copy", priority=True),
         Binding("ctrl+g", "enhance", "AI", priority=True),
+        Binding("ctrl+e", "toggle_lang", "Lang", priority=True),
+        Binding("ctrl+j", "toggle_ai_complete", "AI+", priority=True),
         Binding("escape", "quit", "Quit", priority=True),
     ]
 
@@ -472,11 +515,19 @@ class QuickInputApp(App):
         self.hist_idx = -1
         self.loading = False
         self.suggestion = ""
+        self.lang = load_language()
+        # Cache wordfreq words for current language
+        self._wordfreq_cache = {}
+        # AI sentence autocomplete mode
+        self.ai_complete_mode = False
+        self._ai_complete_timer = None
+        self._last_ai_text = ""
 
     def compose(self) -> ComposeResult:
         yield TextArea(id="input", soft_wrap=True)
         yield Static("", id="autocomplete")
-        yield Static("^O/^L:Hist  Tab:Complete  ^F:Path  ^S:Send  ^Y:Copy  ^G:AI  Esc:Quit", id="status")
+        lang_indicator = f"[{self.lang.upper()}]" if HAS_WORDFREQ else ""
+        yield Static(f"^O/^L:Hist  Tab:Complete  ^F:Path  ^E:Lang  ^J:AI+  ^S:Send  {lang_indicator}", id="status")
 
     def on_mount(self):
         self.history = load_claude_history(get_current_project())
@@ -525,6 +576,24 @@ class QuickInputApp(App):
             auto.update("")
             auto.styles.display = "none"
             return
+
+        # AI sentence completion mode - only activate after 4-5 words
+        if self.ai_complete_mode:
+            current_text = ta.text
+            word_count = len(current_text.split())
+            # Only use AI when we have 4+ words, otherwise fall through to normal autocomplete
+            if word_count >= 4:
+                if current_text != self._last_ai_text:
+                    self._last_ai_text = current_text
+                    # Cancel previous timer
+                    if self._ai_complete_timer:
+                        self._ai_complete_timer.stop()
+                    # Start new timer (600ms debounce)
+                    self._ai_complete_timer = self.set_timer(0.6, lambda: self._fetch_ai_completion(current_text))
+                return
+            # Fall through to normal word autocomplete for less than 4 words
+
+        # Normal word completion mode
         line = lines[row][:col]
         match = re.search(r'(\w{2,})$', line)
         if not match:
@@ -533,7 +602,14 @@ class QuickInputApp(App):
             auto.styles.display = "none"
             return
         word = match.group(1).lower()
+
+        # Try local words first (corpus + learned), then fall back to wordfreq
         matches = [w for w in self.words if w.startswith(word) and w != word]
+
+        # Fall back to wordfreq if no local matches
+        if not matches and HAS_WORDFREQ:
+            matches = get_wordfreq_suggestions(word, self.lang, limit=5)
+
         if matches:
             self.suggestion = matches[0]
             # Calculate visual row (account for wrapped lines)
@@ -555,6 +631,105 @@ class QuickInputApp(App):
             auto.update("")
             auto.styles.display = "none"
 
+    def action_toggle_lang(self):
+        """Toggle between English and Romanian autocomplete."""
+        if not HAS_WORDFREQ:
+            self.notify("wordfreq not installed", timeout=2)
+            return
+
+        # Cycle through languages
+        current_idx = SUPPORTED_LANGS.index(self.lang) if self.lang in SUPPORTED_LANGS else 0
+        next_idx = (current_idx + 1) % len(SUPPORTED_LANGS)
+        self.lang = SUPPORTED_LANGS[next_idx]
+        save_language(self.lang)
+
+        # Update status bar
+        self._update_status_bar()
+        self.notify(f"Language: {self.lang.upper()}", timeout=1)
+
+    def action_toggle_ai_complete(self):
+        """Toggle AI sentence autocomplete mode."""
+        if not HAS_ANTHROPIC:
+            self.notify("anthropic not installed", timeout=2)
+            return
+
+        self.ai_complete_mode = not self.ai_complete_mode
+        self._update_status_bar()
+
+        if self.ai_complete_mode:
+            self.notify("AI autocomplete: ON (3 words)", timeout=2)
+        else:
+            self.notify("AI autocomplete: OFF", timeout=1)
+            # Clear any pending AI suggestion
+            self.suggestion = ""
+            auto = self.query_one("#autocomplete", Static)
+            auto.update("")
+            auto.styles.display = "none"
+
+    def _update_status_bar(self):
+        """Update status bar with current mode indicators."""
+        status = self.query_one("#status", Static)
+        lang_indicator = f"[{self.lang.upper()}]" if HAS_WORDFREQ else ""
+        ai_indicator = "[AI+]" if self.ai_complete_mode else ""
+        status.update(f"^O/^L:Hist  Tab:Complete  ^F:Path  ^E:Lang  ^J:AI+  ^S:Send  {ai_indicator}{lang_indicator}")
+
+    @work(exclusive=True, thread=True)
+    def _fetch_ai_completion(self, text: str):
+        """Fetch AI completion for the current text."""
+        if not text.strip() or not HAS_ANTHROPIC:
+            return
+
+        # Get language name for prompt
+        lang_name = "Romanian" if self.lang == "ro" else "English"
+
+        try:
+            client = anthropic.Anthropic()
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=40,
+                messages=[{
+                    "role": "user",
+                    "content": f"Continue this text with approximately 3 words in {lang_name} language. Focus on business specifications, requirements writing, creative solutions and problem solving. Only output the continuation, nothing else. Do not repeat the input text. Text to continue:\n\n{text}"
+                }]
+            )
+            completion = response.content[0].text.strip()
+
+            # Update suggestion in main thread
+            self.call_from_thread(self._set_ai_suggestion, completion)
+        except Exception as e:
+            self.call_from_thread(self.notify, f"AI error: {e}", timeout=2)
+
+    def _set_ai_suggestion(self, completion: str):
+        """Set AI suggestion (called from main thread)."""
+        if not self.ai_complete_mode or not completion:
+            return
+
+        self.suggestion = completion
+        ta = self.query_one("#input", TextArea)
+        auto = self.query_one("#autocomplete", Static)
+
+        row, col = ta.cursor_location
+        lines = ta.text.split("\n")
+        width = ta.size.width - 1
+
+        # Calculate visual position
+        visual_row = 0
+        for i in range(row):
+            line_len = len(lines[i]) if i < len(lines) else 0
+            visual_row += max(1, (line_len + width - 1) // width) if width > 0 else 1
+        visual_row += col // width if width > 0 else 0
+        visual_col = col % width if width > 0 else col
+
+        # Show first line of suggestion (truncated if needed)
+        display_text = completion.split('\n')[0]
+        if len(display_text) > 60:
+            display_text = display_text[:57] + "..."
+
+        padding = " " * (visual_col + 1)
+        auto.update(f"{padding}{display_text}")
+        auto.styles.offset = (0, visual_row + 1)
+        auto.styles.display = "block"
+
     def action_complete(self):
         if not self.suggestion:
             return
@@ -564,15 +739,25 @@ class QuickInputApp(App):
         if row >= len(lines):
             return
         line = lines[row]
-        # Find word before cursor
-        before = line[:col]
-        after = line[col:]
-        match = re.search(r'(\w+)$', before)
-        if match:
-            before = before[:-len(match.group(1))]
-        new_line = before + self.suggestion + " " + after
-        lines[row] = new_line
-        new_col = len(before) + len(self.suggestion) + 1
+
+        # AI mode: concatenate suggestion at cursor (no space, continues the word)
+        if self.ai_complete_mode:
+            before = line[:col]
+            after = line[col:]
+            new_line = before + self.suggestion + after
+            lines[row] = new_line
+            new_col = len(before) + len(self.suggestion)
+        else:
+            # Normal mode: replace partial word with complete word
+            before = line[:col]
+            after = line[col:]
+            match = re.search(r'(\w+)$', before)
+            if match:
+                before = before[:-len(match.group(1))]
+            new_line = before + self.suggestion + " " + after
+            lines[row] = new_line
+            new_col = len(before) + len(self.suggestion) + 1
+
         self.loading = True
         ta.text = "\n".join(lines)
         ta.cursor_location = (row, new_col)

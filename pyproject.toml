@@ -10,6 +10,7 @@ dependencies = [
     "textual[dev]>=6.11.0",
     "textual-autocomplete>=4.0.6",
     "textual-dev>=1.8.0",
+    "wordfreq>=3.0.0",
 ]
 
 [project.scripts]
