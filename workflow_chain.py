@@ -25,7 +25,7 @@ from workflow_storage import (
     load_workflows, save_workflow, delete_workflow, get_workflow,
     create_workflow, duplicate_workflow, migrate_from_dependencies
 )
-from workflow_executor import WorkflowOrchestrator, TmuxExecutor
+from workflow_executor import WorkflowOrchestrator, TmuxExecutor, WorkflowLogger
 from favorites import load_favorites
 
 # Default directories to scan for projects
@@ -599,6 +599,18 @@ class ExecutionScreen(Screen):
         # Start refresh timer
         self.refresh_timer = self.set_interval(1.0, self.safe_refresh)
 
+    def on_worker_state_changed(self, event):
+        """Handle worker state changes to catch errors."""
+        from textual.worker import WorkerState
+        if event.state == WorkerState.ERROR:
+            # Log the error
+            if self.orchestrator:
+                self.orchestrator.log.error(f"Worker error: {event.worker.error}")
+            self.notify(f"Workflow error: {event.worker.error}", severity="error")
+        elif event.state == WorkerState.CANCELLED:
+            if self.orchestrator:
+                self.orchestrator.log.warning("Worker cancelled")
+
     def safe_refresh(self):
         """Refresh display - called by timer and status changes."""
         try:
@@ -687,6 +699,224 @@ class ExecutionScreen(Screen):
         self.app.pop_screen()
 
 
+class LogViewerScreen(Screen):
+    """Screen to view workflow execution logs and tmux pane output."""
+
+    CSS = """
+    #log-viewer-main {
+        height: 1fr;
+        padding: 1;
+    }
+    .log-panel {
+        width: 50%;
+        height: 100%;
+        border: round $border;
+        margin: 0 1;
+    }
+    .log-panel:focus-within {
+        border: round $primary;
+    }
+    .panel-content {
+        height: 1fr;
+        padding: 1;
+        overflow-y: auto;
+    }
+    #log-header {
+        height: 1;
+        padding: 0 1;
+        background: $surface;
+    }
+    #node-selector {
+        height: 1;
+        padding: 0 1;
+        background: $surface;
+        color: $text-muted;
+    }
+    """
+
+    BINDINGS = [
+        ("r", "refresh", "Refresh"),
+        ("c", "clear", "Clear Logs"),
+        ("y", "copy_logs", "Copy Logs"),
+        ("left", "prev_node", "Prev Node"),
+        ("right", "next_node", "Next Node"),
+        ("f", "focus_pane", "Focus Pane"),
+        ("escape", "back", "Back"),
+        ("q", "back", "Back"),
+    ]
+
+    def __init__(self, workflow: WorkflowChain):
+        super().__init__()
+        self.workflow = workflow
+        self.refresh_timer: Timer | None = None
+        self.selected_node_idx = 0
+
+    def compose(self) -> ComposeResult:
+        if get_show_header():
+            yield Header(show_clock=False)
+
+        yield Label(f"Logs: {self.workflow.name}", id="log-header")
+        yield Static("", id="node-selector")
+
+        with Horizontal(id="log-viewer-main"):
+            with Vertical(classes="log-panel"):
+                yield Label("Workflow Logs")
+                with ScrollableContainer(classes="panel-content"):
+                    yield Static("Loading...", id="log-content")
+
+            with Vertical(classes="log-panel"):
+                yield Label("Tmux Pane Preview", id="pane-label")
+                with ScrollableContainer(classes="panel-content"):
+                    yield Static("No pane active", id="pane-content")
+
+        yield Footer()
+
+    def on_mount(self):
+        self.title = f"Logs - {self.workflow.name}"
+        self.refresh_all()
+        self.update_node_selector()
+        # Auto-refresh every 2 seconds
+        self.refresh_timer = self.set_interval(2, self.refresh_all)
+
+    def get_nodes_with_panes(self) -> list:
+        """Get nodes that have tmux panes assigned."""
+        return [n for n in self.workflow.nodes if n.tmux_pane]
+
+    def get_current_node(self):
+        """Get the currently selected node."""
+        nodes = self.get_nodes_with_panes()
+        if nodes and 0 <= self.selected_node_idx < len(nodes):
+            return nodes[self.selected_node_idx]
+        # Fallback to any node if no panes
+        if self.workflow.nodes:
+            return self.workflow.nodes[min(self.selected_node_idx, len(self.workflow.nodes) - 1)]
+        return None
+
+    def update_node_selector(self):
+        """Update the node selector display."""
+        nodes = self.get_nodes_with_panes()
+        selector = self.query_one("#node-selector", Static)
+        
+        if not nodes:
+            selector.update("No active nodes (←/→ to switch nodes when running)")
+            return
+            
+        node = self.get_current_node()
+        if node:
+            project_name = Path(node.project_path).name
+            status = node.status
+            selector.update(f"Node {self.selected_node_idx + 1}/{len(nodes)}: {project_name} [{status}] (←/→ to switch)")
+
+    def capture_tmux_pane(self, pane_id: str, lines: int = 50) -> str:
+        """Capture content from a tmux pane."""
+        try:
+            result = subprocess.run(
+                ["tmux", "capture-pane", "-t", pane_id, "-p", "-S", f"-{lines}"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                return result.stdout.rstrip() or "(empty pane)"
+            return f"Error: {result.stderr}"
+        except subprocess.TimeoutExpired:
+            return "(timeout capturing pane)"
+        except FileNotFoundError:
+            return "(tmux not found)"
+        except Exception as e:
+            return f"(error: {e})"
+
+    def refresh_all(self):
+        """Refresh both log and pane content."""
+        self.refresh_log()
+        self.refresh_pane()
+
+    def refresh_log(self):
+        """Refresh log content from file."""
+        log_content = WorkflowLogger.read_log(self.workflow.id, tail_lines=200)
+        content_widget = self.query_one("#log-content", Static)
+        content_widget.update(log_content)
+
+    def refresh_pane(self):
+        """Refresh tmux pane preview."""
+        node = self.get_current_node()
+        pane_widget = self.query_one("#pane-content", Static)
+        pane_label = self.query_one("#pane-label", Label)
+        
+        if node and node.tmux_pane:
+            project_name = Path(node.project_path).name
+            pane_label.update(f"Tmux Pane: {project_name} ({node.tmux_pane})")
+            content = self.capture_tmux_pane(node.tmux_pane)
+            pane_widget.update(content)
+        else:
+            pane_label.update("Tmux Pane Preview")
+            if node:
+                pane_widget.update(f"Node '{Path(node.project_path).name}' has no active pane")
+            else:
+                pane_widget.update("No nodes in workflow")
+
+    def action_refresh(self):
+        self.refresh_all()
+
+    def action_clear(self):
+        """Clear the log file."""
+        log_path = WorkflowLogger.get_log_path(self.workflow.id)
+        if log_path.exists():
+            log_path.write_text("")
+        self.refresh_log()
+
+    def action_copy_logs(self):
+        """Copy workflow logs to clipboard."""
+        log_content = WorkflowLogger.read_log(self.workflow.id, tail_lines=500)
+        if log_content:
+            try:
+                subprocess.run(
+                    ["pbcopy"],
+                    input=log_content.encode(),
+                    check=True,
+                    timeout=2
+                )
+                self.notify("Logs copied to clipboard")
+            except Exception as e:
+                self.notify(f"Failed to copy: {e}", severity="error")
+        else:
+            self.notify("No logs to copy", severity="warning")
+
+    def action_prev_node(self):
+        """Select previous node."""
+        nodes = self.get_nodes_with_panes() or self.workflow.nodes
+        if nodes:
+            self.selected_node_idx = (self.selected_node_idx - 1) % len(nodes)
+            self.update_node_selector()
+            self.refresh_pane()
+
+    def action_next_node(self):
+        """Select next node."""
+        nodes = self.get_nodes_with_panes() or self.workflow.nodes
+        if nodes:
+            self.selected_node_idx = (self.selected_node_idx + 1) % len(nodes)
+            self.update_node_selector()
+            self.refresh_pane()
+
+    def action_focus_pane(self):
+        """Switch to the tmux pane in terminal."""
+        node = self.get_current_node()
+        if node and node.tmux_pane:
+            try:
+                subprocess.run(
+                    ["tmux", "select-pane", "-t", node.tmux_pane],
+                    capture_output=True,
+                    timeout=2
+                )
+            except Exception:
+                pass
+
+    def action_back(self):
+        if self.refresh_timer:
+            self.refresh_timer.stop()
+        self.app.pop_screen()
+
+
 class WorkflowListScreen(Screen):
     """Main screen showing saved workflows."""
 
@@ -723,6 +953,7 @@ class WorkflowListScreen(Screen):
         ("n", "new_workflow", "New"),
         ("r", "run_workflow", "Run"),
         ("e", "edit_workflow", "Edit"),
+        ("l", "view_logs", "Logs"),
         ("d", "delete_workflow", "Delete"),
         ("c", "duplicate_workflow", "Duplicate"),
         ("m", "migrate", "Migrate"),
@@ -868,6 +1099,15 @@ class WorkflowListScreen(Screen):
     def action_toggle_focus(self):
         wf_list = self.query_one("#workflow-list", ListView)
         wf_list.focus()
+
+    def action_view_logs(self):
+        """View logs for the selected workflow."""
+        workflow = self.get_selected_workflow()
+        if workflow:
+            self.app.push_screen(LogViewerScreen(workflow))
+        else:
+            info = self.query_one("#info-bar", Static)
+            info.update("No workflow selected. Select one to view logs.")
 
     def action_quit(self):
         self.app.exit()
