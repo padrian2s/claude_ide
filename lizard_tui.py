@@ -808,7 +808,7 @@ class LegendScreen(ModalScreen):
         ]
 
         for acronym, full_name, desc in entries:
-            text.append(f"{acronym}", style="bold cyan")
+            text.append(f"{acronym}", style="bold blue")
             text.append(f" - {full_name}\n", style="bold")
             text.append(f"  {desc}\n\n", style="dim")
 
@@ -829,17 +829,17 @@ class LegendScreen(ModalScreen):
 
         text.append("\n─" * 51 + "\n", style="dim")
         text.append("KEY BINDINGS\n", style="bold")
-        text.append("1-5  ", style="cyan")
+        text.append("1-5  ", style="blue")
         text.append("Switch tabs  ", style="dim")
-        text.append("s    ", style="cyan")
+        text.append("s    ", style="blue")
         text.append("Cycle sort\n", style="dim")
-        text.append("^S   ", style="cyan")
+        text.append("^S   ", style="blue")
         text.append("Settings     ", style="dim")
-        text.append("e    ", style="cyan")
+        text.append("e    ", style="blue")
         text.append("Export\n", style="dim")
-        text.append("p    ", style="cyan")
+        text.append("p    ", style="blue")
         text.append("Toggle preview  ", style="dim")
-        text.append("b    ", style="cyan")
+        text.append("b    ", style="blue")
         text.append("Toggle sidebar\n", style="dim")
 
         return text
@@ -1122,7 +1122,7 @@ class LanguageBreakdownWidget(Widget):
 
     def _render(self) -> Text:
         text = Text()
-        text.append("LANGUAGES\n", style="bold cyan")
+        text.append("LANGUAGES\n", style="bold blue")
         text.append("─" * 26 + "\n", style="dim")
 
         if not self.languages:
@@ -1137,7 +1137,7 @@ class LanguageBreakdownWidget(Widget):
 
         for lang in sorted_langs[:6]:
             ccn_color = "green" if lang.avg_ccn <= 5 else "yellow" if lang.avg_ccn <= 10 else "red"
-            text.append(f"{lang.language[:8]:<8} ", style="cyan")
+            text.append(f"{lang.language[:8]:<8} ", style="blue")
             text.append(f"{lang.file_count:>3}f ", style="dim")
             text.append(f"CCN {lang.avg_ccn:.1f}\n", style=ccn_color)
 
@@ -1171,7 +1171,7 @@ class SummaryWidget(Widget):
         r = self.result
         text = Text()
 
-        text.append("SUMMARY\n", style="bold cyan")
+        text.append("SUMMARY\n", style="bold blue")
         text.append("─" * 26 + "\n", style="dim")
 
         text.append("NLOC ", style="dim")
@@ -1543,7 +1543,7 @@ class LizardTUI(App):
             end = min(len(lines), func.end_line)
 
             text = Text()
-            text.append(f"{Path(func.file_path).name}\n", style="bold cyan")
+            text.append(f"{Path(func.file_path).name}\n", style="bold blue")
             text.append(f"{func.full_signature}\n", style="bold")
             text.append(f"CCN: {func.ccn}  NLOC: {func.nloc}  Params: {func.param_count}  NS: {func.nested_structures}\n", style="dim")
             text.append("─" * 60 + "\n", style="dim")
@@ -1602,7 +1602,7 @@ class LizardTUI(App):
         word_content = self.query_one("#word-cloud-content", Static)
         if result.word_frequencies:
             word_text = Text()
-            word_text.append("Top Identifiers\n\n", style="bold cyan")
+            word_text.append("Top Identifiers\n\n", style="bold blue")
             for i, word in enumerate(result.word_frequencies[:50], 1):
                 if i <= 10:
                     style = "bold white"
@@ -1610,7 +1610,7 @@ class LizardTUI(App):
                     style = "white"
                 else:
                     style = "dim"
-                word_text.append(f"{word.count:>5} ", style="cyan")
+                word_text.append(f"{word.count:>5} ", style="blue")
                 word_text.append(f"{word.word}\n", style=style)
             word_content.update(word_text)
         elif self.config.enable_wordcount:

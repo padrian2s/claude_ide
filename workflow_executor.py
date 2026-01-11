@@ -238,21 +238,27 @@ exit 0
         """Install Stop hook for a workflow node."""
         project_path = Path(node.project_path)
         claude_dir = project_path / ".claude"
-        hooks_dir = claude_dir / "hooks"
         settings_file = claude_dir / "settings.json"
 
         try:
-            # Create directories
-            hooks_dir.mkdir(parents=True, exist_ok=True)
+            # Create .claude directory
+            claude_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create hook script
-            hook_script = self.STOP_HOOK_SCRIPT.format(
-                workflow_id=self.workflow_id,
-                node_id=node.id
+            # Build inline hook command (no external file dependency)
+            # This writes a state file when Claude stops
+            state_dir = Path.home() / ".claude" / "workflow_states"
+            state_file = state_dir / f"{self.workflow_id}_{node.id}.state"
+            
+            # Inline bash command that writes state file
+            inline_command = (
+                f'bash -c \''
+                f'mkdir -p "{state_dir}" && '
+                f'echo "{{\\"workflow_id\\": \\"{self.workflow_id}\\", '
+                f'\\"node_id\\": \\"{node.id}\\", '
+                f'\\"status\\": \\"completed\\", '
+                f'\\"timestamp\\": \\"$(date -Iseconds)\\"}}" > "{state_file}"'
+                f'\''
             )
-            hook_file = hooks_dir / f"wf-{self.workflow_id}-stop.sh"
-            hook_file.write_text(hook_script)
-            hook_file.chmod(0o755)  # Make executable
 
             # Update settings.json with hook reference
             settings = {}
@@ -269,31 +275,54 @@ exit 0
             if "Stop" not in settings["hooks"]:
                 settings["hooks"]["Stop"] = []
 
-            # Check if our hook is already registered
-            # Use full path instead of $CLAUDE_PROJECT_DIR to avoid shell quoting issues
-            our_hook_command = str(hook_file)
-            hook_exists = any(
-                hook_group.get("hooks", [{}])[0].get("command", "").find(f"wf-{self.workflow_id}") != -1
-                for hook_group in settings["hooks"]["Stop"]
-                if isinstance(hook_group, dict)
-            )
-
-            if not hook_exists:
+            # Check if our hook is already registered - check ALL hooks in each group
+            hook_marker = f"wf-state-{self.workflow_id}-{node.id}"
+            
+            # Find and remove any stale entries for this workflow/node
+            new_stop_hooks = []
+            hook_found = False
+            for hook_group in settings["hooks"]["Stop"]:
+                if not isinstance(hook_group, dict):
+                    new_stop_hooks.append(hook_group)
+                    continue
+                
+                # Check all hooks in this group
+                hooks_list = hook_group.get("hooks", [])
+                has_our_hook = any(
+                    hook_marker in h.get("command", "")
+                    for h in hooks_list
+                    if isinstance(h, dict)
+                )
+                
+                if has_our_hook:
+                    # Update the command
+                    for h in hooks_list:
+                        if isinstance(h, dict) and hook_marker in h.get("command", ""):
+                            h["command"] = f"# {hook_marker}\n{inline_command}"
+                    hook_found = True
+                
+                new_stop_hooks.append(hook_group)
+            
+            settings["hooks"]["Stop"] = new_stop_hooks
+            
+            # Add new entry if not found
+            if not hook_found:
                 settings["hooks"]["Stop"].append({
                     "hooks": [{
                         "type": "command",
-                        "command": our_hook_command,
+                        "command": f"# {hook_marker}\n{inline_command}",
                         "timeout": 10
                     }]
                 })
 
-                with open(settings_file, 'w') as f:
-                    json.dump(settings, f, indent=2)
+            # Always write settings to ensure it's current
+            with open(settings_file, 'w') as f:
+                json.dump(settings, f, indent=2)
 
             # Track installed hook
             self.installed_hooks[node.project_path] = {
                 "node_id": node.id,
-                "hook_file": str(hook_file),
+                "hook_marker": hook_marker,
                 "settings_file": str(settings_file),
                 "installed_at": datetime.now().isoformat()
             }
@@ -311,13 +340,9 @@ exit 0
             return True
 
         hook_info = self.installed_hooks[project_path]
+        hook_marker = hook_info.get("hook_marker", f"wf-state-{self.workflow_id}")
 
         try:
-            # Remove hook script
-            hook_file = Path(hook_info.get("hook_file", ""))
-            if hook_file.exists():
-                hook_file.unlink()
-
             # Remove from settings.json
             settings_file = Path(hook_info.get("settings_file", ""))
             if settings_file.exists():
@@ -325,12 +350,12 @@ exit 0
                     with open(settings_file) as f:
                         settings = json.load(f)
 
-                    # Remove our hook entries
+                    # Remove our hook entries by marker
                     if "hooks" in settings and "Stop" in settings["hooks"]:
                         settings["hooks"]["Stop"] = [
                             hook_group for hook_group in settings["hooks"]["Stop"]
                             if not any(
-                                f"wf-{self.workflow_id}" in h.get("command", "")
+                                hook_marker in h.get("command", "")
                                 for h in hook_group.get("hooks", [])
                             )
                         ]
@@ -466,6 +491,16 @@ class TmuxExecutor:
                 ["tmux", "new-session", "-d", "-s", self.session],
                 capture_output=True, text=True
             )
+            # Apply theme colors to workflow session status bar
+            try:
+                from config_panel import get_theme_colors
+                theme = get_theme_colors()
+                subprocess.run([
+                    "tmux", "set-option", "-t", self.session,
+                    "status-style", f"bg={theme['bg']},fg={theme['fg']}"
+                ])
+            except Exception:
+                pass  # Fall back to default if theme loading fails
 
     def _run_tmux(self, *args, log_errors: bool = False) -> subprocess.CompletedProcess:
         """Run a tmux command."""

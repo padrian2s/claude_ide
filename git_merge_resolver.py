@@ -312,21 +312,21 @@ class WordDiffer:
         # Convergence arrows
         arrow_width = panel_width * 3 + 6
         output_lines.append("")
-        output_lines.append(f"[cyan]{'↘':>{panel_width}}   {'↓':^{panel_width}}   {'↙':<{panel_width}}[/]")
-        output_lines.append(f"[cyan]{' ' * panel_width}   {'↓':^{panel_width}}   {' ' * panel_width}[/]")
+        output_lines.append(f"[blue]{'↘':>{panel_width}}   {'↓':^{panel_width}}   {'↙':<{panel_width}}[/]")
+        output_lines.append(f"[blue]{' ' * panel_width}   {'↓':^{panel_width}}   {' ' * panel_width}[/]")
 
         # Merged result header
         merged_width = panel_width * 3 + 6
-        output_lines.append(f"[bold cyan]{'═' * merged_width}[/]")
-        output_lines.append(f"[bold cyan]{'MERGED RESULT (CENTER)':^{merged_width}}[/]")
-        output_lines.append(f"[cyan]{'─' * merged_width}[/]")
+        output_lines.append(f"[bold blue]{'═' * merged_width}[/]")
+        output_lines.append(f"[bold blue]{'MERGED RESULT (CENTER)':^{merged_width}}[/]")
+        output_lines.append(f"[blue]{'─' * merged_width}[/]")
 
         # Render merged content with colors
         merged_content = cls._render_merged_words(merged_words)
         for line in merged_content.split('\n'):
             output_lines.append(f"  {line}")
 
-        output_lines.append(f"[cyan]{'═' * merged_width}[/]")
+        output_lines.append(f"[blue]{'═' * merged_width}[/]")
 
         # Legend
         output_lines.append("")
@@ -807,7 +807,7 @@ class AISuggestionDialog(ModalScreen):
                 original.border_title = "Original (Ours | Theirs)"
                 with original:
                     with VerticalScroll():
-                        content = f"[bold cyan]OURS:[/]\n{self.hunk.ours_content}\n\n[bold yellow]THEIRS:[/]\n{self.hunk.theirs_content}"
+                        content = f"[bold blue]OURS:[/]\n{self.hunk.ours_content}\n\n[bold yellow]THEIRS:[/]\n{self.hunk.theirs_content}"
                         yield Static(content)
 
                 suggested = Vertical(id="suggested-panel", classes="compare-panel")
@@ -877,7 +877,7 @@ class ManualEditDialog(ModalScreen):
             ref.border_title = "Reference (Ours | Theirs)"
             with ref:
                 with VerticalScroll():
-                    content = f"[cyan]OURS:[/] {self.hunk.ours_content[:200]}...\n[yellow]THEIRS:[/] {self.hunk.theirs_content[:200]}..."
+                    content = f"[blue]OURS:[/] {self.hunk.ours_content[:200]}...\n[yellow]THEIRS:[/] {self.hunk.theirs_content[:200]}..."
                     yield Static(content)
 
     def action_save(self):
@@ -1239,7 +1239,7 @@ class MergeResolverApp(App):
         Args:
             content: The code content to format
             start_line: Starting line number
-            color: Rich color for the code (e.g., "cyan", "green", "yellow")
+            color: Rich color for the code (e.g., "blue", "green", "yellow")
             line_color: Color for line numbers
         """
         if not content:
@@ -1342,7 +1342,7 @@ class MergeResolverApp(App):
             line_num = hunk.start_line + i
             # Escape Rich markup in merged content
             escaped_line = line.replace("[", "\\[").replace("]", "\\]")
-            formatted_lines.append(f"[dim]{line_num:>{line_num_width}}[/] [cyan]│[/] {escaped_line}")
+            formatted_lines.append(f"[dim]{line_num:>{line_num_width}}[/] [blue]│[/] {escaped_line}")
 
         return "\n".join(formatted_lines)
 

@@ -281,29 +281,29 @@ def get_status_bar_format(icon_mode: bool, path_script: str, status_suffix: str)
             "#[range=window|#{window_index}]"
             # Window 1 (F1:Term1 or F1:⌨)
             "#{?#{==:#{window_index},1},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F1:{icons.get(1, '❯')} #[default], F1:{icons.get(1, '❯')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F1:{icons.get(1, '❯')} #[default], F1:{icons.get(1, '❯')} }},"
             # Windows 2-19 (dynamic terminals - show name)
             "#{?#{e|<:#{window_index},20},"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
+            "#{?window_active,#[bg=blue#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
             # Windows 20+ (apps - show F-key + icon)
             "#{?#{==:#{window_index},20},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F2:{icons.get(20, '📂')} #[default], F2:{icons.get(20, '📂')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F2:{icons.get(20, '📂')} #[default], F2:{icons.get(20, '📂')} }},"
             "#{?#{==:#{window_index},21},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F3:{icons.get(21, '🦎')} #[default], F3:{icons.get(21, '🦎')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F3:{icons.get(21, '🦎')} #[default], F3:{icons.get(21, '🦎')} }},"
             "#{?#{==:#{window_index},22},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F4:{icons.get(22, '📖')} #[default], F4:{icons.get(22, '📖')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F4:{icons.get(22, '📖')} #[default], F4:{icons.get(22, '📖')} }},"
             "#{?#{==:#{window_index},23},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F5:{icons.get(23, '🔖')} #[default], F5:{icons.get(23, '🔖')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F5:{icons.get(23, '🔖')} #[default], F5:{icons.get(23, '🔖')} }},"
             "#{?#{==:#{window_index},24},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F6:{icons.get(24, '💬')} #[default], F6:{icons.get(24, '💬')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F6:{icons.get(24, '💬')} #[default], F6:{icons.get(24, '💬')} }},"
             "#{?#{==:#{window_index},25},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F7:{icons.get(25, '⚡')} #[default], F7:{icons.get(25, '⚡')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F7:{icons.get(25, '⚡')} #[default], F7:{icons.get(25, '⚡')} }},"
             "#{?#{==:#{window_index},26},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F8:{icons.get(26, '📈')} #[default], F8:{icons.get(26, '📈')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F8:{icons.get(26, '📈')} #[default], F8:{icons.get(26, '📈')} }},"
             "#{?#{==:#{window_index},27},"
-            f"#{{?window_active,#[bg=cyan#,fg=black#,bold] F9:{icons.get(27, '⚙')} #[default], F9:{icons.get(27, '⚙')} }},"
+            f"#{{?window_active,#[bg=blue#,fg=black#,bold] F9:{icons.get(27, '⚙')} #[default], F9:{icons.get(27, '⚙')} }},"
             # Unknown high windows - show index:name
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_index}:#{window_name} #[default], #{window_index}:#{window_name} }"
+            "#{?window_active,#[bg=blue#,fg=black#,bold] #{window_index}:#{window_name} #[default], #{window_index}:#{window_name} }"
             "}}}}}}}}}}"
             "#[norange]"
             "}"
@@ -314,10 +314,10 @@ def get_status_bar_format(icon_mode: bool, path_script: str, status_suffix: str)
             "#{W:"
             "#[range=window|#{window_index}]"
             "#{?#{==:#{window_index},1},"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
+            "#{?window_active,#[bg=blue#,fg=black#,bold] F1:#{window_name} #[default], F1:#{window_name} },"
             "#{?#{e|<:#{window_index},20},"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
-            "#{?window_active,#[bg=cyan#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
+            "#{?window_active,#[bg=blue#,fg=black#,bold] #{window_name} #[default], #{window_name} },"
+            "#{?window_active,#[bg=blue#,fg=black#,bold] F#{e|-:#{window_index},18}:#{window_name} #[default], F#{e|-:#{window_index},18}:#{window_name} }"
             "}}"
             "#[norange]"
             "}"
@@ -706,7 +706,7 @@ class PromptInputDialog(ModalScreen):
                 "[dim]Examples:\n"
                 "  - Change the background color to dark purple\n"
                 "  - Add vim-style j/k navigation keys\n"
-                "  - Make the font larger and use cyan for highlights[/dim]",
+                "  - Make the font larger and use blue for highlights[/dim]",
                 id="prompt-examples",
             )
 
@@ -825,7 +825,7 @@ class PreviewDiffDialog(ModalScreen):
             elif line.startswith("-") and not line.startswith("---"):
                 lines.append(f"[red]{escaped_line}[/red]")
             elif line.startswith("@@"):
-                lines.append(f"[cyan]{escaped_line}[/cyan]")
+                lines.append(f"[blue]{escaped_line}[/blue]")
             else:
                 lines.append(escaped_line)
         return "\n".join(lines)

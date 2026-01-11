@@ -534,7 +534,7 @@ class ExecutionScreen(Screen):
         height: auto;
     }
     .node-box.running {
-        border: round cyan;
+        border: round blue;
     }
     .node-box.completed {
         border: round green;

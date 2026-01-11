@@ -232,7 +232,7 @@ STATUS_ICONS = {
 
 STATUS_COLORS = {
     NodeStatus.PENDING: "dim",
-    NodeStatus.RUNNING: "cyan",
+    NodeStatus.RUNNING: "blue",
     NodeStatus.COMPLETED: "green",
     NodeStatus.FAILED: "red",
     NodeStatus.SKIPPED: "yellow",

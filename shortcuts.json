@@ -333,7 +333,7 @@
   "status_bar": {
     "format": "F{n}:{label}",
     "separator": " ",
-    "active_style": { "bg": "cyan", "fg": "black", "bold": true },
+    "active_style": { "bg": "blue", "fg": "black", "bold": true },
     "suffix": "F10:Exit ^H:Help F12:Keys"
   }
 }
