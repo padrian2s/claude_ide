@@ -258,7 +258,7 @@ Displays:
 | Key | Action |
 |-----|--------|
 | Enter | Select screen to customize |
-| Ctrl+S | Submit prompt (in prompt dialog) |
+| Ctrl+J | Submit prompt (in prompt dialog) |
 | a | Apply changes (in preview) |
 | e | Edit prompt (in preview) |
 | Escape | Cancel |

@@ -684,7 +684,7 @@ class PromptInputDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
-        ("ctrl+s", "submit", "Submit"),
+        Binding("ctrl+j", "submit", "Submit", priority=True),
     ]
 
     def __init__(self, screen_name: str):
@@ -695,7 +695,7 @@ class PromptInputDialog(ModalScreen):
     def compose(self) -> ComposeResult:
         dialog = Vertical(id="prompt-dialog")
         dialog.border_title = "Describe Your Changes"
-        dialog.border_subtitle = "Ctrl+S:Submit · Esc:Cancel"
+        dialog.border_subtitle = "Ctrl+J:Submit · Esc:Cancel"
         with dialog:
             yield Label(
                 f"Screen: {self.screen_name} ({self.screen_config.get('script', '')})",
