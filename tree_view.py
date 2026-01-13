@@ -420,6 +420,7 @@ class DualPanelScreen(ModalScreen):
     _session_left_index: int = 1  # Start on first real item (skip ..)
     _session_right_index: int = 1
     _initial_start_path: Path = None  # Original path when tool started
+    _session_show_hidden: bool = True  # Always show hidden files (.dotfiles)
 
     BINDINGS = [
         ("escape", "cancel_or_close", "Close"),
@@ -572,6 +573,7 @@ class DualPanelScreen(ModalScreen):
 
         self.sort_left = DualPanelScreen._session_sort_left
         self.sort_right = DualPanelScreen._session_sort_right
+        self.show_hidden = DualPanelScreen._session_show_hidden
         self.selected_left: set[Path] = set()
         self.selected_right: set[Path] = set()
         self.active_panel = "left"
@@ -633,9 +635,10 @@ class DualPanelScreen(ModalScreen):
         # Get sort setting for this panel
         sort_by_date = self.sort_left if side == "left" else self.sort_right
 
-        # Update panel border title with path and sort indicator
+        # Update panel border title with path and sort/hidden indicators
         sort_icon = "⏱" if sort_by_date else "🔤"
-        panel.border_title = f"{sort_icon} {path}"
+        hidden_icon = "👁" if self.show_hidden else ""
+        panel.border_title = f"{sort_icon}{hidden_icon} {path}"
         list_view.clear()
 
         try:
@@ -644,7 +647,10 @@ class DualPanelScreen(ModalScreen):
                 list_view.append(FileItem(path.parent, is_selected=False, is_parent=True))
 
             # List contents with sorting
-            all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
+            if self.show_hidden:
+                all_items = list(path.iterdir())
+            else:
+                all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
 
             if sort_by_date:
                 # Sort by access time (most recent first), dirs first
@@ -761,6 +767,13 @@ class DualPanelScreen(ModalScreen):
             DualPanelScreen._session_sort_right = self.sort_right
         # Refresh only active panel
         self._refresh_single_panel(self.active_panel)
+
+    def action_toggle_hidden(self):
+        """Toggle showing hidden files (dotfiles)."""
+        self.show_hidden = not self.show_hidden
+        DualPanelScreen._session_show_hidden = self.show_hidden
+        # Refresh both panels
+        self.refresh_panels()
 
     def action_switch_panel(self):
         """Switch focus between panels."""
