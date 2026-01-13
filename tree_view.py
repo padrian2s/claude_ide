@@ -125,12 +125,15 @@ class FileItem(ListItem):
     def _render_content(self) -> str:
         # Parent directory shows as ".."
         if self.is_parent:
-            return "   📁 .."
+            return "   📁 /.."
 
         is_dir = self.path.is_dir()
         icon = "📁" if is_dir else "📄"
         mark = "●" if self.is_selected else " "
         name = self.path.name or str(self.path)
+        # Add "/" prefix to directories
+        if is_dir:
+            name = "/" + name
 
         try:
             size = "" if is_dir else format_size(self.path.stat().st_size)
@@ -409,7 +412,7 @@ class RenameDialog(ModalScreen):
         self.dismiss(None)
 
 
-class DualPanelScreen(ModalScreen):
+class DualPanelScreen(Screen):
     """Dual panel file manager for copying files."""
 
     # Session persistence - class variables to remember paths, sort, and cursor per panel
