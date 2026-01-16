@@ -13,7 +13,7 @@ SESSION = f"claude-ide-{os.getpid()}"
 # Get the start directory from command line arg, default to cwd
 START_DIR = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
 SCRIPT_DIR = Path(__file__).parent
-TREE_SCRIPT = SCRIPT_DIR / "tree_view.py"
+TREE_SCRIPT = SCRIPT_DIR / "lstime.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
 CONFIG_SCRIPT = SCRIPT_DIR / "config_panel.py"
 FAVORITES_SCRIPT = SCRIPT_DIR / "favorites.py"

@@ -366,9 +366,21 @@ class ScreenReloader:
             child_pids = result.stdout.strip().split("\n")
             for pid in child_pids:
                 if pid:
+                    # First try graceful SIGTERM
                     subprocess.run(["kill", pid], capture_output=True)
 
+            # Wait a bit then force kill any remaining processes
+            time.sleep(0.2)
+            for pid in child_pids:
+                if pid:
+                    # Force kill with SIGKILL if still running
+                    subprocess.run(["kill", "-9", pid], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
         time.sleep(0.3)
+
+        # Send Ctrl+C first to interrupt any running process
+        subprocess.run(["tmux", "send-keys", "-t", target, "C-c"])
+        time.sleep(0.1)
 
         # Clear and restart
         subprocess.run(["tmux", "send-keys", "-t", target, "clear", "Enter"])

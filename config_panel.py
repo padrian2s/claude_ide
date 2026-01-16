@@ -1160,6 +1160,8 @@ class ConfigPanel(App):
             self.notify(f"Applied: {self.selected_theme}", timeout=2)
             # Refresh list to update selection marker
             self.refresh_list()
+            # Reload tree_view (F2) to apply new Textual theme
+            self._reload_textual_apps()
 
     def refresh_list(self):
         """Refresh the theme list."""
@@ -1169,6 +1171,18 @@ class ConfigPanel(App):
         for name, theme_colors in THEMES.items():
             list_view.append(ThemeItem(name, theme_colors, name == self.selected_theme))
         list_view.index = current_index
+
+    def _reload_textual_apps(self):
+        """Reload Textual apps to apply new theme."""
+        import time
+        reloader = ScreenReloader()
+        script_dir = Path(__file__).parent
+        # Reload lstime (F2 = window 20)
+        lstime_script = script_dir / "lstime.py"
+        if lstime_script.exists():
+            # Small delay to ensure config file is fully written
+            time.sleep(0.1)
+            reloader.reload_screen(20, lstime_script)
 
     def action_toggle_position(self):
         """Toggle status bar position between top and bottom."""

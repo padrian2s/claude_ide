@@ -47,7 +47,8 @@ from textual.widgets._directory_tree import DirEntry
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.reactive import reactive
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
+from textual.message import Message
 from rich.syntax import Syntax
 from rich.text import Text
 from rich.console import Group
@@ -110,6 +111,93 @@ class SizedDirectoryTree(DirectoryTree):
         return label
 
 
+
+class PathSegment(Static):
+    """A clickable path segment."""
+    
+    def __init__(self, text: str, path: Path, panel: str):
+        super().__init__(text, markup=False)
+        self.path = path
+        self.panel = panel
+    
+    def on_click(self, event) -> None:
+        """Handle click to navigate to this path."""
+        event.stop()
+        self.post_message(PathSegment.Clicked(self.path, self.panel))
+    
+    class Clicked(Message):
+        """Message sent when path segment is clicked."""
+        def __init__(self, path: Path, panel: str):
+            super().__init__()
+            self.path = path
+            self.panel = panel
+
+
+class PathBar(Horizontal):
+    """A clickable path bar showing path segments."""
+    
+    DEFAULT_CSS = """
+    PathBar {
+        height: 1;
+        width: 100%;
+        background: $surface;
+        padding: 0 1;
+    }
+    PathBar > PathSegment {
+        width: auto;
+        padding: 0 0;
+        color: $text-muted;
+    }
+    PathBar > PathSegment:hover {
+        color: $primary;
+        text-style: underline;
+    }
+    PathBar > Static.separator {
+        width: auto;
+        padding: 0;
+        color: $text-muted;
+    }
+    PathBar > Static.sort-icon {
+        width: auto;
+        padding: 0 1 0 0;
+        color: $text-muted;
+    }
+    """
+    
+    def __init__(self, path: Path, panel: str, sort_icon: str = "🔤"):
+        super().__init__()
+        self.path = path
+        self.panel = panel
+        self.sort_icon = sort_icon
+    
+    def compose(self) -> ComposeResult:
+        yield Static(self.sort_icon, classes="sort-icon")
+        
+        # Build path segments
+        parts = self.path.parts
+        for i, part in enumerate(parts):
+            # Build path up to this segment
+            segment_path = Path(*parts[:i+1])
+            yield PathSegment(part, segment_path, self.panel)
+            # Add separator after each part except last and root "/"
+            if i < len(parts) - 1 and part != "/":
+                yield Static("/", classes="separator")
+    
+    def update_path(self, path: Path, sort_icon: str = None):
+        """Update the path bar with a new path."""
+        self.path = path
+        if sort_icon:
+            self.sort_icon = sort_icon
+        self.remove_children()
+        self.mount(Static(self.sort_icon, classes="sort-icon"))
+        parts = path.parts
+        for i, part in enumerate(parts):
+            segment_path = Path(*parts[:i+1])
+            self.mount(PathSegment(part, segment_path, self.panel))
+            # Add separator after each part except last and root "/"
+            if i < len(parts) - 1 and part != "/":
+                self.mount(Static("/", classes="separator"))
+
 class FileItem(ListItem):
     """A file/directory item for the dual panel."""
 
@@ -125,10 +213,9 @@ class FileItem(ListItem):
     def _render_content(self) -> str:
         # Parent directory shows as ".."
         if self.is_parent:
-            return "   📁 /.."
+            return "  /.."
 
         is_dir = self.path.is_dir()
-        icon = "📁" if is_dir else "📄"
         mark = "●" if self.is_selected else " "
         name = self.path.name or str(self.path)
         # Add "/" prefix to directories
@@ -140,7 +227,7 @@ class FileItem(ListItem):
         except:
             size = ""
 
-        return f"{mark} {icon} {name:<30} {size}"
+        return f"{mark} {name:<35} {size}"
 
     def update_selection(self, is_selected: bool):
         """Update selection state without full refresh."""
@@ -428,7 +515,6 @@ class DualPanelScreen(Screen):
     BINDINGS = [
         ("escape", "cancel_or_close", "Close"),
         ("q", "close", "Close"),
-        Binding("ctrl+s", "start_search", "Search", priority=True),
         ("tab", "switch_panel", "Switch"),
         ("space", "toggle_select", "Select"),
         ("backspace", "go_up", "Up"),
@@ -454,10 +540,10 @@ class DualPanelScreen(Screen):
         background: transparent;
     }
     #dual-container {
-        width: 95%;
-        height: 90%;
+        width: 100%;
+        height: 100%;
         background: $background;
-        border: round $primary;
+        border: none;
         padding: 0;
 
         border-title-align: left;
@@ -589,17 +675,17 @@ class DualPanelScreen(Screen):
         with container:
             with Horizontal(id="panels"):
                 left_panel = Vertical(id="left-panel", classes="panel")
-                left_panel.border_title = str(self.left_path)
                 with left_panel:
+                    yield PathBar(self.left_path, "left", "🔤")
                     yield ListView(id="left-list", classes="panel-list")
                 right_panel = Vertical(id="right-panel", classes="panel")
-                right_panel.border_title = str(self.right_path)
                 with right_panel:
+                    yield PathBar(self.right_path, "right", "🔤")
                     yield ListView(id="right-list", classes="panel-list")
             with Vertical(id="progress-container"):
                 yield Static("", id="progress-text")
                 yield ProgressBar(id="progress-bar", total=100)
-            yield Label("^S:search  Space:sel  v:view  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump", id="help-bar")
+            yield Label("/search  Space:sel  v:view  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump", id="help-bar")
 
     def on_mount(self):
         self.refresh_panels()
@@ -616,6 +702,20 @@ class DualPanelScreen(Screen):
             max_right = len(right_list.children) - 1
             right_list.index = min(DualPanelScreen._session_right_index, max_right)
         left_list.focus()
+
+    def on_path_segment_clicked(self, message: PathSegment.Clicked) -> None:
+        """Handle click on path segment to navigate."""
+        if message.panel == "left":
+            self.left_path = message.path
+            self.selected_left.clear()
+            DualPanelScreen._session_left_path = message.path
+            self._refresh_single_panel("left")
+        else:
+            self.right_path = message.path
+            self.selected_right.clear()
+            DualPanelScreen._session_right_path = message.path
+            self._refresh_single_panel("right")
+        self._save_paths_to_config()
 
     def _update_title(self):
         """Update container border title."""
@@ -637,11 +737,15 @@ class DualPanelScreen(Screen):
 
         # Get sort setting for this panel
         sort_by_date = self.sort_left if side == "left" else self.sort_right
-
-        # Update panel border title with path and sort/hidden indicators
         sort_icon = "⏱" if sort_by_date else "🔤"
-        hidden_icon = "👁" if self.show_hidden else ""
-        panel.border_title = f"{sort_icon}{hidden_icon} {path}"
+
+        # Update PathBar
+        try:
+            path_bar = panel.query_one(PathBar)
+            path_bar.update_path(path, sort_icon)
+        except:
+            pass  # PathBar not yet mounted
+        
         list_view.clear()
 
         try:
@@ -721,44 +825,58 @@ class DualPanelScreen(Screen):
             self.action_close()
 
     def action_start_search(self):
-        """Open search dialog."""
-        # Get items from active panel
+        """Open fzf for file/directory selection."""
+        # Get path from active panel
         if self.active_panel == "left":
             path = self.left_path
         else:
             path = self.right_path
 
-        try:
-            items = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
-        except PermissionError:
-            items = []
+        # Run fzf with simple ls output
+        with self.app.suspend():
+            # List files and dirs, fzf to filter
+            if self.show_hidden:
+                cmd = f"ls -1a '{path}' | grep -v '^\\.$' | grep -v '^\\.\\.$' | fzf --prompt='Select: '"
+            else:
+                cmd = f"ls -1 '{path}' | fzf --prompt='Select: '"
+            
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=str(path)
+            )
+            selected = result.stdout.strip()
 
-        def handle_result(selected_path: Path | None):
-            if selected_path:
-                # Navigate to selected item
-                if selected_path.is_dir():
-                    if self.active_panel == "left":
-                        self.left_path = selected_path
-                        self.selected_left.clear()
-                        DualPanelScreen._session_left_path = selected_path
-                    else:
-                        self.right_path = selected_path
-                        self.selected_right.clear()
-                        DualPanelScreen._session_right_path = selected_path
-                    self._refresh_single_panel(self.active_panel)
-                    self._save_paths_to_config()
+        if selected:
+            selected_path = path / selected
+            if selected_path.is_dir():
+                # Directory selected - navigate into it
+                if self.active_panel == "left":
+                    self.left_path = selected_path
+                    self.selected_left.clear()
+                    DualPanelScreen._session_left_path = selected_path
                 else:
-                    # File selected - scroll to it in list
-                    list_view = self.query_one(f"#{self.active_panel}-list", ListView)
-                    for i, child in enumerate(list_view.children):
-                        if isinstance(child, FileItem) and child.path == selected_path:
+                    self.right_path = selected_path
+                    self.selected_right.clear()
+                    DualPanelScreen._session_right_path = selected_path
+                self._refresh_single_panel(self.active_panel)
+                self._save_paths_to_config()
+            else:
+                # File selected - find and highlight it in the list
+                list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+                target_path = selected_path.resolve()
+                for i, child in enumerate(list_view.children):
+                    if isinstance(child, FileItem) and not child.is_parent:
+                        if child.path.resolve() == target_path:
                             list_view.index = i
+                            child.scroll_visible()
                             break
-            # Refocus on list
-            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
-            list_view.focus()
-
-        self.app.push_screen(SearchDialog(items), handle_result)
+        
+        # Refocus on list
+        list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+        list_view.focus()
 
     def action_toggle_sort(self):
         """Toggle sort for active panel only."""
@@ -1447,6 +1565,8 @@ class TreeViewApp(App):
 
     def __init__(self, start_path: Path = None):
         footer_pos = get_footer_position()
+        # Get the theme BEFORE super().__init__() so it's set during initialization
+        self._initial_theme = get_textual_theme()
         self.CSS = f"""
         Screen {{
             background: $background;
@@ -1536,7 +1656,7 @@ class TreeViewApp(App):
         }}
         """
         super().__init__()
-        self.theme = get_textual_theme()
+        self.theme = self._initial_theme
         self.start_path = start_path or Path.cwd()
 
     def compose(self) -> ComposeResult:
@@ -1554,6 +1674,15 @@ class TreeViewApp(App):
         yield Footer()
 
     def on_mount(self):
+        # Apply theme after mount to ensure it takes effect
+        # This is critical for theme synchronization with config panel
+        # Re-read the theme from config in case it changed during startup
+        current_theme = get_textual_theme()
+        if self.theme != current_theme:
+            self.theme = current_theme
+        elif self._initial_theme and self.theme != self._initial_theme:
+            self.theme = self._initial_theme
+
         tree = self.query_one("#tree", SizedDirectoryTree)
         tree.focus()
         self.query_one(FileViewer).clear()
@@ -1709,7 +1838,12 @@ class TreeViewApp(App):
                 self.notify(f"Opened: {path.name}", timeout=1)
 
     def action_fzf_grep(self):
-        """Grep with ripgrep + fzf."""
+        """Grep with ripgrep + fzf (or file selection in file manager)."""
+        # If in DualPanelScreen, do file selection instead of grep
+        if isinstance(self.screen, DualPanelScreen):
+            self.screen.action_start_search()
+            return
+        
         with self.suspend():
             # rg outputs: file:line:content
             # fzf preview shows context around the match
