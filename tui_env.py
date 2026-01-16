@@ -9,9 +9,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-SESSION = f"claude-ide-{os.getpid()}"
-# Get the start directory from command line arg, default to cwd
-START_DIR = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
+# Parse arguments:
+# - No args: session=claude-ide-{pid}, dir=cwd
+# - 1 arg (path): session=claude-ide-{pid}, dir=arg
+# - 2 args (name, path): session=name, dir=path
+# - --no-attach: create session without attaching (for ttyd/external use)
+NO_ATTACH = "--no-attach" in sys.argv
+args = [a for a in sys.argv[1:] if a != "--no-attach"]
+
+if len(args) == 2:
+    SESSION = args[0]
+    START_DIR = Path(args[1]).resolve()
+elif len(args) == 1:
+    SESSION = f"claude-ide-{os.getpid()}"
+    START_DIR = Path(args[0]).resolve()
+else:
+    SESSION = f"claude-ide-{os.getpid()}"
+    START_DIR = Path.cwd()
 SCRIPT_DIR = Path(__file__).parent
 TREE_SCRIPT = SCRIPT_DIR / "lstime.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
@@ -89,11 +103,29 @@ def main():
     # Auto-upgrade from git (preserves AI-modified files)
     auto_upgrade(silent=False)
 
+    # Check if session already exists - if so, just attach
+    result = subprocess.run(
+        ["tmux", "has-session", "-t", SESSION],
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL
+    )
+    if result.returncode == 0:
+        # Session exists
+        if NO_ATTACH:
+            print(f"Session exists: {SESSION}")
+            print(f"Attach with: tmux attach -t {SESSION}")
+            return
+        subprocess.run(["tmux", "attach-session", "-t", SESSION])
+        return
+
     # Load shortcuts configuration
     shortcuts_data = load_shortcuts()
 
-    # Get terminal size
-    size = os.get_terminal_size()
+    # Get terminal size (default to 120x40 if no terminal, e.g. --no-attach)
+    try:
+        size = os.get_terminal_size()
+    except OSError:
+        size = os.terminal_size((120, 40))
 
     # Create session with base-index 1, first window is Terminal 1
     subprocess.run([
@@ -422,16 +454,31 @@ def main():
             # Key bindings are now session-agnostic, so they remain valid for other sessions
             return
 
-        # Kill the session (bindings are session-agnostic and remain valid)
-        subprocess.run(["tmux", "kill-session", "-t", SESSION], stderr=subprocess.DEVNULL)
+        # Only auto-kill ephemeral sessions (claude-ide-{pid})
+        # Named sessions (user-provided) persist after detach
+        if SESSION.startswith("claude-ide-"):
+            subprocess.run(["tmux", "kill-session", "-t", SESSION], stderr=subprocess.DEVNULL)
 
-        # Only unbind keys if no other claude-ide sessions exist
+        # Only unbind keys if no other TUI sessions exist
         result = subprocess.run(
             ["tmux", "list-sessions", "-F", "#{session_name}"],
             capture_output=True, text=True, stderr=subprocess.DEVNULL
         )
-        remaining_sessions = [s for s in result.stdout.strip().split('\n') if s.startswith('claude-ide-')]
-        if not remaining_sessions:
+        # Check for both auto-named and custom sessions that have our @start_dir marker
+        remaining_sessions = result.stdout.strip().split('\n') if result.stdout.strip() else []
+        tui_sessions = []
+        for s in remaining_sessions:
+            if s.startswith('claude-ide-'):
+                tui_sessions.append(s)
+            else:
+                # Check if custom session has our marker
+                marker = subprocess.run(
+                    ["tmux", "show-option", "-t", s, "-v", "@start_dir"],
+                    capture_output=True, text=True, stderr=subprocess.DEVNULL
+                )
+                if marker.returncode == 0 and marker.stdout.strip():
+                    tui_sessions.append(s)
+        if not tui_sessions:
             # Last IDE session, unbind global keys
             for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
                         "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
@@ -443,16 +490,18 @@ def main():
         cleanup()
         sys.exit(0)
 
+    if NO_ATTACH:
+        # Don't attach or register cleanup - session persists
+        print(f"Session created: {SESSION}")
+        print(f"Attach with: tmux attach -t {SESSION}")
+        return
+
     atexit.register(cleanup)
     signal.signal(signal.SIGHUP, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Attach (using subprocess so we regain control after detach/exit)
     subprocess.run(["tmux", "attach-session", "-t", SESSION])
-
-    # Session ends here - cleanup runs via atexit
-
-    # Session ends here - cleanup runs via atexit
 
 
 if __name__ == "__main__":

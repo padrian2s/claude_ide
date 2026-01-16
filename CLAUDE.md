@@ -54,19 +54,15 @@ Textual app with multiple screens:
 - Grep search (/ via rg + fzf)
 
 **DualPanelScreen** - Dual-panel file manager (Norton Commander style):
+- Full screen layout with clickable path navigation
 - Left/Right panels showing directory contents
 - File selection with Space (multi-select)
 - Copy files between panels (c)
 - Rename files (r) with dialog
 - Delete files (d) with confirmation
-- Search/filter files (Ctrl+S) with fzf-style dialog
+- Search/filter files (/) with fzf
+- Clickable PathBar - click any path segment to navigate directly
 - Selection persistence (explicit selections preserved after operations)
-
-**SearchDialog** - Popup search modal:
-- Case-sensitive filtering as you type
-- Tab: auto-select if single result, focus list if multiple
-- Enter: select highlighted item
-- Escape: cancel
 
 ### config_panel.py
 Theme configuration panel:
@@ -175,18 +171,9 @@ tmux status bar shows all windows:
 | c | Copy selected to other panel |
 | r | Rename highlighted item |
 | d | Delete selected (with confirmation) |
-| Ctrl+S | Search/filter files (fzf-style dialog) |
+| / | Search files/directories (fzf) |
 | g | Toggle first/last position |
 | Escape | Close file manager |
-
-### Search Dialog (Ctrl+S in File Manager)
-| Key | Action |
-|-----|--------|
-| Type | Filter results (case-sensitive) |
-| Tab | Auto-select (1 result) or focus list (multiple) |
-| Up/Down | Navigate results (when list focused) |
-| Enter | Select and close |
-| Escape | Cancel |
 
 ### Workflow Chain (F5)
 | Key | Action |
@@ -314,9 +301,18 @@ pip install textual prompt-toolkit
 ## Usage
 
 ```bash
+# Start in current directory (auto-named session, killed on exit)
 ./start.sh
-# or
-python3 tui_env.py
+tui
+
+# Start in specific directory
+tui /path/to/project
+
+# Named session (persists after detach, reattaches if exists)
+tui octopus /Users/adrian/work/octopus
+
+# Running a named session again attaches to existing session
+tui octopus /Users/adrian/work/octopus  # attaches to 'octopus'
 ```
 
 ## Adding a New F-Key Window

@@ -4,7 +4,7 @@
     "right": "/bin"
   },
   "/Users/adrian/personal/claude_ide": {
-    "left": "/Users/adrian/personal/claude_ide",
+    "left": "/Users/adrian/personal",
     "right": "/Users/adrian/personal/claude_ide"
   },
   "/Users/adrian/personal/claude_ide/recordings": {
@@ -37,6 +37,14 @@
   },
   "/Users/adrian/work/sujay_sale": {
     "left": "/Users/adrian/work/sujay_sale",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/work/octopus/.git": {
+    "left": "/Users/adrian/work/octopus/.git/logs",
+    "right": "/Users/adrian"
+  },
+  "/Users/adrian/personal/my_system/__pycache__": {
+    "left": "/Users/adrian/personal/my_system/__pycache__",
     "right": "/Users/adrian"
   }
 }

@@ -68,6 +68,27 @@ User added `* { scrollbar-size: 1 1; }` to CSS in:
 - favorites.py (AdminScreen, DependencyScreen, FavoritesPanel)
 - config_panel.py
 
+## DualPanelScreen Updates (2026-01-13)
+
+### Full Screen File Manager
+- Container now 100% width/height with no border
+- Removed eye icon (👁) from panel title, only sort icon (⏱/🔤) shows
+
+### Clickable PathBar Navigation
+- New `PathBar` widget replaces border_title for path display
+- Each path segment is clickable for direct navigation
+- Example: In `/Users/adrian/test`, clicking `adrian` navigates to `/Users/adrian`
+- Components: `PathSegment` (clickable), `PathBar` (horizontal container)
+
+### Icon Removal
+- Removed folder/file icons (📁 📄) from FileItem
+- Directories show as `/dirname`, files as `filename`
+- Parent directory shows as `/..`
+
+### Search Shortcut
+- "/" key in file manager now shows fzf file/directory selection (not grep)
+- Implemented via check in `TreeViewApp.action_fzf_grep()` - delegates to `DualPanelScreen.action_start_search()` when in file manager
+
 ## Next Steps
 - Apply same styling to F4 (lizard_tui.py) and F7 (prompt_writer.py)
 - F9 config panel: Theme list should fill full width of container (height: 1fr added but may need width adjustment)

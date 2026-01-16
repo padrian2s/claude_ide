@@ -223,6 +223,37 @@ def format_size(size: int) -> str:
 
 if HAS_TEXTUAL:
 
+
+    class HomeIcon(Static):
+        """A clickable home icon that navigates to initial path."""
+        
+        DEFAULT_CSS = """
+        HomeIcon {
+            width: auto;
+            height: 1;
+            padding: 0 1 0 0;
+            color: $text-muted;
+        }
+        HomeIcon:hover {
+            color: $primary;
+        }
+        """
+        
+        def __init__(self, panel: str = ""):
+            super().__init__("🏠", markup=False)
+            self.panel = panel
+        
+        def on_click(self, event) -> None:
+            """Handle click to navigate to home path."""
+            event.stop()
+            self.post_message(HomeIcon.Clicked(self.panel))
+        
+        class Clicked(Message):
+            """Message sent when home icon is clicked."""
+            def __init__(self, panel: str):
+                super().__init__()
+                self.panel = panel
+
     class PathSegment(Static):
         """A clickable path segment."""
 
@@ -282,6 +313,7 @@ if HAS_TEXTUAL:
             self.sort_icon = sort_icon
 
         def compose(self) -> ComposeResult:
+            yield HomeIcon(self.panel)
             if self.sort_icon:
                 yield Static(self.sort_icon, classes="sort-icon")
 
@@ -301,6 +333,7 @@ if HAS_TEXTUAL:
             if sort_icon is not None:
                 self.sort_icon = sort_icon
             self.remove_children()
+            self.mount(HomeIcon(self.panel))
             if self.sort_icon:
                 self.mount(Static(self.sort_icon, classes="sort-icon"))
             parts = path.parts
@@ -959,6 +992,22 @@ if HAS_TEXTUAL:
                 self._refresh_single_panel("right")
             self._save_paths_to_config()
 
+        def on_home_icon_clicked(self, message: HomeIcon.Clicked) -> None:
+            """Handle click on home icon to navigate to initial path."""
+            home_path = DualPanelScreen._initial_start_path or Path.cwd()
+            if message.panel == "left":
+                self.left_path = home_path
+                self.selected_left.clear()
+                DualPanelScreen._session_left_path = home_path
+                self._refresh_single_panel("left")
+            else:
+                self.right_path = home_path
+                self.selected_right.clear()
+                DualPanelScreen._session_right_path = home_path
+                self._refresh_single_panel("right")
+            self._save_paths_to_config()
+            self.notify(f"Home: {home_path}", timeout=1)
+
         def refresh_panels(self):
             self._refresh_panel("left", self.left_path, self.selected_left)
             self._refresh_panel("right", self.right_path, self.selected_right)
@@ -1519,7 +1568,8 @@ if HAS_TEXTUAL:
             self._initial_theme = get_textual_theme()
             super().__init__()
             self.theme = self._initial_theme
-            self.path = path or Path.cwd()
+            self.start_path = path or Path.cwd()  # Store initial path for home icon
+            self.path = self.start_path
             self.entries: list[DirEntry] = []
             self._visible_entries: list[DirEntry] = []
             self.sort_by = "created"
@@ -1535,6 +1585,7 @@ if HAS_TEXTUAL:
                 list_panel = Vertical(id="list-panel")
                 list_panel.border_title = "Files"
                 with list_panel:
+                    yield HomeIcon("main")
                     yield DataTable(id="file-table")
                 preview_panel = Vertical(id="preview-panel")
                 preview_panel.border_title = "Preview"
@@ -1555,6 +1606,14 @@ if HAS_TEXTUAL:
             self.setup_table()
             self.refresh_table()
             self._apply_panel_widths()
+
+        def on_home_icon_clicked(self, message: HomeIcon.Clicked) -> None:
+            """Handle click on home icon to navigate to initial path."""
+            if message.panel == "main":
+                self.path = self.start_path
+                self.load_entries()
+                self.refresh_table()
+                self.notify(f"Home: {self.start_path.name or self.start_path}", timeout=1)
 
         def load_entries(self) -> None:
             self.entries = get_dir_entries(self.path)

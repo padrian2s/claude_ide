@@ -112,6 +112,37 @@ class SizedDirectoryTree(DirectoryTree):
 
 
 
+
+class HomeIcon(Static):
+    """A clickable home icon that navigates to initial path."""
+    
+    DEFAULT_CSS = """
+    HomeIcon {
+        width: auto;
+        height: 1;
+        padding: 0 1 0 0;
+        color: $text-muted;
+    }
+    HomeIcon:hover {
+        color: $primary;
+    }
+    """
+    
+    def __init__(self, panel: str = ""):
+        super().__init__("🏠", markup=False)
+        self.panel = panel
+    
+    def on_click(self, event) -> None:
+        """Handle click to navigate to home path."""
+        event.stop()
+        self.post_message(HomeIcon.Clicked(self.panel))
+    
+    class Clicked(Message):
+        """Message sent when home icon is clicked."""
+        def __init__(self, panel: str):
+            super().__init__()
+            self.panel = panel
+
 class PathSegment(Static):
     """A clickable path segment."""
     
@@ -171,6 +202,7 @@ class PathBar(Horizontal):
         self.sort_icon = sort_icon
     
     def compose(self) -> ComposeResult:
+        yield HomeIcon(self.panel)
         yield Static(self.sort_icon, classes="sort-icon")
         
         # Build path segments
@@ -189,6 +221,7 @@ class PathBar(Horizontal):
         if sort_icon:
             self.sort_icon = sort_icon
         self.remove_children()
+        self.mount(HomeIcon(self.panel))
         self.mount(Static(self.sort_icon, classes="sort-icon"))
         parts = path.parts
         for i, part in enumerate(parts):
@@ -716,6 +749,22 @@ class DualPanelScreen(Screen):
             DualPanelScreen._session_right_path = message.path
             self._refresh_single_panel("right")
         self._save_paths_to_config()
+
+    def on_home_icon_clicked(self, message: HomeIcon.Clicked) -> None:
+        """Handle click on home icon to navigate to initial path."""
+        home_path = DualPanelScreen._initial_start_path or Path.cwd()
+        if message.panel == "left":
+            self.left_path = home_path
+            self.selected_left.clear()
+            DualPanelScreen._session_left_path = home_path
+            self._refresh_single_panel("left")
+        else:
+            self.right_path = home_path
+            self.selected_right.clear()
+            DualPanelScreen._session_right_path = home_path
+            self._refresh_single_panel("right")
+        self._save_paths_to_config()
+        self.notify(f"Home: {home_path}", timeout=1)
 
     def _update_title(self):
         """Update container border title."""
@@ -1666,6 +1715,7 @@ class TreeViewApp(App):
             tree_panel = Vertical(id="tree-panel")
             tree_panel.border_title = "Explorer"
             with tree_panel:
+                yield HomeIcon("tree")
                 yield SizedDirectoryTree(self.start_path, id="tree")
             viewer_panel = Vertical(id="viewer-panel")
             viewer_panel.border_title = "Viewer"
@@ -1690,6 +1740,13 @@ class TreeViewApp(App):
         self.sub_title = ""
         # Set initial panel widths
         self._update_panel_widths()
+
+    def on_home_icon_clicked(self, message: HomeIcon.Clicked) -> None:
+        """Handle click on home icon to navigate to initial path."""
+        if message.panel == "tree":
+            tree = self.query_one("#tree", SizedDirectoryTree)
+            tree.path = self.start_path
+            self.notify(f"Home: {self.start_path.name or self.start_path}", timeout=1)
 
     def watch_tree_width(self, width: int):
         """Called when tree_width changes."""
