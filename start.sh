@@ -1,6 +1,7 @@
 #!/bin/bash
 # Claude IDE - Multi-window terminal IDE using tmux
 
+ORIG_DIR="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -55,8 +56,8 @@ for arg in "$@"; do
 done
 
 if [ ${#ARGS[@]} -eq 0 ]; then
-    # No args: use current directory
-    uv run --project "$SCRIPT_DIR" python3 tui_env.py "$(pwd)" $NO_ATTACH
+    # No args: use original directory (captured before cd)
+    uv run --project "$SCRIPT_DIR" python3 tui_env.py "$ORIG_DIR" $NO_ATTACH
 elif [ ${#ARGS[@]} -eq 1 ]; then
     # One arg: directory path
     uv run --project "$SCRIPT_DIR" python3 tui_env.py "${ARGS[0]}" $NO_ATTACH
