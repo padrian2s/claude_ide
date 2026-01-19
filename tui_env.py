@@ -10,22 +10,30 @@ import sys
 from pathlib import Path
 
 # Parse arguments:
-# - No args: session=claude-ide-{pid}, dir=cwd
-# - 1 arg (path): session=claude-ide-{pid}, dir=arg
+# - No args: session=claude-ide-{hash}, dir=cwd (reuses session for same dir)
+# - 1 arg (path): session=claude-ide-{hash}, dir=arg
 # - 2 args (name, path): session=name, dir=path
 # - --no-attach: create session without attaching (for ttyd/external use)
+import hashlib
+
 NO_ATTACH = "--no-attach" in sys.argv
 args = [a for a in sys.argv[1:] if a != "--no-attach"]
+
+
+def path_hash(p: Path) -> str:
+    """Generate short hash from path for deterministic session naming."""
+    return hashlib.md5(str(p).encode()).hexdigest()[:8]
+
 
 if len(args) == 2:
     SESSION = args[0]
     START_DIR = Path(args[1]).resolve()
 elif len(args) == 1:
-    SESSION = f"claude-ide-{os.getpid()}"
     START_DIR = Path(args[0]).resolve()
+    SESSION = f"claude-ide-{path_hash(START_DIR)}"
 else:
-    SESSION = f"claude-ide-{os.getpid()}"
-    START_DIR = Path.cwd()
+    START_DIR = Path.cwd().resolve()
+    SESSION = f"claude-ide-{path_hash(START_DIR)}"
 SCRIPT_DIR = Path(__file__).parent
 TREE_SCRIPT = SCRIPT_DIR / "lstime.py"
 LIZARD_SCRIPT = SCRIPT_DIR / "lizard_tui.py"
@@ -36,7 +44,6 @@ PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
 PATH_SEGMENTS_SCRIPT = SCRIPT_DIR / "path_segments.py"
-SESSION_MANAGER_SCRIPT = SCRIPT_DIR / "session_manager.py"
 SHORTCUTS_FILE = SCRIPT_DIR / "shortcuts.json"
 
 
@@ -75,19 +82,16 @@ def get_status_suffix(shortcuts_data, icon_mode: bool = False):
     global_shortcuts = shortcuts_data.get("contexts", {}).get("global", {}).get("shortcuts", {})
 
     if icon_mode:
-        session_label = "⧉"
         f10_label = "⏻"
         help_label = "🔍"
         f12_label = "🔓"
     else:
-        session_label = "Sess"
         f10_label = global_shortcuts.get("F10", {}).get("label", "Exit")
         help_label = "Help"
         f12_label = global_shortcuts.get("F12", {}).get("label", "Keys")
 
     # Wrap each shortcut in a clickable range
     return (
-        f"#[range=user|session]^S:{session_label}#[norange] "
         f"#[range=user|f10]F10:{f10_label}#[norange] "
         f"#[range=user|help]^H:{help_label}#[norange] "
         f"#[range=user|f12]F12:{f12_label}#[norange]"
@@ -287,7 +291,7 @@ def main():
     # Clear stale key bindings from previous sessions (tmux bindings are global)
     for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
                 "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
-                "C-t", "C-h", "C-x", "C-p", "C-s", "C-w", "S-Left", "S-Right"]:
+                "C-t", "C-h", "C-x", "C-p", "C-w", "S-Left", "S-Right"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
     # Also clear mouse binding that might reference dead session
     subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
@@ -344,14 +348,6 @@ def main():
     # Shift+Arrow keys to navigate all windows (always active, even in passthrough mode)
     subprocess.run(["tmux", "bind-key", "-n", "S-Left", "previous-window"])
     subprocess.run(["tmux", "bind-key", "-n", "S-Right", "next-window"])
-
-    # Ctrl+S = Session manager popup (switch or kill sessions) - fullscreen
-    subprocess.run([
-        "tmux", "bind-key", "-n", "C-s",
-        "display-popup", "-E", "-w", "100%", "-h", "100%",
-        f"uv run python3 '{SESSION_MANAGER_SCRIPT}'"
-    ])
-
 
     # Ctrl+T = Create new terminal with auto-name T2, T3, etc.
     # Increments @term_count and creates window after the last terminal (before apps at 20+)
@@ -421,7 +417,6 @@ def main():
         "tmux", "bind-key", "-T", "root", "MouseUp1Status",
         "run-shell",
         "case '#{mouse_status_range}' in "
-        f"session) tmux display-popup -E -w 100% -h 100% \"uv run python3 '{SESSION_MANAGER_SCRIPT}'\" ;; "
         "f10) tmux confirm-before -p 'Exit session? (y/n)' 'kill-session' ;; "
         "help) tmux send-keys C-h ;; "
         "f12) tmux send-keys F12 ;; "
@@ -482,7 +477,7 @@ def main():
             # Last IDE session, unbind global keys
             for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
                         "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
-                        "C-t", "C-h", "C-x", "C-p", "C-s", "S-Left", "S-Right"]:
+                        "C-t", "C-h", "C-x", "C-p", "S-Left", "S-Right"]:
                 subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
             subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
 
