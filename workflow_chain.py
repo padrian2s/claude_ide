@@ -254,6 +254,67 @@ class ConfirmDialog(ModalScreen):
         self.dismiss(event.button.id == "yes-btn")
 
 
+DEFAULT_EXECUTION_FLOW_URL = "http://kubernetes.go.ro:3020/"
+
+
+class ImportFromUrlDialog(ModalScreen):
+    """Dialog for importing workflow from Execution Flow URL."""
+
+    CSS = """
+    ImportFromUrlDialog {
+        align: center middle;
+    }
+    #import-dialog {
+        width: 80;
+        height: 12;
+        border: round $primary;
+        background: $background;
+        padding: 1;
+    }
+    #url-input {
+        margin: 1 0;
+    }
+    #import-buttons {
+        margin-top: 1;
+        align: center middle;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="import-dialog"):
+            yield Label("Import from Execution Flow")
+            yield Input(value=DEFAULT_EXECUTION_FLOW_URL, placeholder="URL...", id="url-input")
+            with Horizontal(id="import-buttons"):
+                yield Button("Import", variant="primary", id="import-btn")
+                yield Button("Cancel", id="cancel-btn")
+
+    def on_mount(self):
+        inp = self.query_one("#url-input", Input)
+        inp.focus()
+        inp.cursor_position = len(inp.value)
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "import-btn":
+            url = self.query_one("#url-input", Input).value.strip()
+            if url:
+                self.dismiss(url)
+            else:
+                self.dismiss(None)
+        else:
+            self.dismiss(None)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        url = event.value.strip()
+        self.dismiss(url if url else None)
+
+    def action_cancel(self):
+        self.dismiss(None)
+
+
 class FzfDirectoryDialog(ModalScreen):
     """FZF-style directory picker dialog."""
 
@@ -951,6 +1012,7 @@ class WorkflowListScreen(Screen):
 
     BINDINGS = [
         ("n", "new_workflow", "New"),
+        ("i", "import_from_url", "Import"),
         ("r", "run_workflow", "Run"),
         ("e", "edit_workflow", "Edit"),
         ("l", "view_logs", "Logs"),
@@ -1041,6 +1103,27 @@ class WorkflowListScreen(Screen):
                 self.app.push_screen(WorkflowEditorScreen(workflow))
 
         self.app.push_screen(NewWorkflowDialog(), handle_result)
+
+    def action_import_from_url(self):
+        """Import workflow from Execution Flow URL."""
+        def handle_result(url: str | None):
+            if url:
+                info = self.query_one("#info-bar", Static)
+                info.update(f"Importing from {url}...")
+                try:
+                    import urllib.request
+                    import json as json_mod
+                    with urllib.request.urlopen(url, timeout=10) as response:
+                        data = json_mod.loads(response.read().decode())
+                    workflow = WorkflowChain.from_dict(data)
+                    workflow.id = str(__import__("uuid").uuid4())[:8]
+                    save_workflow(workflow)
+                    self.refresh_workflows()
+                    info.update(f"Imported: {workflow.name}")
+                except Exception as e:
+                    info.update(f"Import failed: {e}")
+
+        self.app.push_screen(ImportFromUrlDialog(), handle_result)
 
     def action_edit_workflow(self):
         workflow = self.get_selected_workflow()
