@@ -978,166 +978,6 @@ class LogViewerScreen(Screen):
         self.app.pop_screen()
 
 
-class SubtaskItem(ListItem):
-    """List item for subtask/node display."""
-
-    def __init__(self, node: WorkflowNode, index: int):
-        super().__init__()
-        self.node = node
-        self.index = index
-
-    def compose(self) -> ComposeResult:
-        status_icon = STATUS_ICONS.get(self.node.status, "○")
-        project_name = Path(self.node.project_path).name if self.node.project_path else "(no project)"
-        has_task = "✓" if self.node.prompt_template else "○"
-        yield Static(f"{self.index}. {status_icon} {project_name} [{has_task}]")
-
-
-class SubtasksScreen(Screen):
-    """Screen showing nodes and their assigned tasks side by side."""
-
-    CSS = """
-    #subtasks-main {
-        height: 1fr;
-        padding: 1;
-    }
-    .subtasks-panel {
-        width: 50%;
-        height: 100%;
-        border: round $border;
-        margin: 0 1;
-    }
-    .subtasks-panel:focus-within {
-        border: round $primary;
-    }
-    #nodes-list {
-        height: 1fr;
-    }
-    #task-details {
-        height: 1fr;
-        padding: 1;
-        overflow-y: auto;
-    }
-    #info-bar {
-        height: 1;
-        padding: 0 2;
-        background: $surface;
-        color: $text-muted;
-    }
-    .task-label {
-        color: $text-muted;
-        margin-top: 1;
-    }
-    .task-value {
-        margin-bottom: 1;
-        padding: 0 1;
-    }
-    """
-
-    BINDINGS = [
-        ("e", "edit_task", "Edit Task"),
-        ("tab", "toggle_focus", "Switch"),
-        ("escape", "back", "Back"),
-        ("q", "back", "Back"),
-    ]
-
-    def __init__(self, workflow: WorkflowChain):
-        super().__init__()
-        self.workflow = workflow
-        self.selected_node: WorkflowNode | None = None
-
-    def compose(self) -> ComposeResult:
-        if get_show_header():
-            yield Header(show_clock=False)
-
-        with Horizontal(id="subtasks-main"):
-            with Vertical(classes="subtasks-panel"):
-                yield Label("Nodes")
-                yield ListView(id="nodes-list")
-
-            with Vertical(classes="subtasks-panel"):
-                yield Label("Task Details")
-                with ScrollableContainer(id="task-details"):
-                    yield Static("Select a node to view task", id="task-content")
-
-        yield Static("", id="info-bar")
-        yield Footer()
-
-    def on_mount(self):
-        self.title = f"Subtasks: {self.workflow.name}"
-        self.refresh_nodes()
-        self.query_one("#nodes-list", ListView).focus()
-
-    def refresh_nodes(self):
-        nodes_list = self.query_one("#nodes-list", ListView)
-        nodes_list.clear()
-        for i, node in enumerate(self.workflow.nodes):
-            nodes_list.append(SubtaskItem(node, i + 1))
-        
-        info = self.query_one("#info-bar", Static)
-        total = len(self.workflow.nodes)
-        with_tasks = sum(1 for n in self.workflow.nodes if n.prompt_template)
-        info.update(f"{total} nodes | {with_tasks} with tasks | {total - with_tasks} without tasks")
-
-    def on_list_view_highlighted(self, event: ListView.Highlighted):
-        if event.item and isinstance(event.item, SubtaskItem):
-            self.selected_node = event.item.node
-            self.update_task_details()
-
-    def update_task_details(self):
-        content = self.query_one("#task-content", Static)
-        if not self.selected_node:
-            content.update("Select a node to view task")
-            return
-
-        node = self.selected_node
-        project_name = Path(node.project_path).name if node.project_path else "(no project)"
-        status_icon = STATUS_ICONS.get(node.status, "○")
-        
-        lines = [
-            f"[b]PROJECT[/b]",
-            f"  {project_name}",
-            "",
-            f"[b]PATH[/b]",
-            f"  {node.project_path or '(not set)'}",
-            "",
-            f"[b]STATUS[/b]",
-            f"  {status_icon} {node.status.value}",
-            "",
-            f"[b]TASK/PROMPT[/b]",
-            f"  {node.prompt_template or '(no task assigned)'}",
-            "",
-            f"[b]CONTEXT FILES[/b]",
-            f"  {', '.join(node.context_files) if node.context_files else '(none)'}",
-            "",
-            f"[b]DEPENDS ON[/b]",
-            f"  {', '.join(node.depends_on) if node.depends_on else '(none)'}",
-        ]
-        
-        if node.started_at:
-            lines.extend(["", f"[b]STARTED[/b]", f"  {node.started_at}"])
-        if node.completed_at:
-            lines.extend(["", f"[b]COMPLETED[/b]", f"  {node.completed_at}"])
-        if node.duration_str:
-            lines.extend(["", f"[b]DURATION[/b]", f"  {node.duration_str}"])
-        if node.error_message:
-            lines.extend(["", f"[b]ERROR[/b]", f"  {node.error_message}"])
-
-        content.update("\n".join(lines))
-
-    def action_edit_task(self):
-        """Open editor for the selected workflow."""
-        if self.workflow:
-            self.app.push_screen(WorkflowEditorScreen(self.workflow))
-
-    def action_toggle_focus(self):
-        nodes_list = self.query_one("#nodes-list", ListView)
-        nodes_list.focus()
-
-    def action_back(self):
-        self.app.pop_screen()
-
-
 class WorkflowListScreen(Screen):
     """Main screen showing saved workflows."""
 
@@ -1176,7 +1016,6 @@ class WorkflowListScreen(Screen):
         ("r", "run_workflow", "Run"),
         ("e", "edit_workflow", "Edit"),
         ("l", "view_logs", "Logs"),
-        ("s", "view_subtasks", "Subtasks"),
         ("d", "delete_workflow", "Delete"),
         ("c", "duplicate_workflow", "Duplicate"),
         ("m", "migrate", "Migrate"),
@@ -1352,15 +1191,6 @@ class WorkflowListScreen(Screen):
         else:
             info = self.query_one("#info-bar", Static)
             info.update("No workflow selected. Select one to view logs.")
-
-    def action_view_subtasks(self):
-        """View nodes and tasks side by side."""
-        workflow = self.get_selected_workflow()
-        if workflow:
-            self.app.push_screen(SubtasksScreen(workflow))
-        else:
-            info = self.query_one("#info-bar", Static)
-            info.update("No workflow selected. Select one to view subtasks.")
 
     def action_quit(self):
         self.app.exit()
