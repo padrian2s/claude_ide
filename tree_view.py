@@ -1606,6 +1606,7 @@ class TreeViewApp(App):
         Binding("g", "toggle_position", "g=jump"),
         Binding("backspace", "go_parent", "Parent"),
         Binding("f", "toggle_fullscreen", "Fullscreen"),
+        Binding("y", "copy_path", "Copy Path"),
     ]
 
     # Tree panel width in percent (10-80)
@@ -1714,6 +1715,7 @@ class TreeViewApp(App):
         with Horizontal(id="main"):
             tree_panel = Vertical(id="tree-panel")
             tree_panel.border_title = "Explorer"
+            tree_panel.border_subtitle = "^F:find  /:grep  y:path  o:open  m:mgr  w:wide  f:full  g:jump"
             with tree_panel:
                 yield HomeIcon("tree")
                 yield SizedDirectoryTree(self.start_path, id="tree")
@@ -1833,17 +1835,29 @@ class TreeViewApp(App):
             subprocess.run(["open", str(path)])
             self.notify(f"Opened: {path.name}", timeout=1)
 
+    def action_copy_path(self):
+        """Copy full path of selected file/folder to clipboard."""
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        if tree.cursor_node and tree.cursor_node.data:
+            path = str(tree.cursor_node.data.path.resolve())
+            subprocess.run(["pbcopy"], input=path.encode(), check=True)
+            self.notify(f"Copied: {path}", timeout=2)
+
     def action_fzf_files(self):
         """Fuzzy find files with fzf."""
+        # Get the tree's current path for the search
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        search_path = tree.path
+        
         with self.suspend():
             # Use fd if available (faster), strip "./" prefix, pass to fzf
             # Use --hidden to include hidden files, exclude common dirs
             # Fall back to find if fd not available
             fd_check = subprocess.run(["which", "fd"], capture_output=True)
             if fd_check.returncode == 0:
-                cmd = "fd --type f --hidden -E .git -E .venv -E .env -E .serena -E node_modules -E __pycache__ -E .mypy_cache . 2>/dev/null | sed 's|^\\./||' | fzf --preview 'head -100 {}'"
+                cmd = f"fd --type f --hidden -E .git -E .venv -E .env -E .serena -E node_modules -E __pycache__ -E .mypy_cache . '{search_path}' 2>/dev/null | sed 's|^\\./||' | fzf --preview 'head -100 {{}}'"
             else:
-                cmd = "find . -type f 2>/dev/null | sed 's|^\\./||' | fzf --preview 'head -100 {}'"
+                cmd = f"find '{search_path}' -type f 2>/dev/null | sed 's|^\\./||' | fzf --preview 'head -100 {{}}'"
             result = subprocess.run(
                 cmd,
                 shell=True,
@@ -1854,7 +1868,6 @@ class TreeViewApp(App):
 
         if selected:
             path = Path(selected).resolve()
-            tree = self.query_one("#tree", SizedDirectoryTree)
             
             # Find node matching this path
             def find_node(node):
@@ -1901,12 +1914,16 @@ class TreeViewApp(App):
             self.screen.action_start_search()
             return
         
+        # Get the tree's current path for the search
+        tree = self.query_one("#tree", SizedDirectoryTree)
+        search_path = tree.path
+        
         with self.suspend():
             # rg outputs: file:line:content
             # fzf preview shows context around the match
             # Use sed to strip "./" prefix from file paths
             result = subprocess.run(
-                'rg -n --color=always "" . 2>/dev/null | sed "s|^\\./||" | fzf --ansi --preview "echo {} | cut -d: -f1 | xargs head -100"',
+                f'rg -n --color=always "" \'{search_path}\' 2>/dev/null | sed "s|^\\./||" | fzf --ansi --preview "echo {{}} | cut -d: -f1 | xargs head -100"',
                 shell=True,
                 capture_output=True,
                 text=True
@@ -1918,7 +1935,6 @@ class TreeViewApp(App):
             parts = selected.split(":", 2)
             if len(parts) >= 2:
                 file_path = Path(parts[0]).resolve()
-                tree = self.query_one("#tree", SizedDirectoryTree)
                 
                 # Find node matching this path
                 def find_node(node):

@@ -1591,7 +1591,7 @@ if HAS_TEXTUAL:
                 preview_panel.border_title = "Preview"
                 with preview_panel:
                     yield FileViewer(id="file-viewer")
-            yield Label("^F:find  /:grep  m:manager  v:view  t:time  r:rev  h:hidden  f:full  g:jump  d:del  R:ren  [:shrink  ]:grow  q:quit", id="help-bar")
+            yield Label("^F:find /:grep y:path o:open e:tree m:mgr v:view t:time r:rev h:hid f:full g:jump d:del R:ren [:- ]:+ q:quit", id="help-bar")
 
         def on_mount(self) -> None:
             # Apply theme after mount to ensure it takes effect

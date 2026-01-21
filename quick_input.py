@@ -831,6 +831,9 @@ class QuickInputApp(App):
 
     def action_fzf_path(self):
         """Fuzzy find files/directories and insert at cursor."""
+        # Get project path from tmux @start_dir or cwd
+        search_path = get_current_project()
+        
         with self.suspend():
             # Try fd first (faster), fall back to find
             # Use --hidden to include hidden files, exclude common dirs
@@ -839,9 +842,9 @@ class QuickInputApp(App):
             try:
                 fd_proc = subprocess.run(["which", "fd"], capture_output=True)
                 if fd_proc.returncode == 0:
-                    cmd = f"fd --type f --type d --hidden -E .git -E .venv -E .env -E .serena -E node_modules -E __pycache__ -E .mypy_cache . 2>/dev/null | sed 's|^\\./||' | sort | fzf --preview '{preview_cmd}'"
+                    cmd = f"fd --type f --type d --hidden -E .git -E .venv -E .env -E .serena -E node_modules -E __pycache__ -E .mypy_cache . '{search_path}' 2>/dev/null | sed 's|^\\./||' | sort | fzf --preview '{preview_cmd}'"
                 else:
-                    cmd = f"find . \\( -name .git -o -name .venv -o -name .env -o -name .serena -o -name node_modules -o -name __pycache__ -o -name .mypy_cache \\) -prune -o \\( -type f -o -type d \\) -print 2>/dev/null | sed 's|^\\./||' | sort | fzf --preview '{preview_cmd}'"
+                    cmd = f"find '{search_path}' \\( -name .git -o -name .venv -o -name .env -o -name .serena -o -name node_modules -o -name __pycache__ -o -name .mypy_cache \\) -prune -o \\( -type f -o -type d \\) -print 2>/dev/null | sed 's|^\\./||' | sort | fzf --preview '{preview_cmd}'"
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
                 selected = result.stdout.strip()
             except Exception:
