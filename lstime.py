@@ -35,6 +35,7 @@ Keyboard shortcuts:
   d - Delete selected file/directory
   R - Rename file/directory
   q - Quit
+  Q - Quit and sync shell to current directory
 """
 
 import json
@@ -51,6 +52,7 @@ from typing import NamedTuple
 # Config file for persisting settings
 CONFIG_PATH = Path.home() / ".config" / "lstime" / "config.json"
 SESSION_PATHS_FILE = Path.home() / ".config" / "lstime" / "session_paths.json"
+LASTDIR_FILE = Path(f"/tmp/lstime_lastdir_{os.getenv('USER', 'user')}")
 
 
 def load_config() -> dict:
@@ -102,8 +104,8 @@ def save_session_paths(home_key: str, left_path: Path, right_path: Path):
 
 try:
     from textual.app import App, ComposeResult
-    from textual.widgets import Static, DataTable, ListView, ListItem, Label, ProgressBar, Input, Markdown
-    from textual.containers import Horizontal, Vertical, VerticalScroll
+    from textual.widgets import Static, DataTable, ListView, ListItem, Label, ProgressBar, Input, Markdown, Button
+    from textual.containers import Horizontal, Vertical, VerticalScroll, ScrollableContainer
     from textual.binding import Binding
     from textual.reactive import reactive
     from textual.screen import ModalScreen, Screen
@@ -806,6 +808,296 @@ if HAS_TEXTUAL:
             self.dismiss()
 
 
+    class MaskedInput(Input):
+        """Input that shows masked value when not focused."""
+
+        class ValueChanged(Message):
+            """Emitted when value changes on blur."""
+            def __init__(self, key: str, value: str) -> None:
+                self.key = key
+                self.value = value
+                super().__init__()
+
+        def __init__(self, env_key: str, real_value: str, **kwargs) -> None:
+            self.env_key = env_key
+            self.real_value = real_value
+            self.is_masked = True
+            masked = "*" * min(len(real_value), 20) if real_value else ""
+            super().__init__(value=masked, **kwargs)
+
+        def on_focus(self) -> None:
+            """Show real value when focused."""
+            if self.is_masked:
+                self.is_masked = False
+                self.value = self.real_value
+                self.cursor_position = len(self.value)
+
+        def on_blur(self) -> None:
+            """Mask value when unfocused."""
+            self.real_value = self.value
+            self.is_masked = True
+            self.value = "*" * min(len(self.real_value), 20) if self.real_value else ""
+            self.post_message(self.ValueChanged(self.env_key, self.real_value))
+
+        def get_real_value(self) -> str:
+            """Get the actual unmasked value."""
+            return self.real_value if self.is_masked else self.value
+
+
+    class EnvEditorScreen(ModalScreen):
+        """Modal screen for editing .env files with masked values."""
+
+        BINDINGS = [
+            ("escape", "close", "Close"),
+            ("ctrl+s", "save", "Save"),
+            ("ctrl+n", "new_var", "New Variable"),
+        ]
+
+        CSS = """
+        * {
+            scrollbar-size: 1 1;
+        }
+        EnvEditorScreen {
+            align: center middle;
+            background: transparent;
+        }
+        #env-container {
+            width: 95%;
+            height: 95%;
+            background: $surface;
+            border: round $primary;
+            padding: 1;
+            border-title-align: left;
+            border-title-color: $primary;
+            border-title-background: $surface;
+            border-title-style: bold;
+            border-subtitle-align: right;
+            border-subtitle-color: $text-muted;
+            border-subtitle-background: $surface;
+        }
+        #env-list {
+            height: 1fr;
+            background: $surface;
+        }
+        .env-row {
+            height: 3;
+            margin-bottom: 1;
+        }
+        .env-row .key-label {
+            width: 30;
+            padding: 1;
+            background: $panel;
+            color: $text;
+        }
+        .env-row .value-input {
+            width: 1fr;
+        }
+        .env-row .delete-btn {
+            width: 3;
+            min-width: 3;
+            padding: 0 1;
+        }
+        #env-status {
+            height: 1;
+            background: $panel;
+            padding: 0 1;
+        }
+        #add-dialog {
+            width: 60;
+            height: auto;
+            padding: 1 2;
+            background: $surface;
+            border: solid $primary;
+        }
+        #add-dialog Input {
+            margin-bottom: 1;
+        }
+        #add-dialog .buttons {
+            height: 3;
+            align: center middle;
+        }
+        #add-dialog .buttons Button {
+            margin: 0 1;
+        }
+        #dialog-layer {
+            align: center middle;
+            display: none;
+        }
+        #dialog-layer.visible {
+            display: block;
+            layer: dialog;
+        }
+        """
+
+        def __init__(self, file_path: Path):
+            super().__init__()
+            self.file_path = file_path
+            self.env_vars: dict[str, str] = {}
+            self.modified = False
+
+        def compose(self) -> ComposeResult:
+            container = Vertical(id="env-container")
+            container.border_title = f"{self.file_path.name}"
+            container.border_subtitle = "^S:Save ^N:New Esc:Close"
+            with container:
+                yield ScrollableContainer(id="env-list")
+                yield Static("", id="env-status")
+            yield Vertical(id="dialog-layer")
+
+        def on_mount(self):
+            self._load_env_file()
+
+        def _load_env_file(self):
+            """Load and parse the .env file."""
+            self.env_vars.clear()
+            container = self.query_one("#env-list", ScrollableContainer)
+            container.remove_children()
+
+            if self.file_path.exists():
+                content = self.file_path.read_text()
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, _, value = line.partition("=")
+                        key = key.strip()
+                        value = value.strip()
+                        if (value.startswith('"') and value.endswith('"')) or \
+                           (value.startswith("'") and value.endswith("'")):
+                            value = value[1:-1]
+                        self.env_vars[key] = value
+
+                for key, value in self.env_vars.items():
+                    container.mount(self._create_env_row(key, value))
+
+                self._update_status(f"Loaded {len(self.env_vars)} variables")
+            else:
+                self._update_status(f"File not found (will be created on save)")
+
+            self.modified = False
+            self._update_title()
+
+        def _create_env_row(self, key: str, value: str) -> Horizontal:
+            """Create a row for an env variable."""
+            row = Horizontal(classes="env-row")
+            row.env_key = key
+
+            key_label = Static(key, classes="key-label")
+            value_input = MaskedInput(key, value, classes="value-input")
+            delete_btn = Button("x", classes="delete-btn", variant="error")
+
+            row.compose_add_child(key_label)
+            row.compose_add_child(value_input)
+            row.compose_add_child(delete_btn)
+            return row
+
+        def on_masked_input_value_changed(self, event: MaskedInput.ValueChanged) -> None:
+            """Track when values change."""
+            if event.key in self.env_vars:
+                if self.env_vars[event.key] != event.value:
+                    self.env_vars[event.key] = event.value
+                    self.modified = True
+                    self._update_title()
+
+        def on_button_pressed(self, event: Button.Pressed) -> None:
+            """Handle delete button or dialog buttons."""
+            btn = event.button
+            if "delete-btn" in btn.classes:
+                row = btn.parent
+                if hasattr(row, 'env_key'):
+                    del self.env_vars[row.env_key]
+                    row.remove()
+                    self.modified = True
+                    self._update_title()
+                    self._update_status(f"Deleted: {row.env_key}")
+            elif btn.id == "add-btn":
+                self._submit_new_var()
+            elif btn.id == "cancel-btn":
+                self._close_dialog()
+
+        def _update_status(self, message: str) -> None:
+            self.query_one("#env-status", Static).update(message)
+
+        def _update_title(self) -> None:
+            marker = " *" if self.modified else ""
+            container = self.query_one("#env-container")
+            container.border_title = f"{self.file_path.name}{marker}"
+
+        def action_save(self) -> None:
+            """Save the .env file."""
+            lines = []
+            for row in self.query(".env-row"):
+                if hasattr(row, 'env_key'):
+                    key = row.env_key
+                    inp = row.query_one(Input)
+                    value = inp.real_value if hasattr(inp, 'real_value') else inp.value
+                    if " " in value or '"' in value:
+                        value = f'"{value}"'
+                    lines.append(f"{key}={value}")
+
+            self.file_path.write_text("\n".join(lines) + "\n")
+            self.modified = False
+            self._update_title()
+            self._update_status(f"Saved {len(lines)} variables")
+
+        def action_new_var(self) -> None:
+            """Show dialog to add new variable."""
+            dialog_layer = self.query_one("#dialog-layer")
+            dialog_layer.remove_children()
+
+            dialog = Vertical(id="add-dialog")
+            dialog.compose_add_child(Label("Add New Variable"))
+            key_input = Input(placeholder="KEY_NAME", id="new-key")
+            value_input = Input(placeholder="value", id="new-value")
+            buttons = Horizontal(classes="buttons")
+            buttons.compose_add_child(Button("Add", variant="primary", id="add-btn"))
+            buttons.compose_add_child(Button("Cancel", id="cancel-btn"))
+            dialog.compose_add_child(key_input)
+            dialog.compose_add_child(value_input)
+            dialog.compose_add_child(buttons)
+
+            dialog_layer.mount(dialog)
+            dialog_layer.add_class("visible")
+            self.set_timer(0.1, lambda: self.query_one("#new-key", Input).focus())
+
+        def on_input_submitted(self, event: Input.Submitted) -> None:
+            """Handle Enter in dialog inputs."""
+            if event.input.id == "new-key":
+                self.query_one("#new-value", Input).focus()
+            elif event.input.id == "new-value":
+                self._submit_new_var()
+
+        def _submit_new_var(self) -> None:
+            """Submit the new variable from dialog."""
+            try:
+                key = self.query_one("#new-key", Input).value.strip()
+                value = self.query_one("#new-value", Input).value
+                if key and key not in self.env_vars:
+                    self.env_vars[key] = value
+                    container = self.query_one("#env-list", ScrollableContainer)
+                    container.mount(self._create_env_row(key, value))
+                    self.modified = True
+                    self._update_title()
+                    self._update_status(f"Added: {key}")
+                elif key in self.env_vars:
+                    self._update_status(f"Key already exists: {key}")
+            except Exception:
+                pass
+            self._close_dialog()
+
+        def _close_dialog(self) -> None:
+            """Close the add dialog."""
+            dialog_layer = self.query_one("#dialog-layer")
+            dialog_layer.remove_children()
+            dialog_layer.remove_class("visible")
+
+        def action_close(self) -> None:
+            if self.modified:
+                self._update_status("Unsaved changes! ^S to save, Esc again to discard")
+                self.modified = False
+            else:
+                self.dismiss()
+
+
     # ═══════════════════════════════════════════════════════════════════════════════
     # Dual Panel File Manager
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -840,6 +1132,7 @@ if HAS_TEXTUAL:
             ("i", "sync_panels", "Sync"),
             ("v", "view_file", "View"),
             ("/", "start_search", "Search"),
+            ("e", "edit_nano", "Edit"),
         ]
 
         CSS = """
@@ -965,7 +1258,7 @@ if HAS_TEXTUAL:
                 with Vertical(id="progress-container"):
                     yield Static("", id="progress-text")
                     yield ProgressBar(id="progress-bar", total=100)
-                yield Label("/search  Space:sel  v:view  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump", id="help-bar")
+                yield Label("/search  Space:sel  v:view  e:edit  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump", id="help-bar")
 
         def on_mount(self):
             self.refresh_panels()
@@ -1405,7 +1698,7 @@ if HAS_TEXTUAL:
 
         def action_view_file(self):
             for screen in self.app.screen_stack:
-                if isinstance(screen, FileViewerScreen):
+                if isinstance(screen, (FileViewerScreen, EnvEditorScreen)):
                     screen.dismiss()
                     return
 
@@ -1422,7 +1715,29 @@ if HAS_TEXTUAL:
                 self.notify("Cannot view directory", timeout=2)
                 return
 
-            self.app.push_screen(FileViewerScreen(item.path))
+            # Use env editor for .env files
+            if item.path.name.startswith('.env') or item.path.suffix == '.env':
+                self.app.push_screen(EnvEditorScreen(item.path))
+            else:
+                self.app.push_screen(FileViewerScreen(item.path))
+
+        def action_edit_nano(self):
+            """Open selected file in nano editor."""
+            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+            if not list_view.highlighted_child:
+                self.notify("No file selected", timeout=2)
+                return
+
+            item = list_view.highlighted_child
+            if not isinstance(item, FileItem) or item.is_parent:
+                return
+
+            if item.path.is_dir():
+                self.notify("Cannot edit directory", timeout=2)
+                return
+
+            with self.app.suspend():
+                subprocess.run(["nano", str(item.path)])
 
 
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -1537,6 +1852,7 @@ if HAS_TEXTUAL:
 
         BINDINGS = [
             Binding("q", "quit", "Quit"),
+            Binding("Q", "quit_cd", "Quit+CD"),
             Binding("t", "toggle_time", "Toggle Time"),
             Binding("c", "sort_created", "Created"),
             Binding("a", "sort_accessed", "Accessed"),
@@ -1558,6 +1874,7 @@ if HAS_TEXTUAL:
             Binding("d", "delete_item", "Delete"),
             Binding("R", "rename_item", "Rename"),
             Binding("o", "open_system", "Open"),
+            Binding("E", "edit_nano", "Edit"),
         ]
 
         preview_width = reactive(30)
@@ -1575,6 +1892,7 @@ if HAS_TEXTUAL:
             self.sort_by = "created"
             self.reverse_order = True
             self.show_hidden = False
+            self._preview_timer = None  # For debouncing preview updates
             config = load_config()
             self.preview_width = config.get("preview_width", 30)
             self.show_hidden = config.get("show_hidden", False)
@@ -1591,7 +1909,7 @@ if HAS_TEXTUAL:
                 preview_panel.border_title = "Preview"
                 with preview_panel:
                     yield FileViewer(id="file-viewer")
-            yield Label("^F:find /:grep y:path o:open e:tree m:mgr v:view t:time r:rev h:hid f:full g:jump d:del R:ren [:- ]:+ q:quit", id="help-bar")
+            yield Label("^F:find /:grep y:path o:open e:tree m:mgr v:view E:edit t:time r:rev h:hid f:full g:jump d:del R:ren q:quit Q:quit+cd", id="help-bar")
 
         def on_mount(self) -> None:
             # Apply theme after mount to ensure it takes effect
@@ -1800,7 +2118,11 @@ if HAS_TEXTUAL:
             if table.cursor_row is not None and self._visible_entries:
                 entry = self._visible_entries[table.cursor_row]
                 if not entry.is_dir:
-                    self.push_screen(FileViewerScreen(entry.path))
+                    # Use env editor for .env files
+                    if entry.path.name.startswith('.env') or entry.path.suffix == '.env':
+                        self.push_screen(EnvEditorScreen(entry.path))
+                    else:
+                        self.push_screen(FileViewerScreen(entry.path))
                 else:
                     self.notify("Cannot view directory", timeout=2)
 
@@ -1932,8 +2254,33 @@ if HAS_TEXTUAL:
                 subprocess.run(["open", str(entry.path)])
                 self.notify(f"Opened: {entry.name}", timeout=1)
 
+        def action_edit_nano(self) -> None:
+            """Open selected file in nano editor."""
+            table = self.query_one("#file-table", DataTable)
+            if table.cursor_row is not None and self._visible_entries:
+                entry = self._visible_entries[table.cursor_row]
+                if not entry.is_dir:
+                    with self.suspend():
+                        subprocess.run(["nano", str(entry.path)])
+                    # Refresh preview after editing
+                    self.update_preview(table.cursor_row)
+                else:
+                    self.notify("Cannot edit directory", timeout=2)
+
+        def action_quit_cd(self) -> None:
+            """Quit and write current directory to temp file for shell to cd."""
+            try:
+                LASTDIR_FILE.write_text(str(self.path))
+            except OSError:
+                pass
+            self.exit()
+
         def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-            self.update_preview(event.cursor_row)
+            # Debounce preview updates - only load after user stops navigating
+            if hasattr(self, '_preview_timer') and self._preview_timer:
+                self._preview_timer.stop()
+            row = event.cursor_row  # Capture value, not reference
+            self._preview_timer = self.set_timer(0.1, lambda r=row: self.update_preview(r))
 
         def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
             """Handle row selection (Enter key) - navigate into directories."""
@@ -2168,6 +2515,7 @@ Interactive TUI Shortcuts:
   R                 Rename file/directory
   o                 Open with system app
   q                 Quit
+  Q                 Quit and sync shell directory
 
 File Manager (m) Shortcuts:
   Tab               Switch panels
