@@ -13,6 +13,7 @@ from textual.widgets import (
 )
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 from textual.screen import Screen, ModalScreen
+from textual.binding import Binding
 from textual.reactive import reactive
 from textual.timer import Timer
 
@@ -183,6 +184,7 @@ class NewWorkflowDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
+        Binding("enter", "submit", "Submit", priority=True),
     ]
 
     def compose(self) -> ComposeResult:
@@ -198,17 +200,16 @@ class NewWorkflowDialog(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "create-btn":
-            name = self.query_one("#name-input", Input).value.strip()
-            if name:
-                self.dismiss(name)
-            else:
-                self.dismiss(None)
+            self.action_submit()
         else:
             self.dismiss(None)
 
-    def on_input_submitted(self, event: Input.Submitted):
-        name = event.value.strip()
+    def action_submit(self):
+        name = self.query_one("#name-input", Input).value.strip()
         self.dismiss(name if name else None)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        self.action_submit()
 
     def action_cancel(self):
         self.dismiss(None)
@@ -282,6 +283,7 @@ class ImportFromUrlDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
+        Binding("enter", "submit", "Submit", priority=True),
     ]
 
     def compose(self) -> ComposeResult:
@@ -299,17 +301,16 @@ class ImportFromUrlDialog(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "import-btn":
-            url = self.query_one("#url-input", Input).value.strip()
-            if url:
-                self.dismiss(url)
-            else:
-                self.dismiss(None)
+            self.action_submit()
         else:
             self.dismiss(None)
 
-    def on_input_submitted(self, event: Input.Submitted):
-        url = event.value.strip()
+    def action_submit(self):
+        url = self.query_one("#url-input", Input).value.strip()
         self.dismiss(url if url else None)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        self.action_submit()
 
     def action_cancel(self):
         self.dismiss(None)
@@ -368,6 +369,7 @@ class FzfDirectoryDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
+        Binding("enter", "submit", "Submit", priority=True),
     ]
 
     def __init__(self, exclude_paths: set[str] = None):
@@ -422,8 +424,8 @@ class FzfDirectoryDialog(ModalScreen):
     def on_input_changed(self, event: Input.Changed):
         self.refresh_list(event.value)
 
-    def on_input_submitted(self, event: Input.Submitted):
-        # Select highlighted item
+    def action_submit(self):
+        """Submit - select highlighted item."""
         fzf_list = self.query_one("#fzf-list", ListView)
         if fzf_list.highlighted_child:
             item = fzf_list.highlighted_child
@@ -431,6 +433,9 @@ class FzfDirectoryDialog(ModalScreen):
                 self.dismiss(item.path)
         else:
             self.dismiss(None)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        self.action_submit()
 
     def on_list_view_selected(self, event: ListView.Selected):
         item = event.item

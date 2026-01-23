@@ -292,6 +292,7 @@ class SearchDialog(ModalScreen):
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
         ("tab", "select_first", "Select First"),
+        Binding("enter", "submit", "Submit", priority=True),
     ]
 
     CSS = """
@@ -371,14 +372,24 @@ class SearchDialog(ModalScreen):
         self.filter_text = event.value
         self._refresh_results()
 
-    def on_input_submitted(self, event: Input.Submitted):
-        """Enter in input - select first result."""
+    def action_submit(self):
+        """Submit - select first result or highlighted item."""
         results = self.query_one("#search-results", ListView)
+        # If list has focus and item is highlighted, use that
+        if results.has_focus and results.highlighted_child:
+            if isinstance(results.highlighted_child, SearchItem):
+                self.dismiss(results.highlighted_child.path)
+                return
+        # Otherwise, select first result
         if results.children:
             results.index = 0
             item = results.children[0]
             if isinstance(item, SearchItem):
                 self.dismiss(item.path)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        """Enter in input - select first result."""
+        self.action_submit()
 
     def on_list_view_selected(self, event: ListView.Selected):
         """Enter on item - return it."""
@@ -465,6 +476,7 @@ class RenameDialog(ModalScreen):
 
     BINDINGS = [
         ("escape", "cancel", "Cancel"),
+        Binding("enter", "submit", "Submit", priority=True),
     ]
 
     CSS = """
@@ -521,12 +533,16 @@ class RenameDialog(ModalScreen):
         else:
             input_widget.selection = (0, len(name))
 
-    def on_input_submitted(self, event: Input.Submitted):
-        new_name = event.value.strip()
+    def action_submit(self):
+        input_widget = self.query_one("#rename-input", Input)
+        new_name = input_widget.value.strip()
         if new_name and new_name != self.current_name:
             self.dismiss(new_name)
         else:
             self.dismiss(None)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        self.action_submit()
 
     def action_cancel(self):
         self.dismiss(None)

@@ -256,6 +256,52 @@ if HAS_TEXTUAL:
                 super().__init__()
                 self.panel = panel
 
+    class HelpBar(Static):
+        """Help bar that highlights pressed shortcuts temporarily."""
+
+        DEFAULT_CSS = """
+        HelpBar {
+            height: 1;
+            background: $surface;
+            color: $text-muted;
+            text-align: center;
+            padding: 0 1;
+        }
+        """
+
+        def __init__(self, shortcuts: list[tuple[str, str]], **kwargs):
+            """
+            shortcuts: list of (key, description) tuples, e.g. [("h", "home"), ("q", "quit")]
+            """
+            super().__init__(**kwargs)
+            self.shortcuts = shortcuts
+            self._highlighted_key: str | None = None
+            self._clear_timer = None
+
+        def render(self) -> str:
+            """Render the help bar with optional highlight."""
+            parts = []
+            for key, desc in self.shortcuts:
+                label = f"{key}:{desc}"
+                if key == self._highlighted_key:
+                    parts.append(f"[bold reverse]{label}[/]")
+                else:
+                    parts.append(label)
+            return "  ".join(parts)
+
+        def highlight(self, key: str, duration: float = 0.5):
+            """Highlight a key temporarily."""
+            self._highlighted_key = key
+            self.refresh()
+            if self._clear_timer:
+                self._clear_timer.stop()
+            self._clear_timer = self.set_timer(duration, self._clear_highlight)
+
+        def _clear_highlight(self):
+            """Clear the highlight."""
+            self._highlighted_key = None
+            self.refresh()
+
     class PathSegment(Static):
         """A clickable path segment."""
 
@@ -356,24 +402,26 @@ if HAS_TEXTUAL:
             self.is_parent = is_parent
 
         def compose(self) -> ComposeResult:
-            yield Static(self._render_content(), id="item-content", markup=False)
+            yield Static(self._render_content(), id="item-content")
 
         def _render_content(self) -> str:
             if self.is_parent:
-                return "  /.."
+                return "[bold #0087AF]  /..[/]"
 
             is_dir = self.path.is_dir()
-            mark = "*" if self.is_selected else " "
+            mark = "[bold yellow]*[/]" if self.is_selected else " "
             name = self.path.name or str(self.path)
-            if is_dir:
-                name = "/" + name
 
             try:
                 size = "" if is_dir else format_size(self.path.stat().st_size)
             except:
                 size = ""
 
-            return f"{mark} {name:<35} {size}"
+            if is_dir:
+                # Color directories with readable teal (works on dark backgrounds)
+                return f"{mark} [bold #0087AF]/{name:<34}[/]"
+            else:
+                return f"{mark} {name:<35} {size}"
 
         def update_selection(self, is_selected: bool):
             """Update selection state without full refresh."""
@@ -390,12 +438,14 @@ if HAS_TEXTUAL:
 
         def compose(self) -> ComposeResult:
             is_dir = self.path.is_dir()
-            icon = "/" if is_dir else " "
             try:
                 size = "" if is_dir else format_size(self.path.stat().st_size)
             except:
                 size = ""
-            yield Static(f" {icon} {self.path.name:<35} {size}")
+            if is_dir:
+                yield Static(f" [bold #0087AF]/{self.path.name:<34}[/]")
+            else:
+                yield Static(f"   {self.path.name:<35} {size}")
 
 
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -408,6 +458,7 @@ if HAS_TEXTUAL:
         BINDINGS = [
             ("escape", "cancel", "Cancel"),
             ("tab", "select_first", "Select First"),
+            Binding("enter", "submit", "Submit", priority=True),
         ]
 
         CSS = """
@@ -486,13 +537,23 @@ if HAS_TEXTUAL:
             self.filter_text = event.value
             self._refresh_results()
 
-        def on_input_submitted(self, event: Input.Submitted):
+        def action_submit(self):
+            """Submit - select first result or highlighted item."""
             results = self.query_one("#search-results", ListView)
+            # If list has focus and item is highlighted, use that
+            if results.has_focus and results.highlighted_child:
+                if isinstance(results.highlighted_child, SearchItem):
+                    self.dismiss(results.highlighted_child.path)
+                    return
+            # Otherwise, select first result
             if results.children:
                 results.index = 0
                 item = results.children[0]
                 if isinstance(item, SearchItem):
                     self.dismiss(item.path)
+
+        def on_input_submitted(self, event: Input.Submitted):
+            self.action_submit()
 
         def on_list_view_selected(self, event: ListView.Selected):
             if isinstance(event.item, SearchItem):
@@ -572,6 +633,7 @@ if HAS_TEXTUAL:
 
         BINDINGS = [
             ("escape", "cancel", "Cancel"),
+            Binding("enter", "submit", "Submit", priority=True),
         ]
 
         CSS = """
@@ -625,12 +687,16 @@ if HAS_TEXTUAL:
             else:
                 input_widget.selection = (0, len(name))
 
-        def on_input_submitted(self, event: Input.Submitted):
-            new_name = event.value.strip()
+        def action_submit(self):
+            input_widget = self.query_one("#rename-input", Input)
+            new_name = input_widget.value.strip()
             if new_name and new_name != self.current_name:
                 self.dismiss(new_name)
             else:
                 self.dismiss(None)
+
+        def on_input_submitted(self, event: Input.Submitted):
+            self.action_submit()
 
         def action_cancel(self):
             self.dismiss(None)
@@ -1126,6 +1192,8 @@ if HAS_TEXTUAL:
             ("r", "rename", "Rename"),
             ("d", "delete", "Delete"),
             Binding("g", "toggle_position", "g=jump"),
+            Binding("home", "go_first", "First", priority=True),
+            Binding("end", "go_last", "Last", priority=True),
             ("pageup", "page_up", "PgUp"),
             ("pagedown", "page_down", "PgDn"),
             ("h", "go_home", "Home"),
@@ -1133,6 +1201,7 @@ if HAS_TEXTUAL:
             ("v", "view_file", "View"),
             ("/", "start_search", "Search"),
             ("e", "edit_nano", "Edit"),
+            Binding("ctrl+f", "fzf_files", "^F=find", priority=True),
         ]
 
         CSS = """
@@ -1258,7 +1327,11 @@ if HAS_TEXTUAL:
                 with Vertical(id="progress-container"):
                     yield Static("", id="progress-text")
                     yield ProgressBar(id="progress-bar", total=100)
-                yield Label("/search  Space:sel  v:view  e:edit  c:copy  r:ren  d:del  a:all  s:sort  h:home  i:sync  g:jump", id="help-bar")
+                yield HelpBar([
+                    ("/", "search"), ("^F", "find"), ("Space", "sel"), ("v", "view"), ("e", "edit"),
+                    ("c", "copy"), ("r", "ren"), ("d", "del"), ("a", "all"),
+                    ("s", "sort"), ("h", "home"), ("i", "sync"), ("g", "jump")
+                ], id="help-bar")
 
         def on_mount(self):
             self.refresh_panels()
@@ -1271,6 +1344,13 @@ if HAS_TEXTUAL:
                 max_right = len(right_list.children) - 1
                 right_list.index = min(DualPanelScreen._session_right_index, max_right)
             left_list.focus()
+
+        def _highlight_key(self, key: str):
+            """Highlight a key in the help bar."""
+            try:
+                self.query_one("#help-bar", HelpBar).highlight(key)
+            except:
+                pass
 
         def on_path_segment_clicked(self, message: PathSegment.Clicked) -> None:
             if message.panel == "left":
@@ -1329,16 +1409,19 @@ if HAS_TEXTUAL:
                 else:
                     all_items = [p for p in path.iterdir() if not p.name.startswith(".")]
 
+                # Sort: dot directories first, then regular directories, then files
                 if sort_by_date:
                     def sort_key(p):
                         try:
                             atime = p.stat().st_atime
                         except:
                             atime = 0
-                        return (not p.is_dir(), -atime)
+                        is_dir = p.is_dir()
+                        return (not is_dir, not p.name.startswith('.') if is_dir else True, -atime)
                 else:
                     def sort_key(p):
-                        return (not p.is_dir(), p.name.lower())
+                        is_dir = p.is_dir()
+                        return (not is_dir, not p.name.startswith('.') if is_dir else True, p.name.lower())
 
                 items = sorted(all_items, key=sort_key)
                 for item in items:
@@ -1384,6 +1467,7 @@ if HAS_TEXTUAL:
                 self.action_close()
 
         def action_start_search(self):
+            self._highlight_key("/")
             path = self.left_path if self.active_panel == "left" else self.right_path
             with self.app.suspend():
                 if self.show_hidden:
@@ -1420,6 +1504,7 @@ if HAS_TEXTUAL:
             list_view.focus()
 
         def action_toggle_sort(self):
+            self._highlight_key("s")
             if self.active_panel == "left":
                 self.sort_left = not self.sort_left
                 DualPanelScreen._session_sort_left = self.sort_left
@@ -1437,6 +1522,7 @@ if HAS_TEXTUAL:
                 self.query_one("#left-list", ListView).focus()
 
         def action_toggle_select(self):
+            self._highlight_key("Space")
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
             selected = self.selected_left if self.active_panel == "left" else self.selected_right
 
@@ -1485,6 +1571,7 @@ if HAS_TEXTUAL:
             self._save_paths_to_config()
 
         def action_go_home(self):
+            self._highlight_key("h")
             home_path = DualPanelScreen._initial_start_path or Path.cwd()
             if self.active_panel == "left":
                 self.left_path = home_path
@@ -1499,6 +1586,7 @@ if HAS_TEXTUAL:
             self.notify(f"Home: {home_path}", timeout=1)
 
         def action_sync_panels(self):
+            self._highlight_key("i")
             if self.active_panel == "left":
                 self.right_path = self.left_path
                 self.selected_right.clear()
@@ -1513,6 +1601,7 @@ if HAS_TEXTUAL:
             self.notify("Synced panels", timeout=1)
 
         def action_select_all(self):
+            self._highlight_key("a")
             path = self.left_path if self.active_panel == "left" else self.right_path
             selected = self.selected_left if self.active_panel == "left" else self.selected_right
             try:
@@ -1526,6 +1615,7 @@ if HAS_TEXTUAL:
             self._refresh_single_panel(self.active_panel)
 
         def action_toggle_position(self):
+            self._highlight_key("g")
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
             if list_view.children:
                 current = list_view.index if list_view.index is not None else 0
@@ -1536,6 +1626,21 @@ if HAS_TEXTUAL:
                     list_view.index = 0
                     list_view.scroll_home(animate=False)
                 list_view.focus()
+
+        def action_go_first(self):
+            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+            if list_view.children:
+                list_view.index = 0
+                list_view.scroll_home(animate=False)
+                list_view.focus()
+
+        def action_go_last(self):
+            list_view = self.query_one(f"#{self.active_panel}-list", ListView)
+            if list_view.children:
+                list_view.index = len(list_view.children) - 1
+                list_view.scroll_end(animate=False)
+                list_view.focus()
+
 
         def action_page_up(self):
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
@@ -1554,6 +1659,7 @@ if HAS_TEXTUAL:
                 list_view.focus()
 
         def action_copy_selected(self):
+            self._highlight_key("c")
             if self.copying:
                 return
 
@@ -1625,6 +1731,7 @@ if HAS_TEXTUAL:
             self.set_timer(2, lambda: progress_container.remove_class("visible"))
 
         def action_rename(self):
+            self._highlight_key("r")
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
             if not list_view.highlighted_child:
                 self.notify("No item to rename", timeout=2)
@@ -1650,6 +1757,7 @@ if HAS_TEXTUAL:
             self.app.push_screen(RenameDialog(path.name), handle_rename)
 
         def action_delete(self):
+            self._highlight_key("d")
             if self.active_panel == "left":
                 selected = self.selected_left.copy()
             else:
@@ -1697,6 +1805,7 @@ if HAS_TEXTUAL:
             self.app.push_screen(ConfirmDialog("Delete", message), handle_confirm)
 
         def action_view_file(self):
+            self._highlight_key("v")
             for screen in self.app.screen_stack:
                 if isinstance(screen, (FileViewerScreen, EnvEditorScreen)):
                     screen.dismiss()
@@ -1723,6 +1832,7 @@ if HAS_TEXTUAL:
 
         def action_edit_nano(self):
             """Open selected file in nano editor."""
+            self._highlight_key("e")
             list_view = self.query_one(f"#{self.active_panel}-list", ListView)
             if not list_view.highlighted_child:
                 self.notify("No file selected", timeout=2)
@@ -1738,6 +1848,47 @@ if HAS_TEXTUAL:
 
             with self.app.suspend():
                 subprocess.run(["nano", str(item.path)])
+
+        def action_fzf_files(self) -> None:
+            """Fuzzy find files in active panel using fzf."""
+            self._highlight_key("^F")
+            # Get the active panel's path
+            current_path = self.left_path if self.active_panel == "left" else self.right_path
+
+            with self.app.suspend():
+                fd_check = subprocess.run(["which", "fd"], capture_output=True)
+                if fd_check.returncode == 0:
+                    cmd = f"fd --type f --hidden -E .git -E .venv -E node_modules -E __pycache__ . '{current_path}' 2>/dev/null | fzf --preview 'head -100 {{}}'"
+                else:
+                    cmd = f"find '{current_path}' -type f 2>/dev/null | fzf --preview 'head -100 {{}}'"
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                selected = result.stdout.strip()
+
+            if selected:
+                path = Path(selected).resolve()
+                if path.is_file():
+                    # Navigate to parent directory in active panel and highlight file
+                    parent = path.parent
+                    if self.active_panel == "left":
+                        if parent != self.left_path:
+                            self.left_path = parent
+                            self._refresh_panel("left")
+                        # Find and select the file in the left panel
+                        list_view = self.query_one("#left-list", ListView)
+                    else:
+                        if parent != self.right_path:
+                            self.right_path = parent
+                            self._refresh_panel("right")
+                        # Find and select the file in the right panel
+                        list_view = self.query_one("#right-list", ListView)
+
+                    # Find the file in the list and highlight it
+                    for i, item in enumerate(list_view.children):
+                        if hasattr(item, 'path') and item.path.resolve() == path:
+                            list_view.index = i
+                            break
+
+                    self.notify(f"Found: {path.name}", timeout=1)
 
 
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -1864,6 +2015,8 @@ if HAS_TEXTUAL:
             Binding("]", "shrink_preview", "Grow"),
             Binding("f", "toggle_fullscreen", "Fullscreen"),
             Binding("g", "toggle_position", "g=jump"),
+            Binding("home", "go_first", "First", priority=True),
+            Binding("end", "go_last", "Last", priority=True),
             Binding("m", "file_manager", "Manager"),
             Binding("v", "view_file", "View"),
             Binding("ctrl+f", "fzf_files", "Find", priority=True),
@@ -1909,7 +2062,12 @@ if HAS_TEXTUAL:
                 preview_panel.border_title = "Preview"
                 with preview_panel:
                     yield FileViewer(id="file-viewer")
-            yield Label("^F:find /:grep y:path o:open e:tree m:mgr v:view E:edit t:time r:rev h:hid f:full g:jump d:del R:ren q:quit Q:quit+cd", id="help-bar")
+            yield HelpBar([
+                ("^F", "find"), ("/", "grep"), ("y", "path"), ("o", "open"),
+                ("e", "tree"), ("m", "mgr"), ("v", "view"), ("E", "edit"),
+                ("t", "time"), ("r", "rev"), ("h", "hid"), ("f", "full"),
+                ("g", "jump"), ("d", "del"), ("R", "ren"), ("q", "quit"), ("Q", "quit+cd")
+            ], id="help-bar")
 
         def on_mount(self) -> None:
             # Apply theme after mount to ensure it takes effect
@@ -1924,6 +2082,13 @@ if HAS_TEXTUAL:
             self.setup_table()
             self.refresh_table()
             self._apply_panel_widths()
+
+        def _highlight_key(self, key: str):
+            """Highlight a key in the help bar."""
+            try:
+                self.query_one("#help-bar", HelpBar).highlight(key)
+            except:
+                pass
 
         def on_home_icon_clicked(self, message: HomeIcon.Clicked) -> None:
             """Handle click on home icon to navigate to initial path."""
@@ -1951,10 +2116,19 @@ if HAS_TEXTUAL:
             if not self.show_hidden:
                 entries = [e for e in entries if not e.name.startswith('.')]
 
+            # Sort: dot directories first, then regular directories, then files
             if self.sort_by == "created":
-                entries = sorted(entries, key=lambda e: e.created, reverse=self.reverse_order)
+                entries = sorted(entries, key=lambda e: (
+                    not e.is_dir,  # dirs first
+                    not e.name.startswith('.') if e.is_dir else True,  # dot dirs first among dirs
+                    -e.created.timestamp() if self.reverse_order else e.created.timestamp()
+                ))
             else:
-                entries = sorted(entries, key=lambda e: e.accessed, reverse=self.reverse_order)
+                entries = sorted(entries, key=lambda e: (
+                    not e.is_dir,  # dirs first
+                    not e.name.startswith('.') if e.is_dir else True,  # dot dirs first among dirs
+                    -e.accessed.timestamp() if self.reverse_order else e.accessed.timestamp()
+                ))
 
             self._visible_entries = entries
 
@@ -2011,6 +2185,7 @@ if HAS_TEXTUAL:
             save_config(config)
 
         def action_toggle_time(self) -> None:
+            self._highlight_key("t")
             self.sort_by = "accessed" if self.sort_by == "created" else "created"
             self.refresh_table()
 
@@ -2023,15 +2198,18 @@ if HAS_TEXTUAL:
             self.refresh_table()
 
         def action_reverse(self) -> None:
+            self._highlight_key("r")
             self.reverse_order = not self.reverse_order
             self.refresh_table()
 
         def action_toggle_hidden(self) -> None:
+            self._highlight_key("h")
             self.show_hidden = not self.show_hidden
             self._save_config()
             self.refresh_table()
 
         def action_copy_path(self) -> None:
+            self._highlight_key("y")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is not None and self._visible_entries:
                 try:
@@ -2043,6 +2221,7 @@ if HAS_TEXTUAL:
                     self.notify("Failed to copy path", severity="error")
 
         def action_show_tree(self) -> None:
+            self._highlight_key("e")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is not None and self._visible_entries:
                 try:
@@ -2072,6 +2251,7 @@ if HAS_TEXTUAL:
                 self._save_config()
 
         def action_toggle_fullscreen(self) -> None:
+            self._highlight_key("f")
             table = self.query_one("#file-table", DataTable)
             viewer = self.query_one("#file-viewer", FileViewer)
 
@@ -2094,6 +2274,7 @@ if HAS_TEXTUAL:
             self._apply_panel_widths()
 
         def action_toggle_position(self) -> None:
+            self._highlight_key("g")
             table = self.query_one("#file-table", DataTable)
             if self._visible_entries:
                 current = table.cursor_row if table.cursor_row is not None else 0
@@ -2101,6 +2282,24 @@ if HAS_TEXTUAL:
                     table.move_cursor(row=len(self._visible_entries) - 1)
                 else:
                     table.move_cursor(row=0)
+
+        def action_go_first(self) -> None:
+            """Go to first item (Home key). Delegates to DualPanelScreen if active."""
+            if isinstance(self.screen, DualPanelScreen):
+                self.screen.action_go_first()
+                return
+            table = self.query_one("#file-table", DataTable)
+            if self._visible_entries:
+                table.move_cursor(row=0)
+
+        def action_go_last(self) -> None:
+            """Go to last item (End key). Delegates to DualPanelScreen if active."""
+            if isinstance(self.screen, DualPanelScreen):
+                self.screen.action_go_last()
+                return
+            table = self.query_one("#file-table", DataTable)
+            if self._visible_entries:
+                table.move_cursor(row=len(self._visible_entries) - 1)
 
         def action_toggle_focus(self) -> None:
             table = self.query_one("#file-table", DataTable)
@@ -2111,9 +2310,11 @@ if HAS_TEXTUAL:
                 table.focus()
 
         def action_file_manager(self) -> None:
+            self._highlight_key("m")
             self.push_screen(DualPanelScreen(self.path))
 
         def action_view_file(self) -> None:
+            self._highlight_key("v")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is not None and self._visible_entries:
                 entry = self._visible_entries[table.cursor_row]
@@ -2127,6 +2328,7 @@ if HAS_TEXTUAL:
                     self.notify("Cannot view directory", timeout=2)
 
         def action_fzf_files(self) -> None:
+            self._highlight_key("^F")
             with self.suspend():
                 fd_check = subprocess.run(["which", "fd"], capture_output=True)
                 if fd_check.returncode == 0:
@@ -2154,6 +2356,7 @@ if HAS_TEXTUAL:
                     self.notify(f"Opened: {path.name}", timeout=1)
 
         def action_fzf_grep(self) -> None:
+            self._highlight_key("/")
             with self.suspend():
                 result = subprocess.run(
                     f'rg -n --color=always "" "{self.path}" 2>/dev/null | fzf --ansi --preview "echo {{}} | cut -d: -f1 | xargs head -100"',
@@ -2203,6 +2406,7 @@ if HAS_TEXTUAL:
                 self.notify(f"/{self.path.name or self.path}", timeout=1)
 
         def action_delete_item(self) -> None:
+            self._highlight_key("d")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is None or not self._visible_entries:
                 self.notify("No item selected", timeout=2)
@@ -2227,6 +2431,7 @@ if HAS_TEXTUAL:
             self.push_screen(ConfirmDialog("Delete", message), handle_confirm)
 
         def action_rename_item(self) -> None:
+            self._highlight_key("R")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is None or not self._visible_entries:
                 self.notify("No item selected", timeout=2)
@@ -2248,6 +2453,7 @@ if HAS_TEXTUAL:
             self.push_screen(RenameDialog(entry.name), handle_rename)
 
         def action_open_system(self) -> None:
+            self._highlight_key("o")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is not None and self._visible_entries:
                 entry = self._visible_entries[table.cursor_row]
@@ -2256,6 +2462,7 @@ if HAS_TEXTUAL:
 
         def action_edit_nano(self) -> None:
             """Open selected file in nano editor."""
+            self._highlight_key("E")
             table = self.query_one("#file-table", DataTable)
             if table.cursor_row is not None and self._visible_entries:
                 entry = self._visible_entries[table.cursor_row]
@@ -2269,6 +2476,7 @@ if HAS_TEXTUAL:
 
         def action_quit_cd(self) -> None:
             """Quit and write current directory to temp file for shell to cd."""
+            self._highlight_key("Q")
             try:
                 LASTDIR_FILE.write_text(str(self.path))
             except OSError:
@@ -2326,10 +2534,19 @@ if HAS_TEXTUAL:
                     entries = get_dir_entries(p)
                     if not self.show_hidden:
                         entries = [e for e in entries if not e.name.startswith('.')]
+                    # Sort: dot directories first, then regular directories, then files
                     if self.sort_by == "created":
-                        entries = sorted(entries, key=lambda e: e.created, reverse=self.reverse_order)
+                        entries = sorted(entries, key=lambda e: (
+                            not e.is_dir,  # dirs first
+                            not e.name.startswith('.') if e.is_dir else True,  # dot dirs first among dirs
+                            -e.created.timestamp() if self.reverse_order else e.created.timestamp()
+                        ))
                     else:
-                        entries = sorted(entries, key=lambda e: e.accessed, reverse=self.reverse_order)
+                        entries = sorted(entries, key=lambda e: (
+                            not e.is_dir,  # dirs first
+                            not e.name.startswith('.') if e.is_dir else True,  # dot dirs first among dirs
+                            -e.accessed.timestamp() if self.reverse_order else e.accessed.timestamp()
+                        ))
 
                     for i, entry in enumerate(entries):
                         if count[0] >= max_items:

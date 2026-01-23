@@ -1815,3 +1815,4 @@ used
 mux
 hostname
 laptop
+excel
