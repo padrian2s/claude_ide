@@ -28,8 +28,22 @@ try:
 except ImportError:
     HAS_ANTHROPIC = False
 
+# Optional: NLTK for word suggestions
+try:
+    from nltk.corpus import words as nltk_words_en
+    # Pre-load English words
+    NLTK_WORDS_EN = set(w.lower() for w in nltk_words_en.words())
+    HAS_NLTK = True
+except (ImportError, LookupError):
+    NLTK_WORDS_EN = set()
+    HAS_NLTK = False
+
+# Romanian word list (loaded on demand)
+NLTK_WORDS_RO: set[str] = set()
+
 CORPUS_FILE = Path(__file__).parent / "prompt_words.txt"
 LEARNED_FILE = Path(__file__).parent / ".prompt_learned_words.txt"
+LANG_CONFIG_FILE = Path(__file__).parent / ".prompt_lang.txt"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 PROMPTS_DIR.mkdir(exist_ok=True)
 
@@ -63,6 +77,58 @@ def save_learned_words(words: set[str]):
 
 
 CORPUS_WORDS = load_word_corpus()
+
+# Language settings
+SUPPORTED_LANGS = ["en", "ro"]
+DEFAULT_LANG = "en"
+
+
+def load_language() -> str:
+    """Load saved language preference."""
+    if LANG_CONFIG_FILE.exists():
+        lang = LANG_CONFIG_FILE.read_text().strip()
+        if lang in SUPPORTED_LANGS:
+            return lang
+    return DEFAULT_LANG
+
+
+def save_language(lang: str):
+    """Save language preference."""
+    LANG_CONFIG_FILE.write_text(lang)
+
+
+def load_romanian_words() -> set[str]:
+    """Load Romanian words from NLTK corpus."""
+    global NLTK_WORDS_RO
+    if NLTK_WORDS_RO:
+        return NLTK_WORDS_RO
+    try:
+        from nltk.corpus import udhr
+        # Romanian text from Universal Declaration of Human Rights
+        ro_text = udhr.raw('Romanian_Romana-Latin1')
+        # Extract words (basic tokenization)
+        import re
+        words = set(w.lower() for w in re.findall(r'\b[a-zA-ZăâîșțĂÂÎȘȚ]{3,}\b', ro_text))
+        NLTK_WORDS_RO = words
+    except (ImportError, LookupError):
+        pass
+    return NLTK_WORDS_RO
+
+
+def get_nltk_suggestions(prefix: str, lang: str, limit: int = 8) -> list[str]:
+    """Get word suggestions from NLTK corpus."""
+    if not HAS_NLTK:
+        return []
+
+    prefix_lower = prefix.lower()
+
+    if lang == "ro":
+        words = load_romanian_words()
+    else:
+        words = NLTK_WORDS_EN
+
+    matches = [w for w in words if w.startswith(prefix_lower) and w != prefix_lower]
+    return sorted(matches)[:limit]
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -948,6 +1014,7 @@ class PromptWriter(App):
         Binding("ctrl+space", "trigger_autocomplete", "Autocomplete", show=False),
         Binding("ctrl+r", "send_to_terminal", "→F1", priority=True),
         Binding("ctrl+u", "delete_word", "DelW", priority=True),
+        Binding("ctrl+e", "toggle_lang", "Lang", priority=True),
     ]
 
     def __init__(self):
@@ -996,6 +1063,7 @@ class PromptWriter(App):
         self.enhanced_text = ""
         self.preview_dialog: PreviewDialog | None = None
         self.all_words: set[str] = set(CORPUS_WORDS)
+        self.lang = load_language()
 
     def compose(self) -> ComposeResult:
         if get_show_header():
@@ -1072,15 +1140,21 @@ class PromptWriter(App):
         return ""
 
     def _get_suggestions(self, prefix: str) -> list[str]:
-        """Get autocomplete suggestions for prefix."""
+        """Get autocomplete suggestions for prefix. Local words first, NLTK fallback."""
         if len(prefix) < 2:
             return []
 
         prefix_lower = prefix.lower()
         matches = []
+
+        # First: local words (corpus + learned)
         for word in self.all_words:
             if word.lower().startswith(prefix_lower) and word.lower() != prefix_lower:
                 matches.append(word)
+
+        # Second: NLTK fallback if no local matches
+        if not matches and HAS_NLTK:
+            matches = get_nltk_suggestions(prefix, self.lang, limit=8)
 
         return sorted(matches, key=str.lower)[:8]
 
@@ -1125,6 +1199,19 @@ class PromptWriter(App):
     def action_trigger_autocomplete(self) -> None:
         """Manually trigger autocomplete."""
         self._update_autocomplete()
+
+    def action_toggle_lang(self) -> None:
+        """Toggle autocomplete language (EN/RO)."""
+        if not HAS_NLTK:
+            self.notify("NLTK not installed", timeout=2)
+            return
+
+        # Cycle through languages
+        current_idx = SUPPORTED_LANGS.index(self.lang) if self.lang in SUPPORTED_LANGS else 0
+        next_idx = (current_idx + 1) % len(SUPPORTED_LANGS)
+        self.lang = SUPPORTED_LANGS[next_idx]
+        save_language(self.lang)
+        self.notify(f"Language: {self.lang.upper()}", timeout=1)
 
     def update_status(self) -> None:
         editor = self.query_one("#main-editor", AutocompleteTextArea)

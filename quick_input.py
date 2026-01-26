@@ -456,6 +456,9 @@ class QuickInputApp(App):
         Binding("ctrl+e", "toggle_lang", "Lang", priority=True),
         Binding("ctrl+j", "toggle_ai_complete", "AI+", priority=True),
         Binding("escape", "quit", "Quit", priority=True),
+        # Option+Arrow for word navigation (macOS)
+        Binding("alt+left", "word_left", show=False, priority=True),
+        Binding("alt+right", "word_right", show=False, priority=True),
     ]
 
     def __init__(self):
@@ -538,6 +541,62 @@ class QuickInputApp(App):
 
     def action_hist_next(self):
         self._hist_next()
+
+    def action_word_left(self):
+        """Move cursor to start of previous word (Option+Left)."""
+        ta = self.query_one("#input", TextArea)
+        row, col = ta.cursor_location
+        lines = ta.text.split("\n")
+        if row >= len(lines):
+            return
+
+        line = lines[row]
+
+        # If at start of line, go to end of previous line
+        if col == 0:
+            if row > 0:
+                ta.cursor_location = (row - 1, len(lines[row - 1]))
+            return
+
+        # Skip any spaces/non-word chars before cursor
+        pos = col - 1
+        while pos > 0 and not line[pos].isalnum() and line[pos] != '_':
+            pos -= 1
+
+        # Find start of current word
+        while pos > 0 and (line[pos - 1].isalnum() or line[pos - 1] == '_'):
+            pos -= 1
+
+        ta.cursor_location = (row, pos)
+
+    def action_word_right(self):
+        """Move cursor to start of next word (Option+Right)."""
+        ta = self.query_one("#input", TextArea)
+        row, col = ta.cursor_location
+        lines = ta.text.split("\n")
+        if row >= len(lines):
+            return
+
+        line = lines[row]
+        line_len = len(line)
+
+        # If at end of line, go to start of next line
+        if col >= line_len:
+            if row < len(lines) - 1:
+                ta.cursor_location = (row + 1, 0)
+            return
+
+        pos = col
+
+        # Skip current word chars
+        while pos < line_len and (line[pos].isalnum() or line[pos] == '_'):
+            pos += 1
+
+        # Skip any spaces/non-word chars
+        while pos < line_len and not line[pos].isalnum() and line[pos] != '_':
+            pos += 1
+
+        ta.cursor_location = (row, pos)
 
     def on_text_area_changed(self, event: TextArea.Changed):
         if self.loading:
