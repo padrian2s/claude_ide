@@ -16,16 +16,16 @@ SCRIPT_DIR = Path(__file__).parent
 QUICK_COMMANDS_FILE = SCRIPT_DIR / ".tui_quick_commands.json"
 
 DEFAULT_QUICK_COMMANDS = [
-    {"label": "Git: commit all & push", "command": "git add -A && git commit -m 'update' && git push"},
-    {"label": "Git: pull & merge", "command": "git pull --no-rebase"},
-    {"label": "Git: merge main", "command": "git merge main"},
-    {"label": "Git: stash", "command": "git stash"},
-    {"label": "Git: stash pop", "command": "git stash pop"},
-    {"label": "Git: status", "command": "git status"},
-    {"label": "Git: log oneline", "command": "git log --oneline -20"},
-    {"label": "Git: diff", "command": "git diff"},
-    {"label": "Git: fetch all", "command": "git fetch --all"},
-    {"label": "Git: rebase main", "command": "git rebase main"},
+    "Git: commit all & push",
+    "Git: pull & merge",
+    "Git: merge main",
+    "Git: stash",
+    "Git: stash pop",
+    "Git: status",
+    "Git: log oneline",
+    "Git: diff",
+    "Git: fetch all",
+    "Git: rebase main",
 ]
 
 
@@ -129,7 +129,7 @@ class QuickCommandsApp(App):
             for i, cmd in enumerate(self.commands):
                 num = (i + 1) % 10
                 items.append(
-                    ListItem(Label(f" {num}   {cmd['label']}   [dim]→ {cmd['command']}[/dim]"), id=f"qc-{i}")
+                    ListItem(Label(f" {num}   {cmd}"), id=f"qc-{i}")
                 )
             yield ListView(*items, id="qc-list")
             yield Static("1-0: Select  |  Enter: Confirm  |  Esc/q: Cancel", id="qc-hint")
@@ -139,7 +139,7 @@ class QuickCommandsApp(App):
 
     def _send_command(self, idx: int) -> None:
         if 0 <= idx < len(self.commands):
-            cmd = self.commands[idx]["command"]
+            cmd = self.commands[idx]
             subprocess.run(["tmux", "send-keys", "-t", ":1", "-l", cmd], capture_output=True)
             subprocess.run(["tmux", "send-keys", "-t", ":1", "Enter"], capture_output=True)
             self.exit()
