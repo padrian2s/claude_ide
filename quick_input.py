@@ -151,7 +151,6 @@ Original prompt to transform:
 Return ONLY the improved prompt, nothing else.""",
 }
 
-
 class EnhanceDialog(ModalScreen[str | None]):
     """Dialog to select enhancement level."""
 

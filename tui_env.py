@@ -43,6 +43,7 @@ WORKFLOW_SCRIPT = SCRIPT_DIR / "workflow_chain.py"
 PROMPT_SCRIPT = SCRIPT_DIR / "prompt_writer.py"
 STATUS_SCRIPT = SCRIPT_DIR / "status_viewer.py"
 QUICK_INPUT_SCRIPT = SCRIPT_DIR / "quick_input.py"
+QUICK_COMMANDS_SCRIPT = SCRIPT_DIR / "quick_commands.py"
 PATH_SEGMENTS_SCRIPT = SCRIPT_DIR / "path_segments.py"
 SHORTCUTS_FILE = SCRIPT_DIR / "shortcuts.json"
 
@@ -291,7 +292,7 @@ def main():
     # Clear stale key bindings from previous sessions (tmux bindings are global)
     for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
                 "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
-                "C-t", "C-h", "C-x", "C-p", "C-w", "S-Left", "S-Right"]:
+                "C-t", "C-h", "C-x", "C-p", "C-k", "C-w", "S-Left", "S-Right"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
     # Also clear mouse binding that might reference dead session
     subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
@@ -381,6 +382,14 @@ def main():
         "display-popup", "-E", "-w", "80%", "-h", "30%",
         "-s", popup_style, "-S", popup_style,
         f"uv run python3 '{QUICK_INPUT_SCRIPT}'"
+    ])
+
+    # Ctrl+K = Quick commands popup (predefined commands sent to F1)
+    subprocess.run([
+        "tmux", "bind-key", "-n", "C-k",
+        "display-popup", "-E", "-w", "70%", "-h", "80%",
+        "-s", popup_style, "-S", popup_style,
+        f"uv run --project '{SCRIPT_DIR}' python3 '{QUICK_COMMANDS_SCRIPT}'"
     ])
 
     # F12 = Toggle key passthrough mode
@@ -477,7 +486,7 @@ def main():
             # Last IDE session, unbind global keys
             for key in ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F12",
                         "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
-                        "C-t", "C-h", "C-x", "C-p", "S-Left", "S-Right"]:
+                        "C-t", "C-h", "C-x", "C-p", "C-k", "S-Left", "S-Right"]:
                 subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
             subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
 
