@@ -16,16 +16,16 @@ SCRIPT_DIR = Path(__file__).parent
 QUICK_COMMANDS_FILE = SCRIPT_DIR / ".tui_quick_commands.json"
 
 DEFAULT_QUICK_COMMANDS = [
-    "Git: commit all & push",
-    "Git: pull & merge",
-    "Git: merge main",
-    "Git: stash",
-    "Git: stash pop",
-    "Git: status",
-    "Git: log oneline",
-    "Git: diff",
-    "Git: fetch all",
-    "Git: rebase main",
+    "commit all changes and push",
+    "pull and merge from remote",
+    "Explain how this feature works in the UI",
+    "Reflect on the md files and restructure them clean",
+    "Review the last changes and suggest improvements",
+    "Summarize what was done in this session",
+    "Find bugs and potential issues in the recent code",
+    "Write a clear commit message for the current changes",
+    "Refactor this for readability and simplicity",
+    "Explain this error and how to fix it",
 ]
 
 
