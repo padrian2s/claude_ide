@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Quick commands popup - predefined commands sent to F1 terminal."""
+"""Quick commands popup - select and edit with prompt_toolkit."""
 
 import json
 import subprocess
 from pathlib import Path
 
-from textual.app import App, ComposeResult
-from textual.widgets import Static, Label, ListView, ListItem
-from textual.containers import Vertical
-from textual.binding import Binding
-
-from config_panel import get_textual_theme, get_theme_colors
+from prompt_toolkit.application import Application
+from prompt_toolkit.layout import Layout, Window, HSplit, VSplit
+from prompt_toolkit.layout.containers import FormattedTextControl
+from prompt_toolkit.widgets import Frame, TextArea
+from prompt_toolkit.key_binding import KeyBindings
 
 SCRIPT_DIR = Path(__file__).parent
 QUICK_COMMANDS_FILE = SCRIPT_DIR / ".tui_quick_commands.json"
@@ -40,156 +39,60 @@ def load_quick_commands():
     return DEFAULT_QUICK_COMMANDS
 
 
-class QuickCommandsApp(App):
-    """Full-screen quick commands selector."""
+def main():
+    commands = load_quick_commands()
+    text_areas = []
 
-    BINDINGS = [
-        Binding("escape", "quit", "Quit", priority=True),
-        Binding("q", "quit", "Quit", priority=True),
-        Binding("1", "select_1", show=False, priority=True),
-        Binding("2", "select_2", show=False, priority=True),
-        Binding("3", "select_3", show=False, priority=True),
-        Binding("4", "select_4", show=False, priority=True),
-        Binding("5", "select_5", show=False, priority=True),
-        Binding("6", "select_6", show=False, priority=True),
-        Binding("7", "select_7", show=False, priority=True),
-        Binding("8", "select_8", show=False, priority=True),
-        Binding("9", "select_9", show=False, priority=True),
-        Binding("0", "select_10", show=False, priority=True),
-        Binding("enter", "select_focused", "Select", priority=True),
-    ]
+    for cmd in commands:
+        ta = TextArea(text=cmd, multiline=False, scrollbar=False, focus_on_click=True)
+        text_areas.append(ta)
 
-    def __init__(self):
-        theme_colors = get_theme_colors()
-        bg = theme_colors['bg']
-        fg = theme_colors['fg']
-        self.CSS = f"""
-        Screen {{
-            background: {bg};
-            color: {fg};
-        }}
-        #qc-container {{
-            width: 100%;
-            height: 100%;
-            background: {bg};
-            color: {fg};
-            padding: 0 1;
-        }}
-        #qc-title {{
-            text-align: center;
-            text-style: bold;
-            padding: 1 0;
-            background: {bg};
-            color: {fg};
-        }}
-        #qc-list {{
-            height: 1fr;
-            background: {bg};
-            color: {fg};
-        }}
-        #qc-list > ListItem {{
-            background: {bg};
-            color: {fg};
-            height: 3;
-            padding: 1 2;
-        }}
-        #qc-list > ListItem:hover {{
-            background: {fg} 20%;
-        }}
-        #qc-list:focus > .list-view--highlight {{
-            background: {fg} 30%;
-        }}
-        #qc-hint {{
-            text-align: center;
-            text-opacity: 60%;
-            padding: 1 0;
-            background: {bg};
-            color: {fg};
-        }}
-        Label {{
-            background: {bg};
-            color: {fg};
-        }}
-        Static {{
-            background: {bg};
-            color: {fg};
-        }}
-        Vertical {{
-            background: {bg};
-        }}
-        """
-        super().__init__()
-        self.theme = get_textual_theme()
-        self.commands = load_quick_commands()
+    # Build layout
+    rows = []
+    for i, ta in enumerate(text_areas):
+        num = (i + 1) % 10
+        row = VSplit([
+            Window(FormattedTextControl(lambda n=num: f" {n} "), width=3),
+            ta,
+        ])
+        rows.append(row)
 
-    def compose(self) -> ComposeResult:
-        with Vertical(id="qc-container"):
-            yield Label("⚡ Quick Commands", id="qc-title")
-            items = []
-            for i, cmd in enumerate(self.commands):
-                num = (i + 1) % 10
-                items.append(
-                    ListItem(Label(f" {num}   {cmd}"), id=f"qc-{i}")
-                )
-            yield ListView(*items, id="qc-list")
-            yield Static("1-0: Select  |  Enter: Confirm  |  Esc/q: Cancel", id="qc-hint")
+    root_container = Frame(
+        body=HSplit(rows + [
+            Window(height=1),
+            Window(FormattedTextControl(lambda: "Tab: Next  |  Ctrl+J: Send  |  Esc: Cancel")),
+        ]),
+        title="⚡ Quick Commands",
+    )
 
-    def on_mount(self):
-        self.query_one("#qc-list").focus()
+    app = Application(layout=Layout(root_container), enable_page_navigation_bindings=True)
+    kb = KeyBindings()
 
-    def _send_command(self, idx: int) -> None:
-        if 0 <= idx < len(self.commands):
-            cmd = self.commands[idx]
+    @kb.add('c-j')
+    def _(event):
+        if app.current_buffer:
+            cmd = app.current_buffer.text
             subprocess.run(["tmux", "send-keys", "-t", ":1", "-l", cmd], capture_output=True)
             subprocess.run(["tmux", "send-keys", "-t", ":1", "Enter"], capture_output=True)
-            self.exit()
+        event.app.exit()
 
-    def action_quit(self):
-        self.exit()
+    @kb.add('tab')
+    def _(event):
+        event.app.layout.focus_next()
 
-    def action_select_focused(self):
-        lv = self.query_one("#qc-list", ListView)
-        if lv.index is not None:
-            self._send_command(lv.index)
+    @kb.add('s-tab')
+    def _(event):
+        event.app.layout.focus_previous()
 
-    def action_select_1(self):
-        self._send_command(0)
+    @kb.add('escape')
+    @kb.add('c-c')
+    def _(event):
+        event.app.exit()
 
-    def action_select_2(self):
-        self._send_command(1)
+    app.key_bindings = kb
+    if text_areas:
+        app.layout.focus(text_areas[0])
 
-    def action_select_3(self):
-        self._send_command(2)
-
-    def action_select_4(self):
-        self._send_command(3)
-
-    def action_select_5(self):
-        self._send_command(4)
-
-    def action_select_6(self):
-        self._send_command(5)
-
-    def action_select_7(self):
-        self._send_command(6)
-
-    def action_select_8(self):
-        self._send_command(7)
-
-    def action_select_9(self):
-        self._send_command(8)
-
-    def action_select_10(self):
-        self._send_command(9)
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        lv = self.query_one("#qc-list", ListView)
-        if lv.index is not None:
-            self._send_command(lv.index)
-
-
-def main():
-    app = QuickCommandsApp()
     app.run()
 
 
