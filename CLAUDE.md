@@ -141,6 +141,18 @@ tmux status bar shows all windows:
 | Shift+Left | Previous window |
 | Shift+Right | Next window |
 
+### Pane Management (Ctrl+B prefix shortcuts)
+| Key | Action |
+|-----|--------|
+| Prefix+p | Open pane management popup menu |
+| Prefix+v | Split vertical (side by side) |
+| Prefix+s | Split horizontal (stacked) |
+| Prefix+arrows | Navigate between panes |
+| Prefix+z | Zoom/unzoom pane |
+| Prefix+x | Close pane (with confirmation) |
+
+The `Ctrl+B, p` popup menu also provides: navigate, zoom, close, swap up/down.
+
 ### Tree View (F2) - MainScreen
 | Key | Action |
 |-----|--------|

@@ -283,6 +283,17 @@
         "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel enhancement" }
       }
     },
+    "panes": {
+      "label": "Pane Management (Prefix+p)",
+      "shortcuts": {
+        "Prefix+p": { "action": "pane-menu", "label": "Menu", "description": "Open pane management popup" },
+        "Prefix+v": { "action": "split-vertical", "label": "Split V", "description": "Split pane vertically (side by side)" },
+        "Prefix+s": { "action": "split-horizontal", "label": "Split H", "description": "Split pane horizontally (stacked)" },
+        "Prefix+←→↑↓": { "action": "navigate-pane", "label": "Navigate", "description": "Navigate between panes (tmux default)" },
+        "Prefix+z": { "action": "zoom-pane", "label": "Zoom", "description": "Zoom/unzoom pane (tmux default)" },
+        "Prefix+x": { "action": "close-pane", "label": "Close", "description": "Close pane with confirmation (tmux default)" }
+      }
+    },
     "confirmation_dialog": {
       "label": "Confirmation Dialog",
       "shortcuts": {
@@ -294,7 +305,7 @@
   },
   "help_popup": {
     "width": 68,
-    "height": 27,
+    "height": 33,
     "sections": [
       {
         "title": "NAVIGATION",
@@ -318,6 +329,16 @@
           { "key": "F7", "description": "Git - Lazygit" },
           { "key": "F8", "description": "Status - Session metrics" },
           { "key": "F9", "description": "Config - Theme settings" }
+        ]
+      },
+      {
+        "title": "PANES",
+        "items": [
+          { "key": "⌃B p", "description": "Pane management popup menu" },
+          { "key": "⌃B v", "description": "Split vertical (side by side)" },
+          { "key": "⌃B s", "description": "Split horizontal (stacked)" },
+          { "key": "⌃B ←→↑↓", "description": "Navigate between panes" },
+          { "key": "⌃B z", "description": "Zoom/unzoom pane" }
         ]
       },
       {

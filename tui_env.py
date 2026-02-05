@@ -253,6 +253,10 @@ def main():
         subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
         subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
 
+    # Pane border styling using theme colors
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "pane-border-style", f"fg={theme['fg']}"])
+    subprocess.run(["tmux", "set-option", "-t", SESSION, "pane-active-border-style", f"fg={theme['fg']},bold"])
+
     # Custom status format:
     # - Left: clickable path segments (current pane's directory)
     # - Center: window list with F-keys (text or icons based on config)
@@ -294,6 +298,9 @@ def main():
                 "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
                 "C-t", "C-h", "C-x", "C-p", "C-k", "C-w", "S-Left", "S-Right"]:
         subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
+    # Also clear prefix bindings for pane management
+    for key in ["p", "v", "s"]:
+        subprocess.run(["tmux", "unbind-key", key], stderr=subprocess.DEVNULL)
     # Also clear mouse binding that might reference dead session
     subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
 
@@ -334,6 +341,29 @@ def main():
         "confirm-before", "-p", "Exit session? (y/n)",
         "kill-session"  # Kills current session without needing -t
     ])
+
+    # Prefix+p = Pane management popup menu
+    subprocess.run([
+        "tmux", "bind-key", "p",
+        "display-menu", "-T", "Pane Management", "-x", "C", "-y", "C",
+        "Split Vertical    |", "v", "split-window -h -c '#{pane_current_path}'",
+        "Split Horizontal  -", "h", "split-window -v -c '#{pane_current_path}'",
+        "",
+        "Navigate Left     ←", "Left", "select-pane -L",
+        "Navigate Right    →", "Right", "select-pane -R",
+        "Navigate Up       ↑", "Up", "select-pane -U",
+        "Navigate Down     ↓", "Down", "select-pane -D",
+        "",
+        "Zoom Toggle       z", "z", "resize-pane -Z",
+        "Close Pane        x", "x", "if-shell '[ #{window_panes} -gt 1 ]' 'kill-pane' 'display-message \"Cannot close last pane\"'",
+        "",
+        "Swap Up           {", "{", "swap-pane -U",
+        "Swap Down         }", "}", "swap-pane -D",
+    ])
+
+    # Prefix shortcuts for pane management (power users)
+    subprocess.run(["tmux", "bind-key", "v", "split-window", "-h", "-c", "#{pane_current_path}"])
+    subprocess.run(["tmux", "bind-key", "s", "split-window", "-v", "-c", "#{pane_current_path}"])
 
     # Ctrl+H = Show keyboard shortcuts help popup (generated from shortcuts.json)
     help_text = generate_help_text(shortcuts_data)
@@ -488,6 +518,8 @@ def main():
                         "S-F1", "S-F2", "S-F3", "S-F4", "S-F5", "S-F6", "S-F7", "S-F8", "S-F9",
                         "C-t", "C-h", "C-x", "C-p", "C-k", "S-Left", "S-Right"]:
                 subprocess.run(["tmux", "unbind-key", "-n", key], stderr=subprocess.DEVNULL)
+            for key in ["p", "v", "s"]:
+                subprocess.run(["tmux", "unbind-key", key], stderr=subprocess.DEVNULL)
             subprocess.run(["tmux", "unbind-key", "-T", "root", "MouseUp1Status"], stderr=subprocess.DEVNULL)
 
     def signal_handler(signum, frame):
