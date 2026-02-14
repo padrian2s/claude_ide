@@ -187,15 +187,25 @@ else
     status "$CHECK" "Node.js installed"
 fi
 
-# Step 2f: mdview (Markdown viewer) - delegates to mdview's own installer
+# Step 2f: mdview (Markdown viewer) - clone from GitHub and install
+MDVIEW_REPO="https://github.com/padrian2s/mdview.git"
 MDVIEW_DIR="$SCRIPT_DIR/../mdview"
 if command -v mdview &> /dev/null; then
     status "$CHECK" "mdview"
-elif [[ -f "$MDVIEW_DIR/install.sh" ]]; then
-    bash "$MDVIEW_DIR/install.sh"
 else
-    status "$CROSS" "mdview not found at ${DIM}$MDVIEW_DIR${NC}"
-    echo -e "  ${Y}Clone mdview next to claude_ide and re-run install${NC}"
+    # Clone if not present
+    if [[ ! -d "$MDVIEW_DIR" ]]; then
+        printf "  ${C}⠋${NC} Cloning mdview..."
+        git clone --quiet "$MDVIEW_REPO" "$MDVIEW_DIR" > /dev/null 2>&1 &
+        spin $! "Cloning mdview"
+        status "$CHECK" "mdview cloned"
+    fi
+    # Run its installer
+    if [[ -f "$MDVIEW_DIR/install.sh" ]]; then
+        bash "$MDVIEW_DIR/install.sh"
+    else
+        status "$CROSS" "mdview install.sh not found"
+    fi
 fi
 
 # Step 3: uv (Python package manager)

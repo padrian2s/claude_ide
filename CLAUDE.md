@@ -308,7 +308,7 @@ Displays:
 ```bash
 brew install tmux fzf ripgrep node
 pip install textual prompt-toolkit
-cd ../mdview && npm install && npm link  # Markdown viewer
+# mdview is auto-cloned and installed by install.sh
 ```
 
 ## Usage
