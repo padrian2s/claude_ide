@@ -187,25 +187,15 @@ else
     status "$CHECK" "Node.js installed"
 fi
 
-# Step 2f: mdview (Markdown viewer)
+# Step 2f: mdview (Markdown viewer) - delegates to mdview's own installer
 MDVIEW_DIR="$SCRIPT_DIR/../mdview"
 if command -v mdview &> /dev/null; then
     status "$CHECK" "mdview"
+elif [[ -f "$MDVIEW_DIR/install.sh" ]]; then
+    bash "$MDVIEW_DIR/install.sh"
 else
-    if [[ -d "$MDVIEW_DIR" ]]; then
-        printf "  ${C}⠋${NC} Installing mdview..."
-        (cd "$MDVIEW_DIR" && npm install --silent && npm link --silent) > /dev/null 2>&1 &
-        spin $! "Installing mdview"
-        if command -v mdview &> /dev/null; then
-            status "$CHECK" "mdview installed"
-        else
-            status "$CROSS" "mdview install failed"
-            echo -e "  ${Y}Run manually: cd $MDVIEW_DIR && npm install && npm link${NC}"
-        fi
-    else
-        status "$CROSS" "mdview not found at ${DIM}$MDVIEW_DIR${NC}"
-        echo -e "  ${Y}Clone mdview next to claude_ide and re-run install${NC}"
-    fi
+    status "$CROSS" "mdview not found at ${DIM}$MDVIEW_DIR${NC}"
+    echo -e "  ${Y}Clone mdview next to claude_ide and re-run install${NC}"
 fi
 
 # Step 3: uv (Python package manager)
