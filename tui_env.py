@@ -165,9 +165,9 @@ def main():
         f" uv run --project '{SCRIPT_DIR}' python3 '{LIZARD_SCRIPT}'", "Enter"
     ])
 
-    # Create Window 22 = Glow
-    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:22", "-n", "Glow"])
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:22", f" glow '{START_DIR}'", "Enter"])
+    # Create Window 22 = MDView (Markdown viewer)
+    subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:22", "-n", "MDView"])
+    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION}:22", f" mdview '{START_DIR}'", "Enter"])
 
     # Create Window 23 = Workflow Chain
     subprocess.run(["tmux", "new-window", "-t", f"{SESSION}:23", "-n", "Workflow"])
@@ -248,8 +248,8 @@ def main():
     subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
     subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:1", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
 
-    # Apply theme colors to F4 (Glow), F6 (Prompt), F7 (Git) windows
-    for win_idx in [22, 24, 25]:  # F4=Glow, F6=Prompt, F7=Git
+    # Apply theme colors to F4 (MDView), F6 (Prompt), F7 (Git) windows
+    for win_idx in [22, 24, 25]:  # F4=MDView, F6=Prompt, F7=Git
         subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-style", f"bg={theme['bg']},fg={theme['fg']}"])
         subprocess.run(["tmux", "set-option", "-t", f"{SESSION}:{win_idx}", "window-active-style", f"bg={theme['bg']},fg={theme['fg']}"])
 

@@ -57,7 +57,7 @@ DEFAULT_WINDOW_ICONS = {
     "1": "❯",      # Terminal
     "20": "📂",    # Tree (file manager)
     "21": "🦎",    # Lizard
-    "22": "📖",    # Glow (markdown)
+    "22": "📖",    # MDView (markdown)
     "23": "🔖",    # Favorites
     "24": "💬",    # Prompt
     "25": "⚡",    # Git (lazygit)
@@ -135,7 +135,7 @@ def apply_theme_to_tmux(theme_name: str):
                 "tmux", "set-option", "-t", f"{session}:{win_idx}",
                 "window-active-style", f"bg={colors['bg']},fg={colors['fg']}"
             ], stderr=subprocess.DEVNULL)
-        # Apply to F4 (Glow), F6 (Prompt), F7 (Git) windows
+        # Apply to F4 (MDView), F6 (Prompt), F7 (Git) windows
         for win_idx in [22, 24, 25]:
             subprocess.run([
                 "tmux", "set-option", "-t", f"{session}:{win_idx}",

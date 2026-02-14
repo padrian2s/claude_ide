@@ -172,6 +172,42 @@ else
     status "$CHECK" "lazygit installed"
 fi
 
+# Step 2e: Node.js (for mdview)
+if command -v node &> /dev/null; then
+    NODE_VER=$(node --version)
+    status "$CHECK" "Node.js ${DIM}($NODE_VER)${NC}"
+else
+    printf "  ${C}⠋${NC} Installing Node.js..."
+    if [[ "$OS" == "macos" ]]; then
+        brew install node > /dev/null 2>&1 &
+    else
+        (sudo apt-get install -y nodejs npm) > /dev/null 2>&1 &
+    fi
+    spin $! "Installing Node.js"
+    status "$CHECK" "Node.js installed"
+fi
+
+# Step 2f: mdview (Markdown viewer)
+MDVIEW_DIR="$SCRIPT_DIR/../mdview"
+if command -v mdview &> /dev/null; then
+    status "$CHECK" "mdview"
+else
+    if [[ -d "$MDVIEW_DIR" ]]; then
+        printf "  ${C}⠋${NC} Installing mdview..."
+        (cd "$MDVIEW_DIR" && npm install --silent && npm link --silent) > /dev/null 2>&1 &
+        spin $! "Installing mdview"
+        if command -v mdview &> /dev/null; then
+            status "$CHECK" "mdview installed"
+        else
+            status "$CROSS" "mdview install failed"
+            echo -e "  ${Y}Run manually: cd $MDVIEW_DIR && npm install && npm link${NC}"
+        fi
+    else
+        status "$CROSS" "mdview not found at ${DIM}$MDVIEW_DIR${NC}"
+        echo -e "  ${Y}Clone mdview next to claude_ide and re-run install${NC}"
+    fi
+fi
+
 # Step 3: uv (Python package manager)
 if command -v uv &> /dev/null; then
     UV_VER=$(uv --version | cut -d' ' -f2)
@@ -299,5 +335,5 @@ echo -e "  ${BOLD}Keys:${NC}"
 echo -e "  ${DIM}F1${NC} Terminal    ${DIM}F5${NC} Favorites    ${DIM}F9${NC} Config"
 echo -e "  ${DIM}F2${NC} File Tree   ${DIM}F6${NC} Prompt       ${DIM}F10${NC} Exit"
 echo -e "  ${DIM}F3${NC} Lizard      ${DIM}F7${NC} Git          ${DIM}F12${NC} Keys Toggle"
-echo -e "  ${DIM}F4${NC} Glow        ${DIM}F8${NC} Status"
+echo -e "  ${DIM}F4${NC} MDView      ${DIM}F8${NC} Status"
 echo

@@ -11,7 +11,7 @@ tmux session "claude-ide-{pid}"
 ├── Window 1 (F1): Term1 - zsh shell
 ├── Window 2 (F2): Term2 - second zsh shell
 ├── Window 3 (F3): Tree + Viewer - Textual app (tree | viewer | file manager)
-├── Window 4 (F4): Glow - Markdown viewer
+├── Window 4 (F4): MDView - Markdown viewer
 ├── Window 5 (F5): Workflow - Workflow chain orchestrator
 ├── Window 6 (F6): Prompt - Prompt writer (prompt-toolkit)
 ├── Window 7 (F7): Git - Lazygit interface
@@ -117,7 +117,7 @@ Folder favorites browser (accessible from Workflow editor):
 ### Status Bar
 tmux status bar shows all windows:
 ```
- F1:❯  F2:Tree  F3:Lizard  F4:Glow  F5:Workflow  F6:Prompt  F7:Git  F8:Status  F9:Config  F10:Exit
+ F1:❯  F2:Tree  F3:Lizard  F4:MDView  F5:Workflow  F6:Prompt  F7:Git  F8:Status  F9:Config  F10:Exit
                                     ^^^^^^^^^^^ (current = cyan highlight)
 ```
 
@@ -129,7 +129,7 @@ tmux status bar shows all windows:
 | F1 | Terminal (Claude) |
 | F2 | Tree + Viewer |
 | F3 | Lizard TUI |
-| F4 | Glow (Markdown viewer) |
+| F4 | MDView (Markdown viewer) |
 | F5 | Workflow (chain orchestrator) |
 | F6 | Prompt Writer |
 | F7 | Git (lazygit) |
@@ -306,8 +306,9 @@ Displays:
 ## Dependencies
 
 ```bash
-brew install tmux fzf ripgrep glow
+brew install tmux fzf ripgrep node
 pip install textual prompt-toolkit
+cd ../mdview && npm install && npm link  # Markdown viewer
 ```
 
 ## Usage
