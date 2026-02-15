@@ -30,7 +30,6 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import (
     Header,
-    Footer,
     DataTable,
     Static,
     Input,
@@ -44,6 +43,7 @@ from textual.widgets import (
     ListView,
     ListItem,
     Select,
+    TextArea,
 )
 from textual.reactive import reactive
 from textual import work
@@ -1057,6 +1057,96 @@ class ExportDialog(ModalScreen):
         self.dismiss(None)
 
 
+class SendToTerminalDialog(ModalScreen):
+    """Dialog to send function info to F1 terminal with editable prompt."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("ctrl+s", "send", "Send"),
+    ]
+
+    CSS = """
+    SendToTerminalDialog {
+        align: center middle;
+    }
+
+    #send-container {
+        width: 80%;
+        height: auto;
+        max-height: 80%;
+        background: $surface;
+        border: solid $primary;
+        padding: 1 2;
+    }
+
+    #send-title {
+        text-align: center;
+        text-style: bold;
+        color: $primary;
+        padding-bottom: 1;
+    }
+
+    #send-info {
+        color: $text-muted;
+        padding-bottom: 1;
+    }
+
+    #send-prompt {
+        height: 8;
+    }
+
+    #send-buttons {
+        height: 3;
+        padding-top: 1;
+    }
+
+    #send-buttons Button {
+        margin-right: 1;
+    }
+    """
+
+    def __init__(self, func: "FunctionMetrics", **kwargs):
+        super().__init__(**kwargs)
+        self.func = func
+        self.default_text = (
+            f"Refactor the function `{func.name}` in "
+            f"{func.file_path}:{func.start_line}-{func.end_line} "
+            f"(CCN={func.ccn}, NLOC={func.nloc}, params={func.param_count}). "
+        )
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="send-container"):
+            yield Static("SEND TO TERMINAL", id="send-title")
+            yield Static(
+                f"{Path(self.func.file_path).name} → {self.func.name}",
+                id="send-info",
+            )
+            yield TextArea(self.default_text, id="send-prompt")
+            yield Static("Ctrl+S send  |  Escape cancel", id="send-hint")
+            with Horizontal(id="send-buttons"):
+                yield Button("Send", id="send-btn", variant="primary")
+                yield Button("Cancel", id="cancel-btn")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "send-btn":
+            self._do_send()
+        else:
+            self.dismiss(None)
+
+    def _do_send(self) -> None:
+        text = self.query_one("#send-prompt", TextArea).text.strip()
+        if text:
+            self.dismiss(text)
+        else:
+            self.dismiss(None)
+
+    def action_send(self) -> None:
+        self._do_send()
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 # =============================================================================
 # Widgets
 # =============================================================================
@@ -1248,18 +1338,19 @@ class LizardTUI(App):
         Binding("r", "refresh", "Refresh"),
         Binding("ctrl+o", "browse_dirs", "Folders"),
         Binding("ctrl+f", "browse_all", "Files"),
-        Binding("c", "copy_critical", "Copy Crit"),
+        Binding("c", "copy_critical", "Copy"),
         Binding("s", "cycle_sort", "Sort"),
-        Binding("ctrl+s", "open_settings", "Settings"),
+        Binding("t", "open_settings", "Settings"),
         Binding("e", "export", "Export"),
         Binding("p", "toggle_preview", "Preview"),
         Binding("b", "toggle_sidebar", "Sidebar"),
-        Binding("1", "show_tab_1", "Functions"),
-        Binding("2", "show_tab_2", "Files"),
-        Binding("3", "show_tab_3", "Warnings"),
-        Binding("4", "show_tab_4", "Duplicates"),
-        Binding("5", "show_tab_5", "Words"),
-        Binding("question_mark", "show_legend", "Legend"),
+        Binding("1", "show_tab_1", "1"),
+        Binding("2", "show_tab_2", "2"),
+        Binding("3", "show_tab_3", "3"),
+        Binding("4", "show_tab_4", "4"),
+        Binding("5", "show_tab_5", "5"),
+        Binding("f", "send_to_terminal", "Fix"),
+        Binding("question_mark", "show_legend", "?"),
         Binding("escape", "clear_filter", "Clear"),
     ]
 
@@ -1418,8 +1509,12 @@ class LizardTUI(App):
             color: {fg};
         }}
 
-        Footer {{
+        #help-bar {{
             dock: {footer_pos};
+            height: 1;
+            background: {fg};
+            color: {bg};
+            padding: 0 1;
         }}
         """
         super().__init__()
@@ -1461,16 +1556,16 @@ class LizardTUI(App):
                         with TabPane("Warnings", id="warnings-tab"):
                             yield DataTable(id="warnings-table", cursor_type="row")
                         with TabPane("Duplicates", id="duplicates-tab"):
-                            yield Static("Enable duplicates in settings (Ctrl+S)", id="duplicates-content")
+                            yield Static("Enable duplicates in settings (t)", id="duplicates-content")
                         with TabPane("Words", id="words-tab"):
-                            yield Static("Enable word count in settings (Ctrl+S)", id="word-cloud-content")
+                            yield Static("Enable word count in settings (t)", id="word-cloud-content")
 
             with ScrollableContainer(id="code-preview"):
                 yield Static("Select a function to preview code", id="code-preview-content")
 
             yield Static("Ready", id="status-bar")
 
-        yield Footer()
+        yield Label("r:refresh  s:sort  f:fix  c:copy  e:export  p:preview  b:sidebar  t:settings  1-5:tabs  ?:legend  ^Q:quit", id="help-bar")
 
     def on_mount(self) -> None:
         """Initialize tables on mount."""
@@ -1596,7 +1691,7 @@ class LizardTUI(App):
         elif self.config.enable_duplicates:
             dup_content.update("No duplicates found")
         else:
-            dup_content.update("Enable duplicates in settings (Ctrl+S)")
+            dup_content.update("Enable duplicates in settings (t)")
 
         # Update word cloud tab
         word_content = self.query_one("#word-cloud-content", Static)
@@ -1616,7 +1711,7 @@ class LizardTUI(App):
         elif self.config.enable_wordcount:
             word_content.update("No words found")
         else:
-            word_content.update("Enable word count in settings (Ctrl+S)")
+            word_content.update("Enable word count in settings (t)")
 
         self.update_status(f"Analyzed {len(result.files)} files, {result.function_count} functions, {result.warning_count} warnings")
 
@@ -1885,6 +1980,37 @@ class LizardTUI(App):
             self.update_status(f"Copied {len(critical)} critical functions to clipboard")
         except Exception as e:
             self.update_status(f"Clipboard error: {e}")
+
+    def action_send_to_terminal(self) -> None:
+        """Send selected function to F1 terminal for refactoring."""
+        if not self.result or not self._displayed_functions:
+            self.update_status("No function selected")
+            return
+
+        # Get highlighted row from the active table
+        try:
+            func_table = self.query_one("#functions-table", DataTable)
+            row_index = func_table.cursor_row
+        except Exception:
+            row_index = -1
+
+        if row_index < 0 or row_index >= len(self._displayed_functions):
+            self.update_status("Select a function first")
+            return
+
+        func = self._displayed_functions[row_index]
+
+        def on_dismiss(text: Optional[str]) -> None:
+            if text:
+                import subprocess as sp
+                # Send text to F1 terminal via tmux
+                sp.run(
+                    ["tmux", "send-keys", "-t", ":1", text, "Enter"],
+                    stderr=subprocess.DEVNULL,
+                )
+                self.update_status(f"Sent to terminal: {func.name}")
+
+        self.app.push_screen(SendToTerminalDialog(func), on_dismiss)
 
     def _browse_with_fzf(self, dirs_only: bool = False) -> None:
         """Browse for path using fzf."""

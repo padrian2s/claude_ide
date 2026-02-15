@@ -252,6 +252,25 @@
         "Escape": { "action": "cancel", "label": "Cancel", "description": "Cancel" }
       }
     },
+    "lizard": {
+      "label": "Lizard (F3)",
+      "file": "lizard_tui.py",
+      "shortcuts": {
+        "r": { "action": "refresh", "label": "Refresh", "description": "Re-run analysis" },
+        "s": { "action": "cycle-sort", "label": "Sort", "description": "Cycle sort mode" },
+        "f": { "action": "send-to-terminal", "label": "Fix", "description": "Send function to F1 for refactoring" },
+        "c": { "action": "copy-critical", "label": "Copy Crit", "description": "Copy critical functions to clipboard" },
+        "e": { "action": "export", "label": "Export", "description": "Export report" },
+        "p": { "action": "toggle-preview", "label": "Preview", "description": "Toggle code preview" },
+        "b": { "action": "toggle-sidebar", "label": "Sidebar", "description": "Toggle sidebar" },
+        "1-5": { "action": "show-tab", "label": "Tabs", "description": "Switch tabs (Functions/Files/Warnings/Dups/Words)" },
+        "Ctrl+O": { "action": "browse-dirs", "label": "Folders", "description": "Browse directories" },
+        "Ctrl+F": { "action": "browse-all", "label": "Files", "description": "Browse all files" },
+        "t": { "action": "settings", "label": "Settings", "description": "Open threshold settings" },
+        "?": { "action": "show-legend", "label": "Legend", "description": "Show color legend" },
+        "Ctrl+Q": { "action": "quit", "label": "Quit", "description": "Quit" }
+      }
+    },
     "status_viewer": {
       "label": "Status (F8)",
       "file": "status_viewer.py",
