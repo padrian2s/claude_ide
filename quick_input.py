@@ -491,11 +491,11 @@ class QuickInputApp(App):
         }}
         #autocomplete {{
             layer: overlay;
-            background: {bg};
+            background: transparent;
+            text-opacity: 70%;
             height: 1;
-            width: auto;
+            width: 100%;
             color: {fg};
-            text-opacity: 50%;
         }}
         #status {{ 
             dock: bottom; 
@@ -670,13 +670,6 @@ class QuickInputApp(App):
 
         if matches:
             self.suggestion = matches[0]
-            # Show only the suffix (ghost text) inline after cursor
-            suffix = matches[0][len(word):]
-            if not suffix:
-                self.suggestion = ""
-                auto.update("")
-                auto.styles.display = "none"
-                return
             # Calculate visual row (account for wrapped lines)
             width = ta.size.width - 1  # TextArea width
             visual_row = 0
@@ -687,8 +680,9 @@ class QuickInputApp(App):
             visual_row += col // width if width > 0 else 0
             visual_col = col % width if width > 0 else col
 
-            auto.update(suffix)
-            auto.styles.offset = (visual_col + 1, visual_row)
+            padding = " " * (visual_col + 1)
+            auto.update(f"{padding}{self.suggestion}")
+            auto.styles.offset = (0, visual_row + 1)
             auto.styles.display = "block"
         else:
             self.suggestion = ""
@@ -789,8 +783,9 @@ class QuickInputApp(App):
         if len(display_text) > 60:
             display_text = display_text[:57] + "..."
 
-        auto.update(display_text)
-        auto.styles.offset = (visual_col + 1, visual_row)
+        padding = " " * (visual_col + 1)
+        auto.update(f"{padding}{display_text}")
+        auto.styles.offset = (0, visual_row + 1)
         auto.styles.display = "block"
 
     def action_complete(self):
